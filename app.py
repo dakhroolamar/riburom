@@ -263,9 +263,11 @@ def _run_legacy_migrations():
     if team_rows:
         db.session.commit()
 
-    # Create/bridge a single Owner account from the previous admin credential.
-    # This is only done when no users exist, so it never overwrites existing accounts.
-    if inspect(db.engine).has_table('users') and User.query.count() == 0 and initial_password_hash:
+ # Create or repair the initial Owner account.
+if inspect(db.engine).has_table('users') and initial_password_hash:
+    owner = User.query.filter_by(username=initial_owner_username).first()
+
+    if owner is None:
         owner = User(
             username=initial_owner_username,
             full_name=initial_owner_name,
@@ -276,8 +278,28 @@ def _run_legacy_migrations():
         )
         db.session.add(owner)
         db.session.flush()
-        add_audit('initial_owner_created', 'user', owner.id, 'Initial Owner created from ADMIN_PASSWORD_HASH')
-        db.session.commit()
+
+        add_audit(
+            'initial_owner_created',
+            'user',
+            owner.id,
+            'Initial Owner created from ADMIN_PASSWORD_HASH'
+        )
+    else:
+        owner.password_hash = initial_password_hash
+        owner.role = 'owner'
+        owner.is_active = True
+        owner.full_name = initial_owner_name
+        owner.email = initial_owner_email
+
+        add_audit(
+            'initial_owner_repaired',
+            'user',
+            owner.id,
+            'Owner password hash refreshed from ADMIN_PASSWORD_HASH'
+        )
+
+    db.session.commit()
 
 with app.app_context():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
