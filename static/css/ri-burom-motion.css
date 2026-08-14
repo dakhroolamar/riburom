@@ -1,0 +1,224 @@
+/* RI BUROM motion layer — restrained, fast and accessibility-aware. */
+:root {
+  --rb-green: #14532d;
+  --rb-deep: #0b3b23;
+  --rb-amber: #92400e;
+  --rb-gold: #f3c969;
+}
+
+html { scroll-behavior: smooth; }
+
+body { overflow-x: hidden; }
+
+/* Soft page entrance */
+.rb-page-enter {
+  animation: rb-page-enter .7s cubic-bezier(.22,.7,.25,1) both;
+}
+
+@keyframes rb-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Scroll reveal */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .75s cubic-bezier(.22,.7,.25,1), transform .75s cubic-bezier(.22,.7,.25,1);
+  will-change: opacity, transform;
+}
+
+[data-reveal="left"] { transform: translateX(-34px); }
+[data-reveal="right"] { transform: translateX(34px); }
+[data-reveal="scale"] { transform: translateY(10px) scale(.96); }
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.rb-stagger > * {
+  transition-delay: var(--rb-delay, 0ms);
+}
+
+/* Header */
+.rb-site-nav {
+  transition: box-shadow .25s ease, background-color .25s ease, transform .25s ease;
+}
+.rb-site-nav.rb-scrolled {
+  box-shadow: 0 12px 30px rgba(0,0,0,.08);
+  background-color: rgba(255,255,255,.96);
+}
+
+.rb-brand img {
+  transition: transform .35s cubic-bezier(.22,.7,.25,1), filter .35s ease;
+}
+.rb-brand:hover img:first-child { transform: translateY(-1px); }
+.rb-brand:hover img:last-child { transform: rotate(-2deg) scale(1.04); }
+
+/* Hero: slow cinematic motion, no aggressive zoom */
+.rb-hero {
+  isolation: isolate;
+  overflow: hidden;
+  background-position: 50% 50%;
+  animation: rb-hero-position 16s ease-in-out infinite alternate;
+}
+.rb-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,.09), transparent 28%),
+    radial-gradient(circle at 80% 65%, rgba(243,201,105,.08), transparent 30%);
+  animation: rb-hero-glow 10s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes rb-hero-position {
+  from { background-position: 48% 50%; }
+  to { background-position: 52% 46%; }
+}
+
+@keyframes rb-hero-glow {
+  from { opacity: .35; transform: translate3d(-1%,0,0); }
+  to { opacity: .9; transform: translate3d(1%,0,0); }
+}
+
+.rb-hero-content > * {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: rb-hero-rise .8s cubic-bezier(.22,.7,.25,1) forwards;
+}
+.rb-hero-content > *:nth-child(1) { animation-delay: .12s; }
+.rb-hero-content > *:nth-child(2) { animation-delay: .28s; }
+.rb-hero-content > *:nth-child(3) { animation-delay: .42s; }
+.rb-hero-content > *:nth-child(4) { animation-delay: .56s; }
+
+@keyframes rb-hero-rise {
+  to { opacity: 1; transform: none; }
+}
+
+.rb-hero-logo {
+  filter: drop-shadow(0 16px 24px rgba(0,0,0,.28));
+  animation: rb-hero-logo 5.5s ease-in-out 1.2s infinite alternate;
+}
+@keyframes rb-hero-logo {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-7px) scale(1.012); }
+}
+
+/* Elegant underline for section eyebrows */
+.rb-eyebrow {
+  position: relative;
+  display: inline-block;
+}
+.rb-eyebrow::after {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 2px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--rb-gold);
+  transform-origin: left center;
+  transform: scaleX(.2);
+  transition: transform .6s ease .2s;
+}
+[data-reveal].is-visible .rb-eyebrow::after { transform: scaleX(1); }
+
+/* Cards */
+.rb-card {
+  transition: transform .4s cubic-bezier(.22,.7,.25,1), box-shadow .4s ease;
+}
+.rb-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 45px rgba(0,0,0,.12);
+}
+.rb-card-media {
+  transition: transform .8s cubic-bezier(.22,.7,.25,1);
+}
+.rb-card:hover .rb-card-media { transform: scale(1.035); }
+
+/* Buttons */
+.rb-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform .25s ease, box-shadow .25s ease, background-color .25s ease;
+}
+.rb-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 70%;
+  height: 100%;
+  transform: skewX(-22deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+  transition: left .65s ease;
+  z-index: -1;
+}
+.rb-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.14);
+}
+.rb-button:hover::before { left: 150%; }
+
+/* Tour detail hero */
+.rb-tour-hero {
+  overflow: hidden;
+}
+.rb-tour-hero .rb-tour-bg {
+  transform: scale(1.03);
+  animation: rb-tour-breathe 18s ease-in-out infinite alternate;
+}
+@keyframes rb-tour-breathe {
+  from { transform: scale(1.03); }
+  to { transform: scale(1.08); }
+}
+
+/* Footer entrance */
+.rb-footer {
+  position: relative;
+  overflow: hidden;
+}
+.rb-footer::before {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -70px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 0 0 22px rgba(255,255,255,.03), 0 0 0 46px rgba(255,255,255,.02);
+}
+
+/* Floating WhatsApp CTA */
+.rb-floating-cta {
+  animation: rb-float-cta 4.5s ease-in-out infinite;
+}
+@keyframes rb-float-cta {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Focus styles for keyboard users */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(243,201,105,.85);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -1,0 +1,39 @@
+<nav class="rb-site-nav sticky top-0 bg-white shadow-md z-50 px-4 md:px-6 py-3 border-b-4 border-amber-800">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <a href="/" aria-label="Ri Burom Tours & Travels" class="rb-brand flex items-center text-amber-900" data-reveal="left" style="gap: {{ site_settings.header_logo_gap }}px;">
+            {% if site_settings.header_wordmark %}
+                <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom wordmark" style="width: {{ site_settings.header_wordmark_width }}px; max-height: 56px; object-fit: contain;">
+            {% endif %}
+            {% if site_settings.header_mark %}
+                <img src="{{ site_settings.header_mark|imgsrc }}" alt="Ri Burom logo mark" style="width: {{ site_settings.header_mark_width }}px; height: {{ site_settings.header_mark_width }}px; object-fit: contain;">
+            {% endif %}
+        </a>
+        <div class="hidden md:flex space-x-6 font-semibold text-amber-900">
+            <a href="/" class="hover:text-green-600">Home</a>
+            <a href="/all_tours" class="hover:text-green-600">Explore All Tours</a>
+            <a href="/about" class="hover:text-green-600">About Us</a>
+            <a href="/#contact" class="hover:text-green-600">Contact Us</a>
+        </div>
+        <button id="mobile-menu-button" type="button" class="md:hidden border border-amber-800 text-amber-900 px-3 py-2 rounded font-bold" aria-expanded="false" aria-controls="mobile-menu">Menu</button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden max-w-7xl mx-auto pt-4 border-t mt-4">
+        <div class="grid gap-3 font-semibold text-amber-900">
+            <a href="/" class="hover:text-green-600">Home</a>
+            <a href="/all_tours" class="hover:text-green-600">Tours</a>
+            <a href="/about" class="hover:text-green-600">About</a>
+            <a href="/#contact" class="hover:text-green-600">Contact</a>
+        </div>
+    </div>
+</nav>
+<script>
+(function () {
+    const button = document.getElementById('mobile-menu-button');
+    const menu = document.getElementById('mobile-menu');
+    if (!button || !menu) return;
+    button.addEventListener('click', function () {
+        const open = !menu.classList.contains('hidden');
+        menu.classList.toggle('hidden');
+        button.setAttribute('aria-expanded', String(!open));
+    });
+})();
+</script>

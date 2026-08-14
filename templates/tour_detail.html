@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ pkg.title }} | Ri Burom Tours & Travels</title>
+    <meta name="description" content="{{ pkg.description[:155] }}">
+    <link rel="manifest" href="/static/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-motion.css') }}">
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+</head>
+<body class="rb-page-enter bg-gray-50 text-gray-800 font-sans">
+{% include '_nav.html' %}{% include '_flash.html' %}
+<header class="rb-tour-hero h-[55vh] bg-gray-800 bg-cover bg-center relative" style="background-image:url('{{ pkg.image_file|imgsrc }}');">
+    <div class="absolute inset-0 bg-black bg-opacity-55"></div>
+    <div data-reveal="left" class="relative z-10 max-w-6xl mx-auto px-6 h-full flex items-end pb-12 text-white">
+        <div><p class="uppercase tracking-wider text-amber-300 font-bold mb-2">{{ pkg.category or 'Meghalaya Experience' }}</p><h1 class="text-4xl md:text-6xl font-bold mb-4">{{ pkg.title }}</h1><div class="flex flex-wrap gap-4 text-gray-100">{% if pkg.location %}<span>📍 {{ pkg.location }}</span>{% endif %}{% if pkg.duration %}<span>⏱ {{ pkg.duration }}</span>{% endif %}{% if pkg.difficulty %}<span>◈ {{ pkg.difficulty }}</span>{% endif %}</div></div>
+    </div>
+</header>
+<main data-reveal class="max-w-6xl mx-auto px-6 py-12">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div class="lg:col-span-2 space-y-10 rb-stagger">
+            <section data-reveal><h2 class="text-3xl font-bold text-green-800 mb-4">Overview</h2><p class="text-lg leading-relaxed whitespace-pre-line text-gray-700">{{ pkg.description }}</p></section>
+            {% if pkg.itinerary %}<section data-reveal><h2 class="text-3xl font-bold text-green-800 mb-4">Itinerary</h2><p class="whitespace-pre-line leading-relaxed text-gray-700">{{ pkg.itinerary }}</p></section>{% endif %}
+            {% if pkg.included %}<section data-reveal><h2 class="text-3xl font-bold text-green-800 mb-4">What's Included</h2><p class="whitespace-pre-line leading-relaxed text-gray-700">{{ pkg.included }}</p></section>{% endif %}
+            {% if pkg.excluded %}<section data-reveal><h2 class="text-3xl font-bold text-green-800 mb-4">What's Not Included</h2><p class="whitespace-pre-line leading-relaxed text-gray-700">{{ pkg.excluded }}</p></section>{% endif %}
+        </div>
+        <aside class="lg:sticky lg:top-28 h-fit bg-white rounded-xl shadow-lg p-6 border-t-4 border-amber-800">
+            {% if pkg.price %}<p class="text-sm text-gray-500">Starting from</p><p class="text-3xl font-bold text-green-800 mb-5">{{ pkg.price }}</p>{% endif %}
+            {% if pkg.best_season %}<div class="mb-4"><p class="font-bold text-amber-900">Best Season</p><p class="text-gray-600">{{ pkg.best_season }}</p></div>{% endif %}
+            <a href="{{ whatsapp_url('Hello RI BUROM, I am interested in the ' ~ pkg.title ~ ' experience. Please share availability and pricing.') }}" target="_blank" rel="noopener noreferrer" class="rb-button block text-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded mb-3">Plan This Experience on WhatsApp</a>
+            <a href="/#contact" class="rb-button block text-center border-2 border-amber-800 text-amber-900 hover:bg-amber-100 font-bold py-3 rounded">Send an Enquiry</a>
+            {% if pkg.pdf_file %}<a href="{{ pkg.pdf_file|imgsrc }}" target="_blank" rel="noopener noreferrer" class="block text-center mt-3 text-blue-700 hover:underline font-semibold">View Detailed PDF</a>{% endif %}
+        </aside>
+    </div>
+</main>
+{% include '_footer.html' %}
+</body>
+</html>

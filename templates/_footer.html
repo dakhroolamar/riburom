@@ -1,0 +1,39 @@
+<footer data-reveal class="rb-footer bg-amber-900 text-white py-12 px-6">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
+        <div>
+            {% if site_settings.header_wordmark %}
+            <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom" class="max-w-[180px] max-h-16 mb-4 object-contain brightness-0 invert">
+            {% else %}
+            <div class="text-2xl font-bold tracking-wide mb-4">RI BUROM</div>
+            {% endif %}
+            <p class="text-amber-100">{{ site_settings.footer_tagline }}</p>
+        </div>
+        <div>
+            <h3 class="font-bold text-xl mb-4">Explore</h3>
+            <ul class="text-amber-100 space-y-2">
+                <li><a class="hover:text-white" href="/">Home</a></li>
+                <li><a class="hover:text-white" href="/all_tours">Tours</a></li>
+                <li><a class="hover:text-white" href="/about">About Us</a></li>
+                <li><a class="hover:text-white" href="/#contact">Contact</a></li>
+            </ul>
+        </div>
+        <div>
+            <h3 class="font-bold text-xl mb-4">Contact</h3>
+            {% if site_settings.footer_phone %}<p class="text-amber-100">📞 {{ site_settings.footer_phone }}</p>{% endif %}
+            {% if site_settings.footer_email %}<p class="text-amber-100 break-words">✉️ {{ site_settings.footer_email }}</p>{% endif %}
+            {% if site_settings.footer_address %}<p class="text-amber-100 mt-2 whitespace-pre-line">📍 {{ site_settings.footer_address }}</p>{% endif %}
+            {% if site_settings.instagram_url %}
+            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 bg-white text-amber-900 px-4 py-2 rounded font-bold hover:bg-amber-100">{{ site_settings.instagram_label or 'Follow us on Instagram' }}</a>
+            {% endif %}
+        </div>
+        {% if site_settings.instagram_url and site_settings.instagram_show_qr and site_settings.instagram_qr %}
+        <div class="bg-white/10 rounded-xl p-4 text-center">
+            <p class="font-bold mb-3">Scan to follow us on Instagram</p>
+            <img src="{{ site_settings.instagram_qr|imgsrc }}" alt="Instagram QR code" class="w-36 h-36 mx-auto bg-white p-2 rounded">
+        </div>
+        {% endif %}
+    </div>
+    <div class="max-w-7xl mx-auto mt-8 pt-6 border-t border-amber-700 text-amber-200 text-sm">
+        <p>{{ site_settings.footer_copyright }}</p>
+    </div>
+</footer>

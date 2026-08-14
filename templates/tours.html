@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Experiences - Ri Burom Tours & Travels</title>
+    <meta name="description" content="Browse all published travel experiences from Ri Burom Tours & Travels across Meghalaya.">
+    <link rel="manifest" href="/static/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-motion.css') }}">
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+</head>
+<body class="rb-page-enter bg-gray-50 text-gray-800 font-sans">
+{% include '_nav.html' %}{% include '_flash.html' %}
+<section data-reveal class="max-w-7xl mx-auto px-6 py-12">
+    <div class="text-center mb-12"><p class="text-green-800 font-bold uppercase tracking-wider mb-2">Explore</p><h1 class="text-4xl font-bold text-green-800 mb-4">All Experiences</h1><p class="text-gray-600">Discover our published experiences across Meghalaya.</p></div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
+        {% for pkg in packages %}
+        <article data-reveal="scale" class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 flex flex-col">
+            <a href="{{ url_for('tour_detail', slug=pkg.slug) }}"><div class="h-56 bg-gray-300 bg-cover bg-center rb-card-media" style="background-image: url('{{ pkg.image_file|imgsrc }}');"></div></a>
+            <div class="p-6 flex-grow">
+                <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">{% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}{% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}</div>
+                <h2 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h2>
+                <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
+                {% if pkg.location %}<p class="text-sm text-gray-500">📍 {{ pkg.location }}</p>{% endif %}
+                {% if pkg.price %}<p class="font-bold text-green-800 mt-4">From {{ pkg.price }}</p>{% endif %}
+            </div>
+            <div class="p-6 pt-0"><a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded">View Experience</a></div>
+        </article>
+        {% else %}<div class="md:col-span-3 text-center text-gray-500 italic py-12">New experiences are being curated right now. Check back soon.</div>{% endfor %}
+    </div>
+</section>
+</body>
+</html>

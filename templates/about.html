@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Us - Ri Burom Tours & Travels</title>
+<meta name="description" content="Learn about Ri Burom Tours & Travels, our Meghalaya-rooted approach, values, stories and team.">
+<link rel="manifest" href="/static/manifest.json">
+<script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-motion.css') }}">
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+</head>
+<body class="rb-page-enter bg-gray-50 text-gray-800 font-sans">
+{% include '_nav.html' %}{% include '_flash.html' %}
+<header data-reveal="scale" class="bg-green-900 text-white py-16 px-6 text-center">
+    <p class="text-amber-300 font-bold uppercase tracking-wider mb-3">Our Story</p>
+    <h1 class="text-4xl md:text-5xl font-bold">About {{ site_settings.footer_business_name }}</h1>
+    <p class="max-w-3xl mx-auto mt-5 text-green-100 text-lg">A Meghalaya-rooted travel initiative built around connection, culture, community and meaningful experiences.</p>
+</header>
+
+<section class="max-w-6xl mx-auto px-6 py-10">
+{% for section in sections %}
+    {% if section.key == 'belief' %}
+    <section id="about-belief" data-reveal class="max-w-5xl mx-auto pb-14">
+        <div class="bg-white rounded-xl shadow-lg p-8 md:p-10 border-t-4 border-amber-800">
+            <p class="text-amber-800 font-bold uppercase tracking-wider mb-2">{{ section.label }}</p>
+            <p class="text-lg text-gray-700 whitespace-pre-line leading-relaxed">{{ about.mission if about else '' }}</p>
+        </div>
+    </section>
+
+    {% elif section.key == 'pillars' %}
+    <section id="about-pillars" data-reveal class="max-w-6xl mx-auto pb-14">
+        <div class="text-center mb-8"><p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ section.label }}</p><h2 class="text-3xl font-bold text-amber-900">{{ section.label }}</h2></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl shadow p-6 border-t-4 border-green-700"><h3 class="font-bold text-xl text-green-800 mb-2">{{ settings.nature_title }}</h3><p class="text-gray-600 whitespace-pre-line">{{ settings.nature_text }}</p></div>
+            <div class="bg-white rounded-xl shadow p-6 border-t-4 border-amber-700"><h3 class="font-bold text-xl text-amber-900 mb-2">{{ settings.culture_title }}</h3><p class="text-gray-600 whitespace-pre-line">{{ settings.culture_text }}</p></div>
+            <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-700"><h3 class="font-bold text-xl text-blue-900 mb-2">{{ settings.community_title }}</h3><p class="text-gray-600 whitespace-pre-line">{{ settings.community_text }}</p></div>
+        </div>
+    </section>
+
+    {% elif section.key == 'extra1' and (settings.about_extra1_title or settings.about_extra1_text) %}
+    <section id="about-extra1" data-reveal class="max-w-5xl mx-auto pb-14"><div class="bg-white rounded-xl shadow-lg p-8 md:p-10"><p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ settings.about_extra1_title }}</p><div class="text-lg leading-relaxed text-gray-700 whitespace-pre-line">{{ settings.about_extra1_text }}</div></div></section>
+
+    {% elif section.key == 'extra2' and (settings.about_extra2_title or settings.about_extra2_text) %}
+    <section id="about-extra2" data-reveal="left" class="max-w-5xl mx-auto pb-14"><div class="bg-green-900 text-white rounded-xl shadow-lg p-8 md:p-10"><p class="text-amber-300 font-bold uppercase tracking-wider mb-2">{{ settings.about_extra2_title }}</p><div class="text-lg leading-relaxed text-green-100 whitespace-pre-line">{{ settings.about_extra2_text }}</div></div></section>
+
+    {% elif section.key == 'team' %}
+    <section id="about-team" data-reveal class="max-w-6xl mx-auto pb-14">
+        <div class="text-center mb-10"><p class="text-blue-800 font-bold uppercase tracking-wider mb-2">{{ section.label }}</p><h2 class="text-3xl font-bold text-green-800">{{ section.label }}</h2></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
+            {% for member in team %}
+            <article data-reveal="scale" class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 text-center">
+                <div class="h-56 bg-gray-300 bg-cover bg-center" style="background-image:url('{{ member.photo_file|imgsrc }}');"></div>
+                <div class="p-6"><h3 class="font-bold text-xl text-amber-900">{{ member.name }}</h3><p class="text-green-700 font-semibold mb-2">{{ member.position }}</p><p class="text-gray-600 text-sm whitespace-pre-line">{{ member.description }}</p></div>
+            </article>
+            {% else %}
+            <div class="md:col-span-3 text-center text-gray-500 italic py-10">Our team profiles will appear here as they are added through the Control Room.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% elif section.key == 'logo_meaning' and (settings.logo_meaning_title or settings.logo_meaning_text or settings.logo_meaning_pdf or settings.logo_designer_name) %}
+    <section id="about-logo" data-reveal="right" class="max-w-5xl mx-auto pb-14"><div class="bg-white rounded-xl shadow-lg p-8 md:p-10 border-t-4 border-purple-700"><p class="text-purple-800 font-bold uppercase tracking-wider mb-2">{{ section.label }}</p><h2 class="text-3xl font-bold text-amber-900 mb-5">{{ settings.logo_meaning_title }}</h2>{% if settings.logo_meaning_text %}<div class="text-lg leading-relaxed text-gray-700 whitespace-pre-line">{{ settings.logo_meaning_text }}</div>{% endif %}{% if settings.logo_meaning_pdf %}<a href="{{ settings.logo_meaning_pdf|imgsrc }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-purple-800 hover:bg-purple-900 text-white font-bold px-5 py-3 rounded">Read the complete logo concept PDF</a>{% endif %}{% if settings.logo_designer_name %}<p class="mt-6 text-sm text-gray-500">Logo created by <strong class="text-gray-700">{{ settings.logo_designer_name }}</strong>{% if settings.logo_designer_credit %} — {{ settings.logo_designer_credit }}{% endif %}</p>{% endif %}</div></section>
+
+    {% elif section.key == 'blog' and settings.blog_enabled and (settings.blog_url or settings.blog_title or settings.blog_excerpt or settings.blog_image) %}
+    <section id="about-blog" data-reveal class="max-w-5xl mx-auto pb-14"><div class="bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-700">{% if settings.blog_image %}<img src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" class="w-full h-64 object-cover">{% endif %}<div class="p-8 md:p-10"><p class="text-blue-800 font-bold uppercase tracking-wider mb-2">{{ section.label }}</p><h2 class="text-3xl font-bold text-amber-900 mb-4">{{ settings.blog_title }}</h2><p class="text-lg text-gray-700 whitespace-pre-line leading-relaxed">{{ settings.blog_excerpt }}</p>{% if settings.blog_url %}<a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-blue-700 hover:bg-blue-800 text-white font-bold px-5 py-3 rounded">{{ settings.blog_button_text }}</a>{% endif %}</div></div></section>
+    {% endif %}
+{% endfor %}
+</section>
+
+{% include '_footer.html' %}
+</body></html>
