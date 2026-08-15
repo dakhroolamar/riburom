@@ -1,0 +1,51 @@
+name: RI BUROM CMS Workspace Validation
+
+on:
+  push:
+    branches: [feature/cms-workspace]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: development
+      SECRET_KEY: ci-only-secret
+      ADMIN_PASSWORD: ci-only-password
+      DATABASE_URL: sqlite:///ci.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py wsgi.py
+      - name: Import WSGI app and inspect routes
+        run: |
+          python - <<'PY'
+          import wsgi
+          rules = {rule.rule for rule in wsgi.app.url_map.iter_rules()}
+          required = {
+              '/workspace',
+              '/workspace/cms',
+              '/workspace/cms/media',
+              '/workspace/cms/structure',
+              '/workspace/cms/backgrounds',
+              '/workspace/cms/backgrounds/save',
+              '/api/public-section-backgrounds',
+              '/workspace/cms/save-content',
+              '/workspace/cms/save-sections',
+              '/workspace/cms/save-home-structure',
+              '/workspace/cms/save-typography',
+              '/workspace/administration',
+              '/workspace/developer',
+          }
+          missing = required - rules
+          if missing:
+              raise SystemExit(f'Missing workspace routes: {sorted(missing)}')
+          print('WSGI IMPORT OK')
+          print('WORKSPACE ROUTES OK')
+          PY

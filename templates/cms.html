@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+<title>RI BUROM Website CMS</title>
+<style>
+body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.cms-shell{min-height:100vh}.cms-top{background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.cms-brand{font-size:21px;font-weight:900;letter-spacing:.08em}.cms-nav{display:flex;gap:8px;flex-wrap:wrap}.cms-nav a{color:#cbd5e1;text-decoration:none;padding:9px 11px;border-radius:8px;font-weight:800}.cms-nav a.active,.cms-nav a:hover{background:#1e293b;color:#fff}.cms-main{max-width:1280px;margin:0 auto;padding:24px}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 26px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}.grid{display:grid;gap:14px}.grid-2{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff}.field textarea{min-height:100px;resize:vertical}.field input[type=color]{padding:4px;height:42px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:10px 14px;font-weight:800;text-decoration:none;cursor:pointer}.btn-blue{background:#1d4ed8;color:#fff}.btn-green{background:#166534;color:#fff}.btn-gray{background:#e5e7eb;color:#111827}.info{padding:12px;border-radius:9px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.style-card{border:1px solid #e5e7eb;border-radius:12px;padding:15px}.preview{border-radius:10px;padding:15px;min-height:72px;display:flex;flex-direction:column;justify-content:center}.muted{color:#6b7280;font-size:13px}.pill{font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca;border-radius:999px;padding:4px 9px}@media(max-width:800px){.grid-2,.grid-3{grid-template-columns:1fr}.cms-main{padding:14px}}
+</style>
+</head>
+<body>
+<div class="cms-shell">
+<header class="cms-top">
+  <div><div class="cms-brand">RI BUROM</div><div style="color:#94a3b8;font-size:12px">Website CMS · {{ current_user.full_name }}</div></div>
+  <nav class="cms-nav">
+    <a href="{{ url_for('workspace_operations') }}">Operations</a>
+    <a class="active" href="{{ url_for('workspace_cms') }}">Content & Appearance</a>
+    {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_media') }}">Media & Assets</a>{% endif %}
+    {% if current_user.has_permission('manage_structure') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_structure') }}">Page Structure</a>{% endif %}
+    {% if current_user.role=='owner' %}<a href="{{ url_for('workspace_administration') }}">Administration</a>{% endif %}
+    <a href="/" target="_blank">View Site</a>
+  </nav>
+</header>
+<main class="cms-main">
+{% include '_flash.html' %}
+<div class="info"><strong>Website CMS:</strong> this workspace controls public-facing wording and section appearance. Technical URLs, authentication and server configuration remain code-controlled.</div>
+
+<section class="panel">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Public Text</h2><p class="muted">Every meaningful public-facing phrase is editable here, including section headings, labels and buttons.</p></div><span class="pill">Content</span></div>
+  {% if current_user.has_permission('manage_about') or current_user.role=='owner' %}
+  <form action="{{ url_for('workspace_cms_save_content') }}" method="POST" class="grid grid-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label>Site / browser title</label><input name="site_title" value="{{ public.content.site_title }}"></div>
+    <div class="field"><label>Meta description</label><textarea name="meta_description">{{ public.content.meta_description }}</textarea></div>
+    <div class="field"><label>Navigation — Home</label><input name="nav_home" value="{{ public.content.nav_home }}"></div>
+    <div class="field"><label>Navigation — Experiences</label><input name="nav_tours" value="{{ public.content.nav_tours }}"></div>
+    <div class="field"><label>Navigation — About</label><input name="nav_about" value="{{ public.content.nav_about }}"></div>
+    <div class="field"><label>Navigation — Contact</label><input name="nav_contact" value="{{ public.content.nav_contact }}"></div>
+    <div class="field"><label>Navigation — Login</label><input name="nav_login" value="{{ public.content.nav_login }}"></div>
+    <div class="field"><label>About page heading</label><input name="about_page_heading" value="{{ public.content.about_page_heading or ('About ' ~ settings.footer_business_name) }}"></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Home — Hero</h3><div class="grid grid-2"><div class="field"><label>Eyebrow</label><input name="hero_eyebrow" value="{{ public.content.hero_eyebrow }}"></div><div class="field"><label>Main heading</label><input name="hero_title" value="{{ public.content.hero_title }}"></div><div class="field" style="grid-column:1/-1"><label>Subtitle</label><textarea name="hero_subtitle">{{ public.content.hero_subtitle }}</textarea></div><div class="field"><label>Primary button</label><input name="hero_primary_button" value="{{ public.content.hero_primary_button }}"></div><div class="field"><label>Secondary button</label><input name="hero_secondary_button" value="{{ public.content.hero_secondary_button }}"></div></div></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Home — About / Experiences / Why</h3><div class="grid grid-2">{% for key,label in [('home_about_eyebrow','About eyebrow'),('home_about_title','About heading'),('home_about_text','About text'),('home_tours_eyebrow','Experiences eyebrow'),('home_tours_title','Experiences heading'),('home_tours_all','View-all label'),('home_tour_button','Experience button'),('home_tours_empty','Empty-state text'),('home_why_eyebrow','Why eyebrow'),('home_why_title','Why heading'),('home_why_text','Why introduction')] %}<div class="field"><label>{{ label }}</label>{% if key.endswith('_text') or key in ['home_tours_empty'] %}<textarea name="{{ key }}">{{ public.content[key] }}</textarea>{% else %}<input name="{{ key }}" value="{{ public.content[key] }}">{% endif %}</div>{% endfor %}</div></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Why cards</h3><div class="grid grid-2">{% for i in range(1,5) %}<div class="field"><label>Card {{ i }} heading</label><input name="why{{ i }}_title" value="{{ public.content['why' ~ i ~ '_title'] }}"></div><div class="field"><label>Card {{ i }} text</label><textarea name="why{{ i }}_text">{{ public.content['why' ~ i ~ '_text'] }}</textarea></div>{% endfor %}</div></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Experiences page & detail page</h3><div class="grid grid-2">{% for key,label in [('tours_page_title','Browser title'),('tours_page_eyebrow','Eyebrow'),('tours_page_heading','Page heading'),('tours_page_intro','Intro'),('tours_empty','Empty message'),('tours_view_button','View button'),('tours_price_prefix','Price prefix'),('tour_detail_category_fallback','Category fallback'),('tour_detail_overview','Overview heading'),('tour_detail_itinerary','Itinerary heading'),('tour_detail_included','Included heading'),('tour_detail_excluded','Excluded heading'),('tour_detail_starting','Starting-from label'),('tour_detail_best_season','Best-season label'),('tour_detail_whatsapp','WhatsApp button'),('tour_detail_enquiry','Enquiry button'),('tour_detail_pdf','PDF button')] %}<div class="field"><label>{{ label }}</label><input name="{{ key }}" value="{{ public.content[key] }}"></div>{% endfor %}</div></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Contact, forms and public actions</h3><div class="grid grid-2">{% for key,label in [('contact_title','Contact heading'),('contact_text','Contact text'),('form_name','Name label'),('form_email','Email label'),('form_phone','Phone label'),('form_travellers','Travellers label'),('form_dates','Dates label'),('form_tour','Experience label'),('form_message','Message label'),('form_submit','Submit button'),('form_dates_placeholder','Dates placeholder'),('form_tour_placeholder','Experience placeholder'),('whatsapp_text','WhatsApp button'),('whatsapp_message','WhatsApp message')] %}<div class="field"><label>{{ label }}</label>{% if key in ['contact_text','form_message','whatsapp_message'] %}<textarea name="{{ key }}">{{ public.content[key] }}</textarea>{% else %}<input name="{{ key }}" value="{{ public.content[key] }}">{% endif %}</div>{% endfor %}</div></div>
+    <div class="style-card" style="grid-column:1/-1"><h3>Footer & mobile labels</h3><div class="grid grid-2">{% for key,label in [('footer_explore','Footer Explore'),('footer_contact','Footer Contact'),('footer_qr','Footer QR label'),('footer_instagram_button','Instagram button'),('mobile_tours','Mobile Tours'),('mobile_about','Mobile About'),('mobile_contact','Mobile Contact'),('mobile_menu','Mobile Menu'),('about_page_title','About browser title'),('about_page_eyebrow','About eyebrow'),('about_page_intro','About intro'),('about_team_empty','Team empty message'),('about_logo_pdf','Logo PDF button'),('about_logo_created','Logo credit label')] %}<div class="field"><label>{{ label }}</label><input name="{{ key }}" value="{{ public.content[key] }}"></div>{% endfor %}</div></div>
+    <div><button class="btn btn-blue">Save Public Text</button></div>
+  </form>
+  {% else %}<p class="muted">You can view the CMS area, but your account is not permitted to change public text.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Global Typography</h2><p class="muted">Set the overall font families and base scale. Section-specific colours, weight and italic settings remain below.</p></div><span class="pill">Global</span></div>
+  {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}
+  <form action="{{ url_for('workspace_cms_save_typography') }}" method="POST" class="grid grid-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label>Body font</label><select name="body_font">{% for key,label in font_options.items() %}<option value="{{ key }}" {% if settings.body_font==key %}selected{% endif %}>{{ label[0] }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Heading font</label><select name="heading_font">{% for key,label in font_options.items() %}<option value="{{ key }}" {% if settings.heading_font==key %}selected{% endif %}>{{ label[0] }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Base font size (px)</label><input type="number" name="base_font_size" min="14" max="20" value="{{ settings.base_font_size }}"></div>
+    <div class="field"><label>Heading scale (%)</label><input type="number" name="heading_scale" min="80" max="130" value="{{ settings.heading_scale }}"></div>
+    <div class="field"><label>Default body colour</label><input type="color" name="body_text_color" value="{{ settings.body_text_color }}"></div>
+    <div class="field"><label>Default heading colour</label><input type="color" name="heading_text_color" value="{{ settings.heading_text_color }}"></div>
+    <div class="field"><label>Default link colour</label><input type="color" name="link_text_color" value="{{ settings.link_text_color }}"></div>
+    <div><button class="btn btn-blue">Save Global Typography</button></div>
+  </form>
+  {% else %}<p class="muted">Your account can view the CMS, but it does not have appearance/media permission.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Section Appearance</h2><p class="muted">Each section can have its own background, text colours, font weight, italic treatment and overlay.</p></div><span class="pill">Appearance</span></div>
+  {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}
+  <form action="{{ url_for('workspace_cms_save_sections') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid">{% for key,label in section_labels.items() %}{% set s=section_styles[key] %}<div class="style-card"><h3>{{ label }}</h3><div class="grid grid-3"><div class="field"><label>Background</label><input type="color" name="{{ key }}__background_color" value="{{ s.background_color }}"></div><div class="field"><label>Heading colour</label><input type="color" name="{{ key }}__heading_color" value="{{ s.heading_color }}"></div><div class="field"><label>Body colour</label><input type="color" name="{{ key }}__body_color" value="{{ s.body_color }}"></div><div class="field"><label>Eyebrow colour</label><input type="color" name="{{ key }}__eyebrow_color" value="{{ s.eyebrow_color }}"></div><div class="field"><label>Heading weight</label><select name="{{ key }}__heading_weight">{% for w in [400,500,600,700,800,900] %}<option value="{{ w }}" {% if s.heading_weight==w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></div><div class="field"><label>Body weight</label><select name="{{ key }}__body_weight">{% for w in [400,500,600,700] %}<option value="{{ w }}" {% if s.body_weight==w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></div><div class="field"><label><input type="checkbox" name="{{ key }}__heading_italic" {% if s.heading_italic %}checked{% endif %}> Heading italic</label></div><div class="field"><label><input type="checkbox" name="{{ key }}__body_italic" {% if s.body_italic %}checked{% endif %}> Body italic</label></div><div class="field"><label>Overlay</label><input type="color" name="{{ key }}__overlay_color" value="{{ s.overlay_color }}"></div><div class="field"><label>Overlay opacity</label><input type="number" name="{{ key }}__overlay_opacity" min="0" max="90" value="{{ s.overlay_opacity }}"></div></div><div class="preview" style="margin-top:10px;background:{{ s.background_color }}"><strong style="color:{{ s.heading_color }};font-weight:{{ s.heading_weight }};font-style:{% if s.heading_italic %}italic{% else %}normal{% endif %}">{{ label }}</strong><span style="color:{{ s.body_color }};font-weight:{{ s.body_weight }};font-style:{% if s.body_italic %}italic{% else %}normal{% endif %}">Preview text treatment</span></div></div>{% endfor %}</div>
+    <div style="margin-top:16px"><button class="btn btn-green">Save Section Appearance</button></div>
+  </form>
+  {% else %}<p class="muted">Your account can view the CMS, but it does not have appearance/media permission.</p>{% endif %}
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -23,7 +23,7 @@
             {% if site_settings.footer_email %}<p class="text-amber-100 break-words">✉️ {{ site_settings.footer_email }}</p>{% endif %}
             {% if site_settings.footer_address %}<p class="text-amber-100 mt-2 whitespace-pre-line">📍 {{ site_settings.footer_address }}</p>{% endif %}
             {% if site_settings.instagram_url %}
-            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 text-white px-4 py-2 font-bold">{{ site_settings.instagram_label or 'Follow us on Instagram' }}</a>
+            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 text-white px-4 py-2 font-bold">{{ public.content.footer_instagram_button or site_settings.instagram_label or 'Follow us on Instagram' }}</a>
             {% endif %}
         </div>
         {% if site_settings.instagram_url and site_settings.instagram_show_qr and site_settings.instagram_qr %}
