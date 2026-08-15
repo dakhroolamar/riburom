@@ -12,7 +12,6 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, send_from_directory, abort, has_request_context,
 )
-from sqlalchemy import inspect, inspect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -265,8 +264,21 @@ def _run_legacy_migrations():
         db.session.commit()
 
  # Create or repair the initial Owner account.
+# ADMIN_PASSWORD_HASH must already be a valid Werkzeug password hash.
+# Validate it before writing it to the database so a malformed environment
+# variable cannot poison the Owner record and break every subsequent login.
 if inspect(db.engine).has_table('users') and initial_password_hash:
     owner = User.query.filter_by(username=initial_owner_username).first()
+
+    try:
+        # Deliberately use a non-secret sentinel; this only validates the hash
+        # format and never authenticates a real user.
+        check_password_hash(initial_password_hash, '__ri_burom_hash_validation__')
+    except (ValueError, TypeError):
+        raise RuntimeError(
+            'ADMIN_PASSWORD_HASH is not a valid Werkzeug password hash. '
+            'Generate it with generate_password_hash.py and replace the Render environment variable.'
+        ) from None
 
     if owner is None:
         owner = User(
@@ -287,6 +299,8 @@ if inspect(db.engine).has_table('users') and initial_password_hash:
             'Initial Owner created from ADMIN_PASSWORD_HASH'
         )
     else:
+        # Keep the bootstrap hash synchronized intentionally. This is safe
+        # because the value has already passed Werkzeug validation above.
         owner.password_hash = initial_password_hash
         owner.role = 'owner'
         owner.is_active = True
