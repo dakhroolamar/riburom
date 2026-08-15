@@ -40,12 +40,7 @@ def _safe_json(value):
 
 def _business_schema(settings):
     name = (settings.footer_business_name or "RI BUROM Tours & Travels").strip()
-    schema = {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": name,
-        "url": SEO_BASE_URL,
-    }
+    schema = {"@context": "https://schema.org", "@type": "Organization", "name": name, "url": SEO_BASE_URL}
     logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
     if logo:
         schema["logo"] = absolute_url(imgsrc(logo))
@@ -81,18 +76,14 @@ def _page_metadata(endpoint):
             description=_clean_description(public.get("content", {}).get("about_page_intro")),
             canonical=SEO_BASE_URL + "/about",
         )
-        return metadata
-
-    if endpoint == "all_tours":
+    elif endpoint == "all_tours":
         public = get_public_config(settings)
         metadata.update(
             title=(public.get("content", {}).get("tours_page_title") or "Meghalaya Tours & Experiences | RI BUROM"),
             description=_clean_description(public.get("content", {}).get("tours_page_intro")),
             canonical=SEO_BASE_URL + "/all_tours",
         )
-        return metadata
-
-    if endpoint == "tour_detail":
+    elif endpoint == "tour_detail":
         slug = request.view_args.get("slug") if request.view_args else None
         pkg = Package.query.filter_by(slug=slug, published=True).first()
         if pkg:
@@ -116,8 +107,6 @@ def _page_metadata(endpoint):
             )
             if pkg.location:
                 metadata["schema"]["location"] = {"@type": "Place", "name": pkg.location.strip()}
-        return metadata
-
     return metadata
 
 
@@ -148,13 +137,8 @@ def _seo_markup(endpoint):
 
 def _robots_response():
     body = (
-        "User-agent: *\n"
-        "Allow: /\n"
-        "Disallow: /admin\n"
-        "Disallow: /admin/login\n"
-        "Disallow: /workspace\n"
-        "Disallow: /workspace/\n"
-        "Disallow: /api/\n"
+        "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/login\n"
+        "Disallow: /workspace\nDisallow: /workspace/\nDisallow: /api/\n"
         f"Sitemap: {SEO_BASE_URL}/sitemap.xml\n"
     )
     return Response(body, status=200, mimetype="text/plain")
@@ -172,9 +156,7 @@ def _sitemap_response():
     for loc in dict.fromkeys(public_urls):
         item = SubElement(urlset, "url")
         SubElement(item, "loc").text = loc
-
-    xml = tostring(urlset, encoding="utf-8", xml_declaration=True)
-    return Response(xml, status=200, mimetype="application/xml")
+    return Response(tostring(urlset, encoding="utf-8", xml_declaration=True), status=200, mimetype="application/xml")
 
 
 def register_seo(flask_app):
@@ -193,12 +175,8 @@ def register_seo(flask_app):
         if "text/html" not in response.headers.get("Content-Type", ""):
             return response
         body = response.get_data(as_text=True)
-        lower = body.lower()
-        if "<head" not in lower or "</head>" not in lower:
+        if "<head" not in body.lower() or "</head>" not in body.lower():
             return response
-
-        # Remove existing SEO tags from legacy public templates so every page
-        # has exactly one authoritative title/description/social/canonical set.
         patterns = [
             r"<title>.*?</title>",
             r'<meta\s+name=["\']description["\'][^>]*>\s*',
@@ -208,8 +186,7 @@ def register_seo(flask_app):
             r'<script\s+type=["\']application/ld\+json["\'][^>]*>.*?</script>\s*',
         ]
         for pattern in patterns:
-            body = re.sub(pattern, "", body, count=0, flags=re.I | re.S)
-        marker = "</head>"
-        body = body.replace(marker, _seo_markup(endpoint) + marker, 1)
+            body = re.sub(pattern, "", body, flags=re.I | re.S)
+        body = body.replace("</head>", _seo_markup(endpoint) + "</head>", 1)
         response.set_data(body)
         return response
