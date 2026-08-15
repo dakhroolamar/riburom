@@ -1,15 +1,15 @@
 """Outbound notifications for new public enquiries.
 
 Notifications are deliberately optional: the enquiry is stored first and the
-public confirmation flow does not depend on SMTP or a messaging provider.
-Configure these Render environment variables to enable notifications:
+public confirmation flow does not depend on an external messaging provider.
+Email notifications use Brevo's HTTPS API so they work on Render Free without
+SMTP egress. Configure these Render environment variables to enable email:
 
 Email:
-  NOTIFICATION_EMAIL      optional recipient override
-  SMTP_HOST, SMTP_PORT
-  SMTP_USERNAME, SMTP_PASSWORD
-  SMTP_FROM               optional sender; defaults to SMTP_USERNAME
-  SMTP_USE_TLS             optional, defaults to true for port 587
+  BREVO_API_KEY         Brevo API key
+  BREVO_SENDER_EMAIL    verified Brevo sender address
+  BREVO_SENDER_NAME     optional sender display name
+  NOTIFICATION_EMAIL    optional recipient override
 
 Twilio SMS / WhatsApp:
   NOTIFICATION_PHONE       optional recipient override
@@ -26,12 +26,12 @@ or WHATSAPP_PHONE as final fallbacks.
 import base64
 import json
 import os
-import smtplib
-import ssl
-from email.message import EmailMessage
 from threading import Thread
-from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
+
+BREVO_EMAIL_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
 
 def _recipient_email(fallback=''):
@@ -42,38 +42,50 @@ def _recipient_phone(fallback=''):
     return (os.environ.get('NOTIFICATION_PHONE') or fallback or os.environ.get('WHATSAPP_PHONE') or '').strip()
 
 
-def _smtp_send(subject, body, recipient):
-    host = (os.environ.get('SMTP_HOST') or '').strip()
-    if not recipient or not host:
+def _brevo_missing_config():
+    """Return required Brevo settings that are missing from the environment."""
+    required = {
+        'BREVO_API_KEY': os.environ.get('BREVO_API_KEY'),
+        'BREVO_SENDER_EMAIL': os.environ.get('BREVO_SENDER_EMAIL'),
+    }
+    return [name for name, value in required.items() if not (value or '').strip()]
+
+
+def _brevo_send(subject, body, recipient):
+    """Send a transactional email through Brevo's HTTPS API.
+
+    Returns True only after Brevo responds with a successful 2xx status.
+    Missing configuration is treated as a disabled notification channel rather
+    than an application error because enquiry persistence must remain primary.
+    """
+    if not recipient:
         return False
 
-    port = int(os.environ.get('SMTP_PORT', '587'))
-    username = (os.environ.get('SMTP_USERNAME') or '').strip()
-    password = os.environ.get('SMTP_PASSWORD') or ''
-    sender = (os.environ.get('SMTP_FROM') or username or recipient).strip()
-    use_tls = (os.environ.get('SMTP_USE_TLS', 'true').strip().lower() not in {'0', 'false', 'no', 'off'})
+    missing = _brevo_missing_config()
+    if missing:
+        return False
 
-    msg = EmailMessage()
-    msg['Subject'] = subject
-    msg['From'] = sender
-    msg['To'] = recipient
-    msg.set_content(body)
-
-    if port == 465:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(host, port, timeout=10, context=context) as server:
-            if username:
-                server.login(username, password)
-            server.send_message(msg)
-        return True
-
-    with smtplib.SMTP(host, port, timeout=10) as server:
-        if use_tls:
-            server.starttls(context=ssl.create_default_context())
-        if username:
-            server.login(username, password)
-        server.send_message(msg)
-    return True
+    payload = {
+        'sender': {
+            'email': os.environ['BREVO_SENDER_EMAIL'].strip(),
+            'name': (os.environ.get('BREVO_SENDER_NAME') or 'RI BUROM').strip(),
+        },
+        'to': [{'email': recipient}],
+        'subject': subject,
+        'textContent': body,
+    }
+    request = Request(
+        BREVO_EMAIL_API_URL,
+        data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+        headers={
+            'accept': 'application/json',
+            'api-key': os.environ['BREVO_API_KEY'].strip(),
+            'content-type': 'application/json',
+        },
+        method='POST',
+    )
+    with urlopen(request, timeout=10) as response:
+        return 200 <= response.status < 300
 
 
 def _twilio_send(from_number, body, to_number):
@@ -131,8 +143,12 @@ def _dispatch(data):
 
     try:
         recipient_email = _recipient_email(data.get('notification_email', ''))
-        if _smtp_send(subject, body, recipient_email):
+        if _brevo_send(subject, body, recipient_email):
             outcomes.append('email')
+        elif _brevo_missing_config():
+            outcomes.append('email-disabled:missing-brevo-config')
+    except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+        outcomes.append(f'email-error:{exc}')
     except Exception as exc:
         outcomes.append(f'email-error:{exc}')
 
