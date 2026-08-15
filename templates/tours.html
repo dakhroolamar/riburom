@@ -21,10 +21,10 @@
         <article data-reveal="scale" class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 flex flex-col">
             <a href="{{ url_for('tour_detail', slug=pkg.slug) }}"><div class="h-56 bg-gray-300 bg-cover bg-center rb-card-media" style="background-image: url('{{ pkg.image_file|imgsrc }}');"></div></a>
             <div class="p-6 flex-grow">
-                <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">{% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}{% if pkg.duration %}<span>â€¢ {{ pkg.duration }}</span>{% endif %}</div>
+                <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">{% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}{% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}</div>
                 <h2 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h2>
                 <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
-                {% if pkg.location %}<p class="text-sm text-gray-500">ðŸ“ {{ pkg.location }}</p>{% endif %}
+                {% if pkg.location %}<p class="text-sm text-gray-500">📍 {{ pkg.location }}</p>{% endif %}
                 {% if pkg.price %}<p class="font-bold text-green-800 mt-4">{{ public.content.tours_price_prefix }} {{ pkg.price }}</p>{% endif %}
             </div>
             <div class="p-6 pt-0"><a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded">{{ public.content.tours_view_button }}</a></div>

@@ -82,11 +82,11 @@
                 <div class="p-6 flex-grow">
                     <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
                         {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
-                        {% if pkg.duration %}<span>â€¢ {{ pkg.duration }}</span>{% endif %}
+                        {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
                     </div>
                     <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
                     <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
-                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">ðŸ“ {{ pkg.location }}</p>{% endif %}
+                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
                 </div>
                 <div class="p-6 pt-0">
                     <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center text-white font-bold py-3 rounded transition">{{ public.content.home_tour_button }}</a>
@@ -125,7 +125,7 @@
                 <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">{{ public.content.blog_eyebrow }}</p>
                 <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
                 <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
-                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }} â†—</a>
+                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }} ↗</a>
             </div>
         </div>
     </section>
