@@ -17,7 +17,7 @@ from app import (
     get_public_config,
     get_site_settings,
 )
-from models import AuditLog, AboutContent, AboutSection, Message, Package, TeamMember, User
+from models import AuditLog, AboutContent, AboutSection, Message, Package, TeamMember, User, db
 
 
 CONTENT_FIELDS = [
