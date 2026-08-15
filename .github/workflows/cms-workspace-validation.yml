@@ -2,7 +2,7 @@ name: RI BUROM CMS Workspace Validation
 
 on:
   push:
-    branches: [feature/cms-workspace]
+    branches: [feature/cms-workspace, fix/inquiry-notifications-ux]
   pull_request:
     branches: [main]
 
@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py wsgi.py
+        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py wsgi.py
       - name: Import WSGI app and inspect routes
         run: |
           python - <<'PY'
@@ -46,6 +46,9 @@ jobs:
           missing = required - rules
           if missing:
               raise SystemExit(f'Missing workspace routes: {sorted(missing)}')
+          if wsgi.app.view_functions.get('send_message', lambda: None).__name__ != 'send_message':
+              raise SystemExit('Public enquiry view wrapper is not preserving send_message naming')
           print('WSGI IMPORT OK')
           print('WORKSPACE ROUTES OK')
+          print('ENQUIRY NOTIFICATION WRAPPER OK')
           PY
