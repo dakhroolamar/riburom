@@ -2,7 +2,8 @@ import io
 import json
 import os
 import re
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timedelta
 from functools import wraps
 from html import escape
 from urllib.parse import urljoin, urlparse, quote
@@ -10,9 +11,9 @@ from urllib.parse import urljoin, urlparse, quote
 from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, send_from_directory, abort, has_request_context,
+    session, flash, send_from_directory, abort, has_request_context, Response,
 )
-from sqlalchemy import inspect
+from sqlalchemy import inspect, func, desc
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -79,6 +80,123 @@ csrf = CSRFProtect(app)
 limiter = Limiter(key_func=get_remote_address, storage_uri=app.config['RATELIMIT_STORAGE_URI'], default_limits=[])
 limiter.init_app(app)
 app.jinja_env.filters['imgsrc'] = imgsrc
+
+
+# Permission catalog shown to the Owner when creating/editing a user.
+# The keys are deliberately tied to the authorization checks already used by
+# the application, so the UI cannot grant a permission that the application
+# does not understand.
+PERMISSION_LABELS = {
+    'view_dashboard': 'View Control Room / Dashboard',
+    'manage_tours': 'Manage Experiences / Tours',
+    'manage_media': 'Manage Photos, PDFs & Branding',
+    'manage_about': 'Manage About Us / Website Content',
+    'manage_team': 'Manage Team Members',
+    'view_messages': 'View Contact Enquiries',
+    'manage_messages': 'Manage Contact Enquiries',
+    'view_customer_analytics': 'View Customer Analytics',
+    'view_audit_log': 'View Recent Activity / Audit Log',
+    'manage_structure': 'Manage Page Structure / Ordering',
+}
+PERMISSION_KEYS = tuple(PERMISSION_LABELS.keys())
+
+
+PUBLIC_SITE_DEFAULTS = {
+    'content': {
+        'site_title': 'Ri Burom Tours & Travels | Meghalaya Experiences',
+        'meta_description': 'Ri Burom Tours & Travels creates Meghalaya-rooted journeys connecting travellers with landscapes, culture, traditions, stories, and communities.',
+        'og_title': 'Ri Burom Tours & Travels',
+        'og_description': 'Meghalaya-rooted travel experiences shaped by nature, culture, community, and hospitality.',
+        'nav_home': 'Home', 'nav_tours': 'Explore All Tours', 'nav_about': 'About Us', 'nav_contact': 'Contact Us', 'nav_login': 'Login',
+        'mobile_tours': 'Tours', 'mobile_about': 'About', 'mobile_contact': 'Contact', 'mobile_menu': 'Menu',
+        'hero_eyebrow': 'Nature • Culture • Adventure • Community',
+        'hero_title': 'Meghalaya, beyond the ordinary.',
+        'hero_subtitle': 'Meghalaya-rooted journeys that bring travellers closer to the landscapes, stories, traditions, and people that make the state what it is.',
+        'hero_primary_button': 'Explore Experiences', 'hero_secondary_button': 'Plan Your Journey',
+        'home_about_eyebrow': 'About RI BUROM', 'home_about_title': 'Travel with a connection to place.',
+        'home_about_text': 'We create thoughtfully designed experiences across Meghalaya that connect travellers with nature, culture, local communities, and the everyday stories behind the destination.',
+        'home_tours_eyebrow': 'Explore', 'home_tours_title': 'Signature Experiences', 'home_tours_all': 'View all experiences →',
+        'home_tour_button': 'View Experience', 'home_tours_empty': 'New adventure experiences are being curated right now. Check back soon!',
+        'home_why_eyebrow': 'Why RI BUROM?', 'home_why_title': 'More than a package. A way to experience Meghalaya.',
+        'home_why_text': 'Our approach is rooted in the place itself—its landscapes, living traditions, communities, and hospitality.',
+        'why1_title': 'Experience Meghalaya', 'why1_text': 'Go beyond checklists and explore the character of the destination.',
+        'why2_title': 'Local Connection', 'why2_text': 'Meet people, hear stories, and discover places through local perspectives.',
+        'why3_title': 'Culture with Respect', 'why3_text': 'Experience living culture as something to understand, not merely photograph.',
+        'why4_title': 'Responsible Travel', 'why4_text': 'Support local livelihoods while treating landscapes and communities with care.',
+        'blog_eyebrow': 'Stories from the Journey',
+        'contact_title': 'Plan Your Journey', 'contact_text': 'Tell us what you are looking for and we will help you plan the next step.',
+        'form_name': 'Your Name', 'form_email': 'Email Address', 'form_phone': 'WhatsApp / Phone', 'form_travellers': 'Number of Travellers',
+        'form_dates': 'Preferred Travel Dates', 'form_tour': 'Tour / Experience', 'form_message': 'Message', 'form_submit': 'Send Enquiry',
+        'form_dates_placeholder': 'e.g. 12–15 October 2026', 'form_tour_placeholder': 'What are you interested in?',
+        'whatsapp_text': 'Chat on WhatsApp', 'whatsapp_message': 'Hello RI BUROM, I would like to plan a trip to Meghalaya.',
+        'tours_page_title': 'All Experiences - Ri Burom Tours & Travels', 'tours_page_eyebrow': 'Explore', 'tours_page_heading': 'All Experiences',
+        'tours_page_intro': 'Discover our published experiences across Meghalaya.', 'tours_empty': 'New experiences are being curated right now. Check back soon!',
+        'tours_view_button': 'View Experience', 'tours_price_prefix': 'From',
+        'about_page_title': 'About Us - Ri Burom Tours & Travels', 'about_page_eyebrow': 'Our Story',
+        'about_page_intro': 'A Meghalaya-rooted travel initiative built around connection, culture, community and meaningful experiences.',
+        'about_team_empty': 'Our team profiles will appear here as they are added through the Control Room.',
+        'about_logo_pdf': 'Read the complete logo concept PDF', 'about_logo_created': 'Logo created by',
+        'tour_detail_overview': 'Overview', 'tour_detail_itinerary': 'Itinerary', 'tour_detail_included': "What's Included",
+        'tour_detail_excluded': "What's Not Included", 'tour_detail_starting': 'Starting from', 'tour_detail_best_season': 'Best Season',
+        'tour_detail_whatsapp': 'Plan This Experience on WhatsApp', 'tour_detail_enquiry': 'Send an Enquiry', 'tour_detail_pdf': 'View Detailed PDF',
+        'tour_detail_category_fallback': 'Meghalaya Experience',
+        'footer_explore': 'Explore', 'footer_contact': 'Contact', 'footer_qr': 'Scan to follow us on Instagram',
+    },
+    'theme': {
+        'primary_color': '#166534', 'secondary_color': '#92400e', 'accent_color': '#d97706', 'link_color': '#166534',
+        'header_bg_color': '#ffffff', 'footer_bg_color': '#78350f', 'button_radius': 10, 'section_spacing': 64,
+        'hero_overlay_opacity': 55, 'whatsapp_visible': True, 'show_login_button': True,
+    },
+    'home': {
+        'order': ['hero', 'about', 'tours', 'why', 'blog', 'contact'],
+        'visibility': {'hero': True, 'about': True, 'tours': True, 'why': True, 'blog': True, 'contact': True},
+    },
+}
+
+
+def _deep_merge(base, incoming):
+    if isinstance(base, dict) and isinstance(incoming, dict):
+        out = dict(base)
+        for key, value in incoming.items():
+            out[key] = _deep_merge(out[key], value) if key in out else value
+        return out
+    return incoming if incoming is not None else base
+
+
+def get_public_config(settings=None):
+    settings = settings or get_site_settings()
+    try:
+        raw = json.loads(settings.public_config_json or '{}') if settings.public_config_json else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        raw = {}
+    return _deep_merge(PUBLIC_SITE_DEFAULTS, raw)
+
+
+def _safe_hex(value, default):
+    value = (value or '').strip()
+    return value if re.fullmatch(r'#[0-9a-fA-F]{6}', value) else default
+
+
+FONT_OPTIONS = {
+    'inter': ('Inter', 'Inter, Arial, sans-serif'),
+    'poppins': ('Poppins', 'Poppins, Arial, sans-serif'),
+    'montserrat': ('Montserrat', 'Montserrat, Arial, sans-serif'),
+    'nunito': ('Nunito', 'Nunito, Arial, sans-serif'),
+    'lora': ('Lora', 'Lora, Georgia, serif'),
+    'merriweather': ('Merriweather', 'Merriweather, Georgia, serif'),
+    'georgia': ('Georgia', 'Georgia, serif'),
+    'arial': ('Arial', 'Arial, Helvetica, sans-serif'),
+    'times': ('Times New Roman', 'Times New Roman, Times, serif'),
+}
+
+FONT_GOOGLE_FAMILIES = {
+    'inter': 'Inter:wght@400;500;600;700;800',
+    'poppins': 'Poppins:wght@400;500;600;700;800',
+    'montserrat': 'Montserrat:wght@400;500;600;700;800',
+    'nunito': 'Nunito:wght@400;600;700;800',
+    'lora': 'Lora:wght@400;500;600;700',
+    'merriweather': 'Merriweather:wght@400;700;900',
+}
 
 
 # ------------------------------------------------------------
@@ -156,11 +274,29 @@ def whatsapp_url(message: str) -> str:
 
 @app.context_processor
 def inject_helpers():
+    settings = get_site_settings()
+    body_key = settings.body_font if settings.body_font in FONT_OPTIONS else 'inter'
+    heading_key = settings.heading_font if settings.heading_font in FONT_OPTIONS else 'poppins'
+    public = get_public_config(settings)
+    # Precompute a {section_key: css_order_number} map server-side so the
+    # template can set `order:` directly with zero client-side JS involved.
+    # Any section missing from a corrupted/old order list still gets a
+    # deterministic (if arbitrary) position instead of breaking rendering.
+    home_order_list = public.get('home', {}).get('order') or []
+    home_order_index = {key: i for i, key in enumerate(home_order_list)}
+    for fallback_key in ('hero', 'about', 'tours', 'why', 'blog', 'contact'):
+        home_order_index.setdefault(fallback_key, len(home_order_index))
     return {
         'whatsapp_url': whatsapp_url,
         'current_user': get_current_user(),
         'role_labels': ROLE_LABELS,
-        'site_settings': get_site_settings(),
+        'site_settings': settings,
+        'font_options': FONT_OPTIONS,
+        'body_font_css': FONT_OPTIONS[body_key][1],
+        'heading_font_css': FONT_OPTIONS[heading_key][1],
+        'google_font_families': [FONT_GOOGLE_FAMILIES[k] for k in (body_key, heading_key) if k in FONT_GOOGLE_FAMILIES],
+        'public': public,
+        'home_order_index': home_order_index,
     }
 
 
@@ -212,7 +348,19 @@ def _add_column_if_missing(table, column, ddl):
 
 def _run_legacy_migrations():
     from sqlalchemy import text, inspect
+    # Per-user permission overrides. Existing rows remain NULL and therefore
+    # continue using the legacy role defaults until an Owner explicitly edits them.
+    _add_column_if_missing('users', 'permissions_json', 'TEXT')
+    _add_column_if_missing('site_settings', 'header_logo_position', "VARCHAR(10) DEFAULT 'left'")
+    _add_column_if_missing('site_settings', 'body_font', "VARCHAR(40) DEFAULT 'inter'")
+    _add_column_if_missing('site_settings', 'heading_font', "VARCHAR(40) DEFAULT 'poppins'")
+    _add_column_if_missing('site_settings', 'base_font_size', 'INTEGER DEFAULT 16')
+    _add_column_if_missing('site_settings', 'heading_scale', 'INTEGER DEFAULT 100')
+    _add_column_if_missing('site_settings', 'body_text_color', "VARCHAR(20) DEFAULT '#1f2937'")
+    _add_column_if_missing('site_settings', 'heading_text_color', "VARCHAR(20) DEFAULT '#14532d'")
+    _add_column_if_missing('site_settings', 'link_text_color', "VARCHAR(20) DEFAULT '#166534'")
     _add_column_if_missing('about_content', 'hero_image', 'VARCHAR(500)')
+    _add_column_if_missing('site_settings', 'public_config_json', 'TEXT')
     fields = [
         ('slug', 'VARCHAR(240)'), ('location', 'VARCHAR(200)'), ('duration', 'VARCHAR(100)'),
         ('price', 'VARCHAR(100)'), ('category', 'VARCHAR(100)'), ('best_season', 'VARCHAR(200)'),
@@ -224,6 +372,17 @@ def _run_legacy_migrations():
         _add_column_if_missing('packages', column, ddl)
     for column, ddl in [('phone', 'VARCHAR(40)'), ('travel_dates', 'VARCHAR(120)'), ('travellers', 'INTEGER'), ('tour_interest', 'VARCHAR(200)')]:
         _add_column_if_missing('messages', column, ddl)
+    # Lightweight indexes for inquiry analytics. Safe on repeated deployments.
+    with db.engine.begin() as conn:
+        if db.engine.dialect.name == 'postgresql':
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_messages_created_at ON messages (created_at)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_messages_email_lower ON messages (LOWER(email))'))
+        else:
+            try:
+                conn.execute(text('CREATE INDEX IF NOT EXISTS ix_messages_created_at ON messages (created_at)'))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS ix_messages_email ON messages (email)'))
+            except Exception:
+                pass
     for column, ddl in [('role_type', "VARCHAR(40)"), ('sort_order', 'INTEGER')]:
         _add_column_if_missing('team_members', column, ddl)
 
@@ -263,6 +422,31 @@ def _run_legacy_migrations():
         member.sort_order = idx
     if team_rows:
         db.session.commit()
+
+    settings = db.session.get(SiteSettings, 1)
+    if settings is not None:
+        changed = False
+        if not settings.header_logo_position:
+            settings.header_logo_position = 'left'; changed = True
+        if not settings.body_font:
+            settings.body_font = 'inter'; changed = True
+        if not settings.heading_font:
+            settings.heading_font = 'poppins'; changed = True
+        if not settings.base_font_size:
+            settings.base_font_size = 16; changed = True
+        if not settings.heading_scale:
+            settings.heading_scale = 100; changed = True
+        if not settings.body_text_color:
+            settings.body_text_color = '#1f2937'; changed = True
+        if not settings.heading_text_color:
+            settings.heading_text_color = '#14532d'; changed = True
+        if not settings.link_text_color:
+            settings.link_text_color = '#166534'; changed = True
+        if not settings.public_config_json:
+            settings.public_config_json = json.dumps(PUBLIC_SITE_DEFAULTS, ensure_ascii=False)
+            changed = True
+        if changed:
+            db.session.commit()
 
 with app.app_context():
     # Application setup that requires Flask-SQLAlchemy context.
@@ -359,7 +543,19 @@ def permission_required(permission):
 
 
 def owner_required(view_func):
-    return permission_required('manage_users')(view_func)
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        user = get_current_user()
+        if user is None:
+            flash('Please log in to access the control room.', 'error')
+            return redirect(url_for('admin_login', next=request.path))
+        # User management is deliberately Owner-only. It must never be
+        # delegable through the ordinary permission checkboxes, otherwise a
+        # delegated user could grant themselves the Owner role.
+        if user.role != 'owner':
+            abort(403)
+        return view_func(*args, **kwargs)
+    return wrapped
 
 
 # ------------------------------------------------------------
@@ -373,7 +569,107 @@ def home():
     if not featured:
         featured = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
     total_published = Package.query.filter_by(published=True).count()
-    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, packages=featured, has_more=total_published > len(featured), settings=settings)
+    hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
+    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings)
+
+
+@app.route('/admin/customers')
+@permission_required('view_customer_analytics')
+def customer_analytics():
+    total_inquiries = Message.query.count()
+    unread = Message.query.filter_by(is_read=False).count()
+    unique_customers = db.session.query(func.count(func.distinct(func.lower(Message.email)))).scalar() or 0
+    repeat_subquery = (
+        db.session.query(func.lower(Message.email).label('email'), func.count(Message.id).label('n'))
+        .group_by(func.lower(Message.email))
+        .having(func.count(Message.id) > 1)
+        .subquery()
+    )
+    repeat_customers = db.session.query(func.count()).select_from(repeat_subquery).scalar() or 0
+
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_30 = now - timedelta(days=30)
+    this_month = Message.query.filter(Message.created_at >= month_start).count()
+    last_30_count = Message.query.filter(Message.created_at >= last_30).count()
+    avg_travellers = db.session.query(func.avg(Message.travellers)).filter(Message.travellers.isnot(None)).scalar()
+
+    interests = (
+        db.session.query(Message.tour_interest, func.count(Message.id))
+        .filter(Message.tour_interest.isnot(None), Message.tour_interest != '')
+        .group_by(Message.tour_interest)
+        .order_by(desc(func.count(Message.id)))
+        .limit(10)
+        .all()
+    )
+
+    year_ago = now - timedelta(days=365)
+    created_rows = Message.query.with_entities(Message.created_at).filter(Message.created_at >= year_ago).all()
+    month_counter = Counter(row[0].strftime('%Y-%m') for row in created_rows if row[0])
+    month_labels = []
+    cursor = month_start.replace(day=1)
+    for _ in range(12):
+        key = cursor.strftime('%Y-%m')
+        month_labels.append((cursor.strftime('%b %Y'), month_counter.get(key, 0)))
+        if cursor.month == 1:
+            cursor = cursor.replace(year=cursor.year - 1, month=12)
+        else:
+            cursor = cursor.replace(month=cursor.month - 1)
+    month_labels.reverse()
+
+    recent = Message.query.order_by(Message.created_at.desc()).limit(25).all()
+    return render_template(
+        'customer_analytics.html',
+        total_inquiries=total_inquiries,
+        unique_customers=unique_customers,
+        repeat_customers=repeat_customers,
+        unread=unread,
+        this_month=this_month,
+        last_30_count=last_30_count,
+        avg_travellers=round(float(avg_travellers), 1) if avg_travellers is not None else 0,
+        interests=interests,
+        month_labels=month_labels,
+        max_month_count=max([count for _, count in month_labels] or [1]),
+        recent=recent,
+    )
+
+
+# Characters that spreadsheet apps (Excel, Google Sheets, LibreOffice) treat
+# as the start of a formula when a cell is opened. Any user-supplied field
+# (this data comes from the public, unauthenticated contact form) that starts
+# with one of these is defused by prefixing a single quote, which forces the
+# cell to be read as literal text without changing what is displayed.
+# See CWE-1236 (Improper Neutralization of Formula Elements in a CSV File).
+_CSV_FORMULA_TRIGGERS = ('=', '+', '-', '@', '\t', '\r', '\n')
+
+
+def csv_safe(value):
+    """Return `value` as a string, neutralized against CSV/formula injection."""
+    text = '' if value is None else str(value)
+    if text and text[0] in _CSV_FORMULA_TRIGGERS:
+        text = "'" + text
+    return text
+
+
+@app.route('/admin/customers/export.csv')
+@permission_required('view_customer_analytics')
+def export_customer_inquiries():
+    import csv
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Name', 'Email', 'Phone', 'Travel Dates', 'Travellers', 'Tour / Experience', 'Message', 'Read'])
+    for msg in Message.query.order_by(Message.created_at.desc()).all():
+        writer.writerow([
+            msg.created_at.strftime('%Y-%m-%d %H:%M:%S') if msg.created_at else '',
+            csv_safe(msg.name), csv_safe(msg.email), csv_safe(msg.phone), csv_safe(msg.travel_dates),
+            csv_safe(msg.travellers), csv_safe(msg.tour_interest), csv_safe(msg.message),
+            'Yes' if msg.is_read else 'No',
+        ])
+    return Response(
+        '\ufeff' + output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename="ri-burom-customer-inquiries.csv"'},
+    )
 
 
 @app.route('/all_tours')
@@ -516,9 +812,9 @@ def admin():
     user = get_current_user()
     messages = Message.query.order_by(Message.id.desc()).all() if user.has_permission('view_messages') else []
     unread_count = Message.query.filter_by(is_read=False).count() if user.has_permission('view_messages') else 0
-    users = User.query.order_by(User.username.asc()).all() if user.has_permission('manage_users') else []
+    users = User.query.order_by(User.username.asc()).all() if user.role == 'owner' else []
     audits = AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all() if user.has_permission('view_audit_log') else []
-    return render_template('admin.html', packages=packages, about=about_row, team=team, about_sections=about_sections, settings=settings, messages=messages, unread_count=unread_count, users=users, audits=audits, storage_backend=STORAGE_BACKEND)
+    return render_template('admin.html', packages=packages, about=about_row, team=team, about_sections=about_sections, settings=settings, messages=messages, unread_count=unread_count, users=users, audits=audits, storage_backend=STORAGE_BACKEND, permission_labels=PERMISSION_LABELS, permission_keys=PERMISSION_KEYS)
 
 
 @app.route('/add_package', methods=['POST'])
@@ -605,6 +901,7 @@ def update_about_structure():
     try:
         ordered_keys = json.loads(request.form.get('section_order') or '[]')
         enabled_state = json.loads(request.form.get('section_state') or '{}')
+        labels_state = json.loads(request.form.get('section_labels') or '{}')
     except (TypeError, ValueError, json.JSONDecodeError):
         flash('Invalid About Us page structure data.', 'error')
         return redirect('/admin#about-structure')
@@ -620,6 +917,10 @@ def update_about_structure():
         sections[key].sort_order = idx
         if key in enabled_state:
             sections[key].enabled = bool(enabled_state[key])
+        if key in labels_state:
+            label = str(labels_state[key]).strip()[:200]
+            if label:
+                sections[key].label = label
 
     add_audit('updated', 'about_structure', 1, ', '.join(ordered_keys))
     db.session.commit()
@@ -789,10 +1090,119 @@ def reset_logo_sizes():
     settings.header_mark_width = 48
     settings.header_logo_gap = 8
     settings.hero_logo_width = 300
-    add_audit('reset', 'branding_sizes', 1, 'logo display sizes')
+    settings.header_logo_position = 'left'
+    add_audit('reset', 'branding_sizes', 1, 'logo display sizes and header position')
     db.session.commit()
     flash('Logo sizes reset to the default values.', 'success')
     return redirect('/admin#branding')
+
+
+@app.route('/update_header_layout', methods=['POST'])
+@permission_required('manage_media')
+def update_header_layout():
+    position = (request.form.get('header_logo_position') or 'left').strip().lower()
+    if position not in {'left', 'center', 'right'}:
+        position = 'left'
+    settings = get_site_settings()
+    settings.header_logo_position = position
+    settings.header_logo_gap = clamp_int(request.form.get('header_logo_gap'), settings.header_logo_gap, 0, 32)
+    settings.header_wordmark_width = clamp_int(request.form.get('header_wordmark_width'), settings.header_wordmark_width, 50, 320)
+    settings.header_mark_width = clamp_int(request.form.get('header_mark_width'), settings.header_mark_width, 24, 180)
+    settings.hero_logo_width = clamp_int(request.form.get('hero_logo_width'), settings.hero_logo_width, 120, 560)
+    add_audit('updated', 'header_layout', 1, f'position={position}')
+    db.session.commit()
+    flash('Header and logo layout saved.', 'success')
+    return redirect('/admin#branding')
+
+
+@app.route('/update_typography', methods=['POST'])
+@permission_required('manage_media')
+def update_typography():
+    settings = get_site_settings()
+    body_font = (request.form.get('body_font') or 'inter').strip().lower()
+    heading_font = (request.form.get('heading_font') or 'poppins').strip().lower()
+    if body_font not in FONT_OPTIONS:
+        body_font = 'inter'
+    if heading_font not in FONT_OPTIONS:
+        heading_font = 'poppins'
+    settings.body_font = body_font
+    settings.heading_font = heading_font
+    settings.base_font_size = clamp_int(request.form.get('base_font_size'), 16, 14, 20)
+    settings.heading_scale = clamp_int(request.form.get('heading_scale'), 100, 80, 130)
+    for field in ('body_text_color', 'heading_text_color', 'link_text_color'):
+        value = (request.form.get(field) or '').strip()
+        if re.fullmatch(r'#[0-9a-fA-F]{6}', value):
+            setattr(settings, field, value)
+    add_audit('updated', 'typography', 1, f'body_font={body_font}; heading_font={heading_font}')
+    db.session.commit()
+    flash('Typography settings saved.', 'success')
+    return redirect('/admin#typography')
+
+
+@app.route('/admin/update_public_site', methods=['POST'])
+@owner_required
+def update_public_site():
+    settings = get_site_settings()
+    cfg = get_public_config(settings)
+    content = cfg['content']
+    theme = cfg['theme']
+    home = cfg['home']
+
+    content_fields = [
+        'site_title','meta_description','og_title','og_description',
+        'nav_home','nav_tours','nav_about','nav_contact','nav_login',
+        'mobile_tours','mobile_about','mobile_contact','mobile_menu',
+        'hero_eyebrow','hero_title','hero_subtitle','hero_primary_button','hero_secondary_button',
+        'home_about_eyebrow','home_about_title','home_about_text','home_tours_eyebrow','home_tours_title','home_tours_all',
+        'home_tour_button','home_tours_empty','home_why_eyebrow','home_why_title','home_why_text',
+        'why1_title','why1_text','why2_title','why2_text','why3_title','why3_text','why4_title','why4_text',
+        'blog_eyebrow','contact_title','contact_text','form_name','form_email','form_phone','form_travellers','form_dates',
+        'form_tour','form_message','form_submit','form_dates_placeholder','form_tour_placeholder','whatsapp_text','whatsapp_message',
+        'tours_page_title','tours_page_eyebrow','tours_page_heading','tours_page_intro','tours_empty','tours_view_button','tours_price_prefix',
+        'about_page_title','about_page_eyebrow','about_page_intro','tour_detail_overview','tour_detail_itinerary',
+        'tour_detail_included','tour_detail_excluded','tour_detail_starting','tour_detail_best_season','tour_detail_whatsapp',
+        'tour_detail_enquiry','tour_detail_pdf','footer_explore','footer_contact','footer_qr',
+    ]
+    for field in content_fields:
+        value = (request.form.get(field) or '').strip()
+        if len(value) > 20000:
+            flash(f'{field.replace("_", " ").title()} is too long.', 'error')
+            return redirect('/admin#website')
+        content[field] = value
+
+    theme['primary_color'] = _safe_hex(request.form.get('primary_color'), theme['primary_color'])
+    theme['secondary_color'] = _safe_hex(request.form.get('secondary_color'), theme['secondary_color'])
+    theme['accent_color'] = _safe_hex(request.form.get('accent_color'), theme['accent_color'])
+    theme['link_color'] = _safe_hex(request.form.get('link_color'), theme['link_color'])
+    theme['header_bg_color'] = _safe_hex(request.form.get('header_bg_color'), theme['header_bg_color'])
+    theme['footer_bg_color'] = _safe_hex(request.form.get('footer_bg_color'), theme['footer_bg_color'])
+    theme['button_radius'] = clamp_int(request.form.get('button_radius'), theme.get('button_radius', 10), 0, 32)
+    theme['section_spacing'] = clamp_int(request.form.get('section_spacing'), theme.get('section_spacing', 64), 32, 128)
+    theme['hero_overlay_opacity'] = clamp_int(request.form.get('hero_overlay_opacity'), theme.get('hero_overlay_opacity', 55), 0, 90)
+    theme['whatsapp_visible'] = bool(request.form.get('whatsapp_visible'))
+    theme['show_login_button'] = bool(request.form.get('show_login_button'))
+
+    valid_home = ['hero','about','tours','why','blog','contact']
+    try:
+        order = json.loads(request.form.get('home_section_order') or '[]')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        order = []
+    order = [item for item in order if item in valid_home]
+    for item in valid_home:
+        if item not in order:
+            order.append(item)
+    try:
+        visibility = json.loads(request.form.get('home_section_visibility') or '{}')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        visibility = {}
+    home['order'] = order
+    home['visibility'] = {item: bool(visibility.get(item, True)) for item in valid_home}
+
+    settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
+    add_audit('updated', 'public_site', 1, 'global public content, theme, and homepage structure')
+    db.session.commit()
+    flash('Public website settings saved.', 'success')
+    return redirect('/admin#website')
 
 
 @app.route('/update_blog', methods=['POST'])
@@ -963,13 +1373,27 @@ def upload_photo():
 # ------------------------------------------------------------
 # User management - Owner only
 # ------------------------------------------------------------
+def _normalize_role(role):
+    role = re.sub(r'\s+', ' ', (role or '').strip())
+    # "Owner" is a reserved role because the application uses it to enforce
+    # the minimum-one-Owner safety rule. All other role names are open-ended.
+    if role.lower() == 'owner':
+        return 'owner'
+    return role
+
+
 def _validate_user_fields(username, full_name, email, role):
     if not re.fullmatch(r'[a-z0-9_.-]{3,80}', username):
         return 'Username must be 3–80 characters using lowercase letters, numbers, dots, underscores or hyphens.'
     if not full_name or len(full_name) > 160: return 'Full name is required and must be 160 characters or fewer.'
     if email and (len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)): return 'Please provide a valid email address.'
-    if role not in ROLE_PERMISSIONS: return 'Invalid role selected.'
+    if not role or len(role) > 40: return 'Role is required and must be 40 characters or fewer.'
     return None
+
+
+def _requested_permissions():
+    requested = request.form.getlist('permissions')
+    return sorted({permission for permission in requested if permission in PERMISSION_LABELS})
 
 
 @app.route('/admin/users/new', methods=['POST'])
@@ -978,15 +1402,33 @@ def create_user():
     username = (request.form.get('username') or '').strip().lower()
     full_name = (request.form.get('full_name') or '').strip()
     email = (request.form.get('email') or '').strip().lower() or None
-    role = (request.form.get('role') or '').strip()
+    role = _normalize_role(request.form.get('role'))
     password = request.form.get('password') or ''
+    permissions = _requested_permissions()
+
     error = _validate_user_fields(username, full_name, email, role)
     if error: flash(error, 'error'); return redirect('/admin#users')
     if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/admin#users')
     if User.query.filter_by(username=username).first(): flash('That username is already in use.', 'error'); return redirect('/admin#users')
     if email and User.query.filter_by(email=email).first(): flash('That email is already in use.', 'error'); return redirect('/admin#users')
-    user = User(username=username, full_name=full_name, email=email, password_hash=generate_password_hash(password), role=role, is_active=True)
-    db.session.add(user); db.session.flush(); add_audit('created', 'user', user.id, f'{username} ({role})'); db.session.commit()
+
+    # Owners always have full access. For every other role, the Owner's
+    # checkbox selection becomes the user's exact permission set.
+    if role == 'owner':
+        permissions = list(PERMISSION_KEYS)
+
+    user = User(
+        username=username,
+        full_name=full_name,
+        email=email,
+        password_hash=generate_password_hash(password),
+        role=role,
+        permissions_json=json.dumps(permissions),
+        is_active=True,
+    )
+    db.session.add(user); db.session.flush()
+    add_audit('created', 'user', user.id, f'{username} ({role}) permissions={", ".join(permissions) or "none"}')
+    db.session.commit()
     flash(f'User {username} created.', 'success'); return redirect('/admin#users')
 
 
@@ -995,19 +1437,39 @@ def create_user():
 def update_user(id):
     current = get_current_user(); user = db.session.get(User, id)
     if user is None: abort(404)
-    username = (request.form.get('username') or '').strip().lower(); full_name = (request.form.get('full_name') or '').strip(); email = (request.form.get('email') or '').strip().lower() or None; role = (request.form.get('role') or '').strip()
+
+    username = (request.form.get('username') or '').strip().lower()
+    full_name = (request.form.get('full_name') or '').strip()
+    email = (request.form.get('email') or '').strip().lower() or None
+    role = _normalize_role(request.form.get('role'))
+    permissions = _requested_permissions()
+
     error = _validate_user_fields(username, full_name, email, role)
     if error: flash(error, 'error'); return redirect('/admin#users')
     if User.query.filter(User.username == username, User.id != id).first(): flash('That username is already in use.', 'error'); return redirect('/admin#users')
     if email and User.query.filter(User.email == email, User.id != id).first(): flash('That email is already in use.', 'error'); return redirect('/admin#users')
     if user.id == current.id and not user.is_active: flash('You cannot deactivate yourself.', 'error'); return redirect('/admin#users')
     if user.id == current.id and role != 'owner': flash('The current Owner cannot remove their own Owner role.', 'error'); return redirect('/admin#users')
+
     active_owners = User.query.filter_by(role='owner', is_active=True).count()
-    if user.role == 'owner' and role != 'owner' and active_owners <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
-    if user.role == 'owner' and role == 'owner' and not bool(request.form.get('is_active')) and active_owners <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
-    user.username = username; user.full_name = full_name; user.email = email; user.role = role; user.is_active = bool(request.form.get('is_active'))
+    if user.role == 'owner' and role != 'owner' and active_owners <= 1:
+        flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
+    if user.role == 'owner' and role == 'owner' and not bool(request.form.get('is_active')) and active_owners <= 1:
+        flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
+
+    if role == 'owner':
+        permissions = list(PERMISSION_KEYS)
+
+    user.username = username
+    user.full_name = full_name
+    user.email = email
+    user.role = role
+    user.permissions_json = json.dumps(permissions)
+    user.is_active = bool(request.form.get('is_active'))
     if user.role == 'owner': user.is_active = True
-    add_audit('updated', 'user', user.id, f'{username} ({role})'); db.session.commit()
+
+    add_audit('updated', 'user', user.id, f'{username} ({role}) permissions={", ".join(permissions) or "none"}')
+    db.session.commit()
     flash(f'User {username} updated.', 'success'); return redirect('/admin#users')
 
 
@@ -1032,7 +1494,6 @@ def delete_user(id):
     if user.role == 'owner' and User.query.filter_by(role='owner', is_active=True).count() <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
     username = user.username
     user.is_active = False
-    user.role = 'enquiries'
     add_audit('deactivated', 'user', id, username)
     db.session.commit()
     flash(f'User {username} deactivated.', 'success'); return redirect('/admin#users')

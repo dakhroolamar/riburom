@@ -1,4 +1,4 @@
-<footer data-reveal class="rb-footer bg-amber-900 text-white py-12 px-6">
+<footer data-reveal class="rb-footer text-white py-12 px-6">
     <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
         <div>
             {% if site_settings.header_wordmark %}
@@ -9,26 +9,26 @@
             <p class="text-amber-100">{{ site_settings.footer_tagline }}</p>
         </div>
         <div>
-            <h3 class="font-bold text-xl mb-4">Explore</h3>
+            <h3 class="font-bold text-xl mb-4">{{ public.content.footer_explore }}</h3>
             <ul class="text-amber-100 space-y-2">
-                <li><a class="hover:text-white" href="/">Home</a></li>
-                <li><a class="hover:text-white" href="/all_tours">Tours</a></li>
-                <li><a class="hover:text-white" href="/about">About Us</a></li>
-                <li><a class="hover:text-white" href="/#contact">Contact</a></li>
+                <li><a class="hover:text-white" href="/">{{ public.content.nav_home }}</a></li>
+                <li><a class="hover:text-white" href="/all_tours">{{ public.content.mobile_tours }}</a></li>
+                <li><a class="hover:text-white" href="/about">{{ public.content.nav_about }}</a></li>
+                <li><a class="hover:text-white" href="/#contact">{{ public.content.mobile_contact }}</a></li>
             </ul>
         </div>
         <div>
-            <h3 class="font-bold text-xl mb-4">Contact</h3>
+            <h3 class="font-bold text-xl mb-4">{{ public.content.footer_contact }}</h3>
             {% if site_settings.footer_phone %}<p class="text-amber-100">📞 {{ site_settings.footer_phone }}</p>{% endif %}
             {% if site_settings.footer_email %}<p class="text-amber-100 break-words">✉️ {{ site_settings.footer_email }}</p>{% endif %}
             {% if site_settings.footer_address %}<p class="text-amber-100 mt-2 whitespace-pre-line">📍 {{ site_settings.footer_address }}</p>{% endif %}
             {% if site_settings.instagram_url %}
-            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 bg-white text-amber-900 px-4 py-2 rounded font-bold hover:bg-amber-100">{{ site_settings.instagram_label or 'Follow us on Instagram' }}</a>
+            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 text-white px-4 py-2 font-bold">{{ site_settings.instagram_label or 'Follow us on Instagram' }}</a>
             {% endif %}
         </div>
         {% if site_settings.instagram_url and site_settings.instagram_show_qr and site_settings.instagram_qr %}
         <div class="bg-white/10 rounded-xl p-4 text-center">
-            <p class="font-bold mb-3">Scan to follow us on Instagram</p>
+            <p class="font-bold mb-3">{{ public.content.footer_qr }}</p>
             <img src="{{ site_settings.instagram_qr|imgsrc }}" alt="Instagram QR code" class="w-36 h-36 mx-auto bg-white p-2 rounded">
         </div>
         {% endif %}

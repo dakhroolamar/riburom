@@ -6,3 +6,5 @@ instance/
 *.db-journal
 riburom
 *.db
+
+static/uploads/

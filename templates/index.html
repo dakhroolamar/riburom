@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ri Burom Tours & Travels | Meghalaya Experiences</title>
-    <meta name="description" content="Ri Burom Tours & Travels creates Meghalaya-rooted journeys connecting travellers with landscapes, culture, traditions, stories, and communities.">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <title>{{ public.content.site_title }}</title>
+    <meta name="description" content="{{ public.content.meta_description }}">
     <meta property="og:title" content="Ri Burom Tours & Travels">
-    <meta property="og:description" content="Meghalaya-rooted travel experiences shaped by nature, culture, community, and hospitality.">
+    <meta property="og:description" content="{{ public.content.og_description }}">
     {% set og_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}{% if og_logo %}<meta property="og:image" content="{{ og_logo|imgsrc }}">{% endif %}
     <meta property="og:type" content="website">
     <link rel="manifest" href="/static/manifest.json">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-motion.css') }}">
+
+
+
     <meta name="theme-color" content="#166534">
     <script>
         if ('serviceWorker' in navigator) {
@@ -20,39 +21,56 @@
         }
     </script>
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+{% include '_public_theme.html' %}
 </head>
-<body class="rb-page-enter bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
     {% include '_flash.html' %}
 
-    <header class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center" {% if hero_image %}style="background-image: url('{{ hero_image|imgsrc }}');"{% endif %}>
-        <div class="absolute inset-0 bg-black bg-opacity-55"></div>
+    {#
+      Homepage section order/visibility is applied entirely server-side.
+      `main` is a real flex column (not `display:contents`) so the CSS
+      `order` property below actually takes effect, and each section is
+      wrapped in a real Jinja {% if %} so a hidden section is never present
+      in the HTML at all -- not in view-source, not to crawlers, not for a
+      split second before JS runs. There is no client-side reorder/hide
+      script; correctness does not depend on JavaScript executing.
+    #}
+    <main id="rbHomeSections" class="flex flex-col">
+    {% if public.home.visibility.hero %}
+    <header id="rb-home-hero" class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center" style="order:{{ home_order_index.hero }};{% if hero_image %} background-image: url('{{ hero_image|imgsrc }}');{% endif %}">
+        <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content">
-            {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
-            {% if hero_logo %}<img src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;" class="mb-8 drop-shadow-lg rb-hero-logo">{% endif %}
-            <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">Nature • Culture • Adventure • Community</p>
-            <h1 class="text-4xl md:text-6xl font-bold mb-5">Meghalaya, beyond the ordinary.</h1>
-            <p class="text-lg md:text-2xl max-w-3xl mb-8 text-gray-100">Meghalaya-rooted journeys that bring travellers closer to the landscapes, stories, traditions, and people that make the state what it is.</p>
+            {% if hero_logo %}
+            <img id="rbHeroLogo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;" class="mb-8 drop-shadow-lg rb-hero-logo">
+            {% endif %}
+            <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
+            <h1 class="text-4xl md:text-6xl font-bold mb-5">{{ public.content.hero_title }}</h1>
+            <p class="text-lg md:text-2xl max-w-3xl mb-8 text-gray-100">{{ public.content.hero_subtitle }}</p>
             <div class="flex flex-wrap justify-center gap-4">
-                <a href="#tours" class="bg-amber-800 hover:bg-amber-900 text-white font-bold py-3 px-8 rounded-full shadow-lg transition">Explore Experiences</a>
-                <a href="#contact" class="border-2 border-white hover:bg-white hover:text-green-900 text-white font-bold py-3 px-8 rounded-full transition">Plan Your Journey</a>
+                <a href="#tours" class="rb-button-accent text-white font-bold py-3 px-8 rounded-full shadow-lg transition">{{ public.content.hero_primary_button }}</a>
+                <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
     </header>
+    {% endif %}
 
-    <section data-reveal="scale" class="max-w-6xl mx-auto px-6 py-16 text-center">
-        <p class="text-green-800 font-bold uppercase tracking-wider mb-3">About RI BUROM</p>
-        <h2 class="text-3xl md:text-4xl font-bold text-amber-900 mb-5">Travel with a connection to place.</h2>
-        <p class="text-lg text-gray-700 max-w-4xl mx-auto leading-relaxed">We create thoughtfully designed experiences across Meghalaya that connect travellers with nature, culture, local communities, and the everyday stories behind the destination.</p>
+    {% if public.home.visibility.about %}
+    <section data-reveal="scale" style="order:{{ home_order_index.about }};" class="max-w-6xl mx-auto px-6 rb-section-space text-center">
+        <p class="text-green-800 font-bold uppercase tracking-wider mb-3">{{ public.content.home_about_eyebrow }}</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-amber-900 mb-5">{{ public.content.home_about_title }}</h2>
+        <p class="text-lg text-gray-700 max-w-4xl mx-auto leading-relaxed">{{ public.content.home_about_text }}</p>
     </section>
+    {% endif %}
 
-    <section id="tours" data-reveal class="max-w-7xl mx-auto px-6 py-16">
+    {% if public.home.visibility.tours %}
+    <section id="tours" data-reveal style="order:{{ home_order_index.tours }};" class="max-w-7xl mx-auto px-6 rb-section-space">
         <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
             <div>
-                <p class="text-green-800 font-bold uppercase tracking-wider mb-2">Explore</p>
-                <h2 class="text-4xl font-bold text-green-800">Signature Experiences</h2>
+                <p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ public.content.home_tours_eyebrow }}</p>
+                <h2 class="text-4xl font-bold text-green-800">{{ public.content.home_tours_title }}</h2>
             </div>
-            <a href="/all_tours" class="text-amber-900 font-bold hover:text-green-700">View all experiences →</a>
+            <a href="/all_tours" class="rb-custom-link font-bold hover:opacity-80">{{ public.content.home_tours_all }}</a>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
@@ -64,76 +82,88 @@
                 <div class="p-6 flex-grow">
                     <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
                         {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
-                        {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
+                        {% if pkg.duration %}<span>â€¢ {{ pkg.duration }}</span>{% endif %}
                     </div>
                     <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
                     <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
-                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
+                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">ðŸ“ {{ pkg.location }}</p>{% endif %}
                 </div>
                 <div class="p-6 pt-0">
-                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">View Experience</a>
+                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center text-white font-bold py-3 rounded transition">{{ public.content.home_tour_button }}</a>
                 </div>
             </article>
             {% else %}
-            <div class="md:col-span-3 text-center text-gray-500 text-xl italic py-10">New adventure experiences are being curated right now. Check back soon!</div>
+            <div class="md:col-span-3 text-center text-gray-500 text-xl italic py-10">{{ public.content.home_tours_empty }}</div>
             {% endfor %}
         </div>
     </section>
+    {% endif %}
 
-    <section data-reveal class="bg-green-900 text-white py-16">
+    {% if public.home.visibility.why %}
+    <section data-reveal style="order:{{ home_order_index.why }};" class="bg-green-900 text-white rb-section-space">
         <div class="max-w-7xl mx-auto px-6">
             <div class="max-w-3xl mb-10">
-                <p class="text-amber-300 font-bold uppercase tracking-wider mb-2">Why RI BUROM?</p>
-                <h2 class="text-3xl md:text-4xl font-bold mb-4">More than a package. A way to experience Meghalaya.</h2>
-                <p class="text-green-100 text-lg">Our approach is rooted in the place itself—its landscapes, living traditions, communities, and hospitality.</p>
+                <p class="text-amber-300 font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">{{ public.content.home_why_title }}</h2>
+                <p class="text-green-100 text-lg">{{ public.content.home_why_text }}</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 rb-stagger">
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">Experience Meghalaya</h3><p class="text-green-100">Go beyond checklists and explore the character of the destination.</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">Local Connection</h3><p class="text-green-100">Meet people, hear stories, and discover places through local perspectives.</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">Culture with Respect</h3><p class="text-green-100">Experience living culture as something to understand, not merely photograph.</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">Responsible Travel</h3><p class="text-green-100">Support local livelihoods while treating landscapes and communities with care.</p></div>
-            </div>
-        </div>
-    </section>
-
-    {% if settings.blog_enabled and settings.blog_show_home and settings.blog_url %}
-    <section data-reveal="right" class="bg-white py-16">
-        <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-            {% if settings.blog_image %}<div class="h-80 bg-gray-200 bg-cover bg-center rounded-xl shadow-lg" style="background-image:url('{{ settings.blog_image|imgsrc }}');"></div>{% endif %}
-            <div class="{% if not settings.blog_image %}md:col-span-2{% endif %}">
-                <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">Stories from the Journey</p>
-                <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
-                <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
-                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }} ↗</a>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p class="text-green-100">{{ public.content.why1_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p class="text-green-100">{{ public.content.why2_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p class="text-green-100">{{ public.content.why3_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p class="text-green-100">{{ public.content.why4_text }}</p></div>
             </div>
         </div>
     </section>
     {% endif %}
 
-    <section id="contact" data-reveal="scale" class="bg-gray-200 py-16">
+    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and settings.blog_url %}
+    <section data-reveal="right" style="order:{{ home_order_index.blog }};" class="bg-white rb-section-space">
+        <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+            {% if settings.blog_image %}<div class="h-80 bg-gray-200 bg-cover bg-center rounded-xl shadow-lg" style="background-image:url('{{ settings.blog_image|imgsrc }}');"></div>{% endif %}
+            <div class="{% if not settings.blog_image %}md:col-span-2{% endif %}">
+                <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">{{ public.content.blog_eyebrow }}</p>
+                <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
+                <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
+                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }} â†—</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if public.home.visibility.contact %}
+    <section id="contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
         <div class="max-w-4xl mx-auto px-6">
             <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-green-800">Plan Your Journey</h2>
-                <p class="text-gray-600 mt-2">Tell us what you are looking for and we will help you plan the next step.</p>
+                <h2 class="text-3xl font-bold text-green-800">{{ public.content.contact_title }}</h2>
+                <p class="text-gray-600 mt-2">{{ public.content.contact_text }}</p>
             </div>
             <form action="/send_message" method="POST" class="bg-white rounded-xl shadow-md p-8">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div><label class="block text-gray-700 font-bold mb-2">Your Name</label><input type="text" name="name" maxlength="120" class="w-full border border-gray-300 p-3 rounded" required></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">Email Address</label><input type="email" name="email" maxlength="254" class="w-full border border-gray-300 p-3 rounded" required></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">WhatsApp / Phone</label><input type="text" name="phone" maxlength="40" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">Number of Travellers</label><input type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">Preferred Travel Dates</label><input type="text" name="travel_dates" maxlength="120" placeholder="e.g. 12–15 October 2026" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">Tour / Experience</label><input type="text" name="tour_interest" maxlength="200" placeholder="What are you interested in?" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input type="text" name="name" maxlength="120" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_email }}</label><input type="email" name="email" maxlength="254" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_phone }}</label><input type="text" name="phone" maxlength="40" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_travellers }}</label><input type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_dates }}</label><input type="text" name="travel_dates" maxlength="120" placeholder="{{ public.content.form_dates_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_tour }}</label><input type="text" name="tour_interest" maxlength="200" placeholder="{{ public.content.form_tour_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
                 </div>
-                <div class="mt-5 mb-6"><label class="block text-gray-700 font-bold mb-2">Message</label><textarea name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
-                <button type="submit" class="rb-button w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">Send Enquiry</button>
+                <div class="mt-5 mb-6"><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_message }}</label><textarea name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
+                <button type="submit" class="rb-button w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">{{ public.content.form_submit }}</button>
             </form>
         </div>
     </section>
+    {% endif %}
 
-    <a href="{{ whatsapp_url('Hello RI BUROM, I would like to plan a trip to Meghalaya.') }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 bg-green-500 text-white px-5 py-3 rounded-full shadow-2xl hover:bg-green-600 transition z-50 font-bold">Chat on WhatsApp</a>
+    </main>
+
+{% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
+    <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>
+    {% endif %}
 
     {% include '_footer.html' %}
+    {% if hero_logo and settings.hero_logo and settings.header_mark %}<script>
+        (function(){ const img=document.getElementById('rbHeroLogo'); if(!img) return; img.addEventListener('error', function(){ this.onerror=null; this.src={{ settings.header_mark|imgsrc|tojson }}; }); })();
+    </script>{% endif %}
 </body>
 </html>

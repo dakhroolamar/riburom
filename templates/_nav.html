@@ -1,5 +1,5 @@
-<nav class="rb-site-nav sticky top-0 bg-white shadow-md z-50 px-4 md:px-6 py-3 border-b-4 border-amber-800">
-    <div class="max-w-7xl mx-auto flex justify-between items-center">
+<nav class="rb-site-nav sticky top-0 shadow-md z-50 px-4 md:px-6 py-3 border-b-4 border-amber-800">
+    <div class="max-w-7xl mx-auto rb-nav-grid rb-logo-{{ site_settings.header_logo_position or 'left' }}">
         <a href="/" aria-label="Ri Burom Tours & Travels" class="rb-brand flex items-center text-amber-900" data-reveal="left" style="gap: {{ site_settings.header_logo_gap }}px;">
             {% if site_settings.header_wordmark %}
                 <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom wordmark" style="width: {{ site_settings.header_wordmark_width }}px; max-height: 56px; object-fit: contain;">
@@ -8,20 +8,22 @@
                 <img src="{{ site_settings.header_mark|imgsrc }}" alt="Ri Burom logo mark" style="width: {{ site_settings.header_mark_width }}px; height: {{ site_settings.header_mark_width }}px; object-fit: contain;">
             {% endif %}
         </a>
-        <div class="hidden md:flex space-x-6 font-semibold text-amber-900">
-            <a href="/" class="hover:text-green-600">Home</a>
-            <a href="/all_tours" class="hover:text-green-600">Explore All Tours</a>
-            <a href="/about" class="hover:text-green-600">About Us</a>
-            <a href="/#contact" class="hover:text-green-600">Contact Us</a>
+        <div class="hidden md:flex space-x-6 font-semibold text-amber-900 rb-nav-links">
+            <a href="/" class="rb-custom-link hover:opacity-80">{{ public.content.nav_home }}</a>
+            <a href="/all_tours" class="rb-custom-link hover:opacity-80">{{ public.content.nav_tours }}</a>
+            <a href="/about" class="rb-custom-link hover:opacity-80">{{ public.content.nav_about }}</a>
+            <a href="/#contact" class="rb-custom-link hover:opacity-80">{{ public.content.nav_contact }}</a>
+{% if public.theme.show_login_button %}<a href="/admin/login" class="inline-flex items-center justify-center rb-button text-white px-4 py-2 font-bold transition shadow-sm" aria-label="Login to RI BUROM Control Room">{{ public.content.nav_login }}</a>{% endif %}
         </div>
-        <button id="mobile-menu-button" type="button" class="md:hidden border border-amber-800 text-amber-900 px-3 py-2 rounded font-bold" aria-expanded="false" aria-controls="mobile-menu">Menu</button>
+        <button id="mobile-menu-button" type="button" class="md:hidden border border-amber-800 text-amber-900 px-3 py-2 rounded font-bold" aria-expanded="false" aria-controls="mobile-menu">{{ public.content.mobile_menu }}</button>
     </div>
     <div id="mobile-menu" class="hidden md:hidden max-w-7xl mx-auto pt-4 border-t mt-4">
         <div class="grid gap-3 font-semibold text-amber-900">
-            <a href="/" class="hover:text-green-600">Home</a>
-            <a href="/all_tours" class="hover:text-green-600">Tours</a>
-            <a href="/about" class="hover:text-green-600">About</a>
-            <a href="/#contact" class="hover:text-green-600">Contact</a>
+            <a href="/" class="rb-custom-link hover:opacity-80">{{ public.content.nav_home }}</a>
+            <a href="/all_tours" class="rb-custom-link hover:opacity-80">{{ public.content.mobile_tours }}</a>
+            <a href="/about" class="rb-custom-link hover:opacity-80">{{ public.content.mobile_about }}</a>
+            <a href="/#contact" class="rb-custom-link hover:opacity-80">{{ public.content.mobile_contact }}</a>
+{% if public.theme.show_login_button %}<a href="/admin/login" class="inline-flex items-center justify-center rb-button text-white px-4 py-2 font-bold transition shadow-sm" aria-label="Login to RI BUROM Control Room">{{ public.content.nav_login }}</a>{% endif %}
         </div>
     </div>
 </nav>

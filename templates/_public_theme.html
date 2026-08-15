@@ -1,0 +1,55 @@
+<style>
+    :root {
+        --rb-body-font: {{ body_font_css }};
+        --rb-heading-font: {{ heading_font_css }};
+        --rb-body-size: {{ site_settings.base_font_size or 16 }}px;
+        --rb-heading-scale: {{ (site_settings.heading_scale or 100) / 100 }};
+        --rb-body-color: {{ site_settings.body_text_color or '#1f2937' }};
+        --rb-heading-color: {{ site_settings.heading_text_color or '#14532d' }};
+        --rb-link-color: {{ public.theme.link_color or site_settings.link_text_color or '#166534' }};
+        --rb-primary: {{ public.theme.primary_color or '#166534' }};
+        --rb-secondary: {{ public.theme.secondary_color or '#92400e' }};
+        --rb-accent: {{ public.theme.accent_color or '#d97706' }};
+        --rb-header-bg: {{ public.theme.header_bg_color or '#ffffff' }};
+        --rb-footer-bg: {{ public.theme.footer_bg_color or '#78350f' }};
+        --rb-radius: {{ public.theme.button_radius or 10 }}px;
+        --rb-section-space: {{ public.theme.section_spacing or 64 }}px;
+        --rb-hero-overlay: {{ (public.theme.hero_overlay_opacity or 55) / 100 }};
+    }
+    html { font-size: var(--rb-body-size); scroll-behavior:smooth; }
+    body.rb-public-site { font-family: var(--rb-body-font) !important; color: var(--rb-body-color) !important; }
+    body.rb-public-site h1, body.rb-public-site h2, body.rb-public-site h3, body.rb-public-site h4, body.rb-public-site h5, body.rb-public-site h6 {
+        font-family: var(--rb-heading-font) !important; color: var(--rb-heading-color);
+    }
+    body.rb-public-site .rb-custom-link { color: var(--rb-link-color) !important; }
+    body.rb-public-site .rb-button { background: var(--rb-primary) !important; border-radius: var(--rb-radius) !important; }
+    body.rb-public-site .rb-button:hover { filter: brightness(.92); }
+    body.rb-public-site .rb-button-outline { color: var(--rb-primary) !important; border-color: var(--rb-primary) !important; border-radius: var(--rb-radius) !important; }
+    body.rb-public-site .rb-button-accent { background: var(--rb-accent) !important; border-radius: var(--rb-radius) !important; }
+    .rb-site-nav { background: var(--rb-header-bg) !important; }
+    .rb-footer { background: var(--rb-footer-bg) !important; }
+    body.rb-public-site .bg-green-700, body.rb-public-site .bg-green-800 { background-color: var(--rb-primary) !important; }
+    body.rb-public-site .bg-amber-800, body.rb-public-site .bg-amber-900 { background-color: var(--rb-secondary) !important; }
+    body.rb-public-site .text-green-700, body.rb-public-site .text-green-800, body.rb-public-site .text-green-900 { color: var(--rb-primary) !important; }
+    body.rb-public-site .text-amber-800, body.rb-public-site .text-amber-900 { color: var(--rb-secondary) !important; }
+    body.rb-public-site .border-amber-800, body.rb-public-site .border-amber-900 { border-color: var(--rb-secondary) !important; }
+    body.rb-public-site .border-green-700, body.rb-public-site .border-green-800 { border-color: var(--rb-primary) !important; }
+    .rb-nav-grid { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; }
+    .rb-nav-grid .rb-brand { grid-column:1; justify-self:start; }
+    .rb-nav-grid.rb-logo-center .rb-brand { grid-column:2; justify-self:center; }
+    .rb-nav-grid.rb-logo-right .rb-brand { grid-column:3; justify-self:end; }
+    .rb-nav-grid .rb-nav-links { grid-column:3; justify-self:end; }
+    .rb-nav-grid.rb-logo-right .rb-nav-links { grid-column:1; justify-self:start; }
+    .rb-nav-grid.rb-logo-center .rb-nav-links { grid-column:3; justify-self:end; }
+    @media (max-width: 767px) {
+        .rb-nav-grid { display:flex; justify-content:space-between; }
+        .rb-nav-grid.rb-logo-center { justify-content:center; }
+        .rb-nav-grid.rb-logo-right { justify-content:flex-end; }
+        .rb-nav-grid .rb-brand { order:1; }
+        .rb-nav-grid #mobile-menu-button { order:2; }
+    }
+    .rb-hero-logo { display:block !important; visibility:visible !important; opacity:1 !important; }
+    .rb-section-space { padding-top:var(--rb-section-space); padding-bottom:var(--rb-section-space); }
+</style>
+{% for family in google_font_families %}<link rel="preconnect" href="https://fonts.googleapis.com">{% endfor %}
+{% if google_font_families %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?{% for family in google_font_families %}family={{ family|urlencode }}{% if not loop.last %}&{% endif %}{% endfor %}&display=swap" rel="stylesheet">{% endif %}

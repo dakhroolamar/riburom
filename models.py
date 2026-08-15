@@ -1,5 +1,6 @@
 """SQLAlchemy models for Ri Burom Tours & Travels."""
 from datetime import datetime
+import json
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -20,7 +21,7 @@ ROLE_PERMISSIONS = {
     'owner': {
         'view_dashboard', 'manage_users', 'manage_tours', 'manage_media',
         'manage_about', 'manage_team', 'view_messages', 'manage_messages',
-        'view_audit_log', 'manage_structure',
+        'view_audit_log', 'manage_structure', 'view_customer_analytics',
     },
     'content_manager': {
         'view_dashboard', 'manage_tours', 'manage_media', 'manage_about',
@@ -46,6 +47,9 @@ class User(db.Model):
     email = db.Column(db.String(254), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(300), nullable=False)
     role = db.Column(db.String(40), nullable=False, default='enquiries')
+    # Per-user permission overrides. NULL means use the legacy role defaults;
+    # an explicit JSON list (including []) means use exactly those permissions.
+    permissions_json = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -55,8 +59,27 @@ class User(db.Model):
     def role_label(self):
         return ROLE_LABELS.get(self.role, self.role.replace('_', ' ').title())
 
+    @property
+    def permissions(self):
+        # Owner remains full-access regardless of the custom checkbox list.
+        if self.role == 'owner':
+            return set().union(*ROLE_PERMISSIONS.values())
+
+        # Existing accounts created before custom permissions were introduced
+        # continue to use their established role defaults.
+        if self.permissions_json is None:
+            return set(ROLE_PERMISSIONS.get(self.role, set()))
+
+        try:
+            values = json.loads(self.permissions_json)
+            if isinstance(values, list):
+                return {str(value) for value in values if isinstance(value, str)}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        return set()
+
     def has_permission(self, permission):
-        return permission in ROLE_PERMISSIONS.get(self.role, set())
+        return permission in self.permissions
 
 
 class AuditLog(db.Model):
@@ -121,7 +144,17 @@ class SiteSettings(db.Model):
     header_wordmark_width = db.Column(db.Integer, default=125, nullable=False)
     header_mark_width = db.Column(db.Integer, default=48, nullable=False)
     header_logo_gap = db.Column(db.Integer, default=8, nullable=False)
+    header_logo_position = db.Column(db.String(10), default='left', nullable=False)
     hero_logo_width = db.Column(db.Integer, default=300, nullable=False)
+
+    # Global public-site typography controls. Admin UI remains fixed for usability.
+    body_font = db.Column(db.String(40), default='inter', nullable=False)
+    heading_font = db.Column(db.String(40), default='poppins', nullable=False)
+    base_font_size = db.Column(db.Integer, default=16, nullable=False)
+    heading_scale = db.Column(db.Integer, default=100, nullable=False)
+    body_text_color = db.Column(db.String(20), default='#1f2937', nullable=False)
+    heading_text_color = db.Column(db.String(20), default='#14532d', nullable=False)
+    link_text_color = db.Column(db.String(20), default='#166534', nullable=False)
 
     # About: three core pillars
     nature_title = db.Column(db.String(200), default='Nature')
@@ -167,6 +200,7 @@ class SiteSettings(db.Model):
     instagram_label = db.Column(db.String(120), default='Follow us on Instagram')
     instagram_qr = db.Column(db.String(500))
     instagram_show_qr = db.Column(db.Boolean, default=True, nullable=False)
+    public_config_json = db.Column(db.Text, default='')
 
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -198,14 +232,14 @@ class Message(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(254), nullable=False)
+    email = db.Column(db.String(254), nullable=False, index=True)
     phone = db.Column(db.String(40))
     travel_dates = db.Column(db.String(120))
     travellers = db.Column(db.Integer)
     tour_interest = db.Column(db.String(200))
     message = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    is_read = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
 
 def seed_defaults():
