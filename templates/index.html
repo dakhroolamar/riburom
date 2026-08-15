@@ -11,7 +11,6 @@
     {% set og_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}{% if og_logo %}<meta property="og:image" content="{{ og_logo|imgsrc }}">{% endif %}
     <meta property="og:type" content="website">
     <link rel="manifest" href="/static/manifest.json">
-
     <meta name="theme-color" content="#166534">
     <script>
         if ('serviceWorker' in navigator) {
@@ -24,7 +23,6 @@
 <body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
     {% include '_flash.html' %}
-
     <main id="rbHomeSections" class="flex flex-col">
     {% if public.home.visibility.hero %}
     <header id="rb-home-hero" class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center" style="order:{{ home_order_index.hero }};{% if hero_image %} background-image: url('{{ hero_image|imgsrc }}');{% endif %}">
@@ -61,7 +59,6 @@
             </div>
             <a href="/all_tours" class="rb-custom-link font-bold hover:opacity-80">{{ public.content.home_tours_all }}</a>
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
             {% for pkg in packages %}
             <article data-reveal class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 flex flex-col">
@@ -121,7 +118,8 @@
     {% endif %}
 
     {% if public.home.visibility.contact %}
-    <section id="rb-home-contact" id="contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
+    <section id="rb-home-contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
+        <div id="contact" style="position:relative;top:-2px"></div>
         <div class="max-w-4xl mx-auto px-6">
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-bold text-green-800">{{ public.content.contact_title }}</h2>
@@ -143,7 +141,6 @@
         </div>
     </section>
     {% endif %}
-
     </main>
 
 {% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
