@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py wsgi.py
+        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py wsgi.py
       - name: Import WSGI app and inspect routes
         run: |
           python - <<'PY'
@@ -33,6 +33,9 @@ jobs:
               '/workspace/cms',
               '/workspace/cms/media',
               '/workspace/cms/structure',
+              '/workspace/cms/backgrounds',
+              '/workspace/cms/backgrounds/save',
+              '/api/public-section-backgrounds',
               '/workspace/cms/save-content',
               '/workspace/cms/save-sections',
               '/workspace/cms/save-home-structure',
