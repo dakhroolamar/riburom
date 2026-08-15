@@ -7,6 +7,7 @@ os.environ.setdefault('SECRET_KEY', 'seo-test-secret')
 os.environ.setdefault('ADMIN_PASSWORD', 'seo-test-password')
 os.environ.setdefault('DATABASE_URL', 'sqlite:///seo_test.db')
 
+import wsgi
 from app import app, db
 from models import Package
 
