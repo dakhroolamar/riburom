@@ -90,15 +90,26 @@ def _access_required(*permissions):
             user = get_current_user()
             if user is None:
                 return redirect(url_for('admin_login', next=request.path))
-            if user.role != 'owner' and not any(user.has_permission(p) for p in permissions):
+            if user.role != 'owner' and permissions and not any(user.has_permission(p) for p in permissions):
+                abort(403)
+            if user.role != 'owner' and not permissions:
                 abort(403)
             return fn(*args, **kwargs)
         return wrapped
     return decorator
 
 
+def authenticated_required(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        if get_current_user() is None:
+            return redirect(url_for('admin_login', next=request.path))
+        return fn(*args, **kwargs)
+    return wrapped
+
+
 owner_required = _access_required()
-login_required = _access_required('view_dashboard')
+login_required = authenticated_required
 cms_content_required = _access_required('manage_about')
 cms_media_required = _access_required('manage_media')
 cms_structure_required = _access_required('manage_structure')
