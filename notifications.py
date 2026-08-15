@@ -5,21 +5,22 @@ public confirmation flow does not depend on SMTP or a messaging provider.
 Configure these Render environment variables to enable notifications:
 
 Email:
-  NOTIFICATION_EMAIL      recipient
+  NOTIFICATION_EMAIL      optional recipient override
   SMTP_HOST, SMTP_PORT
   SMTP_USERNAME, SMTP_PASSWORD
   SMTP_FROM               optional sender; defaults to SMTP_USERNAME
   SMTP_USE_TLS             optional, defaults to true for port 587
 
 Twilio SMS / WhatsApp:
-  NOTIFICATION_PHONE
+  NOTIFICATION_PHONE       optional recipient override
   TWILIO_ACCOUNT_SID
   TWILIO_AUTH_TOKEN
   TWILIO_FROM_NUMBER       for SMS
   TWILIO_WHATSAPP_FROM     for WhatsApp, e.g. whatsapp:+14155238886
 
-NOTIFICATION_PHONE falls back to WHATSAPP_PHONE when present so an existing
-configured number can be reused deliberately.
+When overrides are absent, the wrapper uses the business email/phone already
+stored in SiteSettings (footer_email/footer_phone), then INITIAL_OWNER_EMAIL
+or WHATSAPP_PHONE as final fallbacks.
 """
 
 import base64
@@ -33,16 +34,15 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-def _recipient_email():
-    return (os.environ.get('NOTIFICATION_EMAIL') or os.environ.get('INITIAL_OWNER_EMAIL') or '').strip()
+def _recipient_email(fallback=''):
+    return (os.environ.get('NOTIFICATION_EMAIL') or fallback or os.environ.get('INITIAL_OWNER_EMAIL') or '').strip()
 
 
-def _recipient_phone():
-    return (os.environ.get('NOTIFICATION_PHONE') or os.environ.get('WHATSAPP_PHONE') or '').strip()
+def _recipient_phone(fallback=''):
+    return (os.environ.get('NOTIFICATION_PHONE') or fallback or os.environ.get('WHATSAPP_PHONE') or '').strip()
 
 
-def _smtp_send(subject, body):
-    recipient = _recipient_email()
+def _smtp_send(subject, body, recipient):
     host = (os.environ.get('SMTP_HOST') or '').strip()
     if not recipient or not host:
         return False
@@ -94,8 +94,8 @@ def _twilio_send(from_number, body, to_number):
         return 200 <= response.status < 300
 
 
-def _send_messaging(body):
-    phone = _recipient_phone()
+def _send_messaging(body, recipient_phone):
+    phone = _recipient_phone(recipient_phone)
     if not phone:
         return False
 
@@ -130,20 +130,18 @@ def _dispatch(data):
     outcomes = []
 
     try:
-        if _smtp_send(subject, body):
+        recipient_email = _recipient_email(data.get('notification_email', ''))
+        if _smtp_send(subject, body, recipient_email):
             outcomes.append('email')
     except Exception as exc:
         outcomes.append(f'email-error:{exc}')
 
     try:
-        if _send_messaging(body):
+        if _send_messaging(body, data.get('notification_phone', '')):
             outcomes.append('messaging')
     except Exception as exc:
         outcomes.append(f'messaging-error:{exc}')
 
-    # Avoid importing Flask/app here. The worker is intentionally independent
-    # of the request lifecycle so notification failure can never break a public
-    # enquiry submission.
     print(f"[RI BUROM notifications] {json.dumps(outcomes, ensure_ascii=False)}")
 
 
@@ -159,6 +157,7 @@ def register_notifications(flask_app):
     flask_app._ri_burom_notifications_registered = True
 
     from models import Message
+    from app import get_site_settings
 
     original = flask_app.view_functions.get('send_message')
     if original is None:
@@ -170,6 +169,7 @@ def register_notifications(flask_app):
         after_count = Message.query.count()
         if after_count > before_count:
             message = Message.query.order_by(Message.id.desc()).first()
+            settings = get_site_settings()
             if message is not None:
                 notify_new_enquiry({
                     'name': message.name,
@@ -179,6 +179,8 @@ def register_notifications(flask_app):
                     'travellers': message.travellers,
                     'tour_interest': message.tour_interest,
                     'message': message.message,
+                    'notification_email': settings.footer_email,
+                    'notification_phone': settings.footer_phone,
                 })
         return response
 
