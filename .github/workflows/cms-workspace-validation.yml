@@ -12,7 +12,7 @@ jobs:
     env:
       APP_ENV: development
       SECRET_KEY: ci-only-secret
-      ADMIN_PASSWORD_HASH: scrypt:32768:8:1$ci$ci
+      ADMIN_PASSWORD: ci-only-password
       DATABASE_URL: sqlite:///ci.db
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
           python - <<'PY'
           import wsgi
           rules = {rule.rule for rule in wsgi.app.url_map.iter_rules()}
-          required = {'/workspace', '/workspace/cms', '/workspace/administration', '/workspace/developer'}
+          required = {'/workspace', '/workspace/cms', '/workspace/cms/media', '/workspace/cms/structure', '/workspace/administration', '/workspace/developer'}
           missing = required - rules
           if missing:
               raise SystemExit(f'Missing workspace routes: {sorted(missing)}')
