@@ -813,8 +813,9 @@ def admin():
     messages = Message.query.order_by(Message.id.desc()).all() if user.has_permission('view_messages') else []
     unread_count = Message.query.filter_by(is_read=False).count() if user.has_permission('view_messages') else 0
     users = User.query.order_by(User.username.asc()).all() if user.role == 'owner' else []
+    user_count = User.query.count() if user.role == 'owner' else 0
     audits = AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all() if user.has_permission('view_audit_log') else []
-    return render_template('admin.html', packages=packages, about=about_row, team=team, about_sections=about_sections, settings=settings, messages=messages, unread_count=unread_count, users=users, audits=audits, storage_backend=STORAGE_BACKEND, permission_labels=PERMISSION_LABELS, permission_keys=PERMISSION_KEYS)
+    return render_template('admin.html', user_count=user_count, packages=packages, about=about_row, team=team, about_sections=about_sections, settings=settings, messages=messages, unread_count=unread_count, users=users, audits=audits, storage_backend=STORAGE_BACKEND, permission_labels=PERMISSION_LABELS, permission_keys=PERMISSION_KEYS)
 
 
 @app.route('/add_package', methods=['POST'])

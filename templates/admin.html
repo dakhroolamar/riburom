@@ -327,13 +327,14 @@
             Create users with an <strong>open-ended role name</strong>. The Owner decides exactly what each non-Owner account can access using the permission checkboxes.
             The <strong>Owner</strong> role is reserved and always has full access. User Management itself remains Owner-only. At least one active Owner must always remain.
         </div>
-
-        <!-- Create user -->
+        <div class="mb-4 p-3 rounded bg-blue-50 border border-blue-200">
+            <strong>Database user count:</strong> {{ user_count }}
+        </div>`r`n        <!-- Create user -->
         <form action="{{ url_for('create_user') }}" method="POST" class="border rounded-xl p-5 bg-gray-50 mb-8 permission-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Create User</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label class="font-bold">Username</label><input name="username" required pattern="[a-z0-9_.-]{3,80}" placeholder="e.g. content01" class="w-full border p-2 rounded"></div>
+                <div><label class="font-bold">Username</label><input name="username" required pattern="[A-Za-z0-9_.-]{3,80}" placeholder="e.g. content01" class="w-full border p-2 rounded"></div>
                 <div><label class="font-bold">Full Name</label><input name="full_name" required maxlength="160" class="w-full border p-2 rounded"></div>
                 <div><label class="font-bold">Email</label><input type="email" name="email" maxlength="254" class="w-full border p-2 rounded"></div>
                 <div>
@@ -369,7 +370,7 @@
             <form action="{{ url_for('update_user', id=user.id) }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div><label class="text-xs font-bold">Username</label><input name="username" value="{{ user.username }}" required pattern="[a-z0-9_.-]{3,80}" class="w-full border p-2 rounded"></div>
+                    <div><label class="text-xs font-bold">Username</label><input name="username" value="{{ user.username }}" required pattern="[A-Za-z0-9_.-]{3,80}" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs font-bold">Name</label><input name="full_name" value="{{ user.full_name }}" required maxlength="160" class="w-full border p-2 rounded"></div>
                     <div><label class="text-xs font-bold">Email</label><input type="email" name="email" value="{{ user.email or '' }}" class="w-full border p-2 rounded"></div>
                     <div>
