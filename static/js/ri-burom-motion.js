@@ -43,7 +43,7 @@
     home_why: '#rb-home-why',
     home_blog: '#rb-home-blog',
     home_contact: '#rb-home-contact',
-    about_header: '#rb-about-header',
+    about_header: 'body > header:not(.rb-site-nav)',
     about_belief: '#about-belief',
     about_pillars: '#about-pillars',
     about_extra1: '#about-extra1',
