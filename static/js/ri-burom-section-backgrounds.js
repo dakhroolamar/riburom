@@ -20,19 +20,21 @@
         };
 
         Object.keys(sectionMap).forEach(function (key) {
-            var selector = sectionMap[key];
-            var el = document.querySelector(selector);
-            var image = root.style.getPropertyValue('--rb-' + key.replace(/_/g, '-') + '-bg-image').trim();
+            var el = document.querySelector(sectionMap[key]);
+            var prefix = '--rb-' + key.replace(/_/g, '-') + '-';
+            var image = root.style.getPropertyValue(prefix + 'bg-image').trim();
             if (!el || !image || image === 'none' || image === '""') return;
-            var overlayColor = root.style.getPropertyValue('--rb-' + key.replace(/_/g, '-') + '-overlay-color').trim() || '#000000';
-            var overlayOpacity = root.style.getPropertyValue('--rb-' + key.replace(/_/g, '-') + '-overlay-opacity').trim() || '0';
-            var rgb = overlayColor.match(/^#([0-9a-f]{6})$/i);
-            var color = overlayColor;
-            if (rgb) {
-                var hex = rgb[1];
-                color = 'rgb(' + parseInt(hex.slice(0,2),16) + ',' + parseInt(hex.slice(2,4),16) + ',' + parseInt(hex.slice(4,6),16) + ')';
+
+            var overlayColor = root.style.getPropertyValue(prefix + 'overlay-color').trim() || '#000000';
+            var overlayOpacity = root.style.getPropertyValue(prefix + 'overlay-opacity').trim() || '0';
+            var rgba = overlayColor;
+            var match = overlayColor.match(/^#([0-9a-f]{6})$/i);
+            if (match) {
+                var hex = match[1];
+                rgba = 'rgba(' + parseInt(hex.slice(0, 2), 16) + ',' + parseInt(hex.slice(2, 4), 16) + ',' + parseInt(hex.slice(4, 6), 16) + ',' + overlayOpacity + ')';
             }
-            el.style.backgroundImage = 'linear-gradient(' + color.replace(')', ',' + overlayOpacity + ')') + ',' + image + ')';
+
+            el.style.backgroundImage = 'linear-gradient(' + rgba + ',' + rgba + '),' + image;
             el.style.backgroundSize = 'cover';
             el.style.backgroundPosition = 'center';
         });
