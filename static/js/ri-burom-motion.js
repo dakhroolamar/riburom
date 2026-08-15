@@ -35,6 +35,125 @@
     window.addEventListener('scroll', syncNav, { passive: true });
   }
 
+  // Keep the floating WhatsApp CTA fully visible on narrow screens.
+  const whatsappCta = document.querySelector('.rb-floating-cta');
+  if (whatsappCta) {
+    Object.assign(whatsappCta.style, {
+      right: '18px',
+      left: 'auto',
+      bottom: '18px',
+      maxWidth: 'calc(100vw - 36px)',
+      whiteSpace: 'normal',
+      textAlign: 'center',
+      boxSizing: 'border-box',
+      zIndex: '1000'
+    });
+  }
+
+  // Public enquiry confirmation: submit asynchronously so the visitor stays
+  // in the same contact area, then show a prominent confirmation modal only
+  // when the server's success message is present in the returned page.
+  const enquiryForm = document.querySelector('form[action="/send_message"]');
+  if (enquiryForm) {
+    enquiryForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submitButton = enquiryForm.querySelector('button[type="submit"]');
+      const originalLabel = submitButton ? submitButton.textContent : '';
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Sending…';
+      }
+
+      try {
+        const response = await fetch(enquiryForm.action, {
+          method: 'POST',
+          body: new FormData(enquiryForm),
+          credentials: 'same-origin',
+          redirect: 'follow'
+        });
+        const html = await response.text();
+        const success = response.ok && html.includes("Your message has been sent");
+
+        if (success) {
+          enquiryForm.reset();
+          showEnquiryConfirmation();
+        } else {
+          // Let the server-rendered flash/error message remain authoritative.
+          window.location.href = '/#contact';
+        }
+      } catch (_) {
+        // Fall back to the ordinary form submission if JS/fetch is unavailable.
+        enquiryForm.submit();
+        return;
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalLabel;
+        }
+      }
+    });
+  }
+
+  function showEnquiryConfirmation() {
+    if (document.getElementById('rb-enquiry-confirmation')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'rb-enquiry-confirmation';
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', background: 'rgba(15,23,42,.70)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '20px', zIndex: '2000'
+    });
+
+    const card = document.createElement('div');
+    Object.assign(card.style, {
+      width: 'min(560px, 100%)', background: '#fff', borderRadius: '20px',
+      padding: '30px', boxShadow: '0 25px 70px rgba(0,0,0,.28)',
+      textAlign: 'center', color: '#1f2937'
+    });
+
+    const icon = document.createElement('div');
+    icon.textContent = '✓';
+    Object.assign(icon.style, {
+      width: '62px', height: '62px', borderRadius: '50%', background: '#166534',
+      color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: '34px', fontWeight: '800', margin: '0 auto 18px'
+    });
+
+    const title = document.createElement('h2');
+    title.textContent = 'Your enquiry has been received';
+    Object.assign(title.style, { margin: '0 0 12px', fontSize: '28px', fontWeight: '800', color: '#14532d' });
+
+    const text = document.createElement('p');
+    text.textContent = 'Thank you for contacting RI BUROM. Your message has been recorded successfully. Our representative will review your enquiry and get back to you by phone, WhatsApp, or email.';
+    Object.assign(text.style, { margin: '0 auto 22px', lineHeight: '1.65', fontSize: '17px', maxWidth: '480px' });
+
+    const note = document.createElement('p');
+    note.textContent = 'You can safely close this message and continue exploring Meghalaya.';
+    Object.assign(note.style, { margin: '0 0 22px', color: '#6b7280', fontSize: '14px' });
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Continue browsing';
+    Object.assign(close.style, {
+      border: '0', borderRadius: '999px', padding: '12px 22px', background: '#166534',
+      color: '#fff', fontWeight: '800', cursor: 'pointer', fontSize: '15px'
+    });
+    close.addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (event) => { if (event.target === overlay) overlay.remove(); });
+    document.addEventListener('keydown', function escHandler(event) {
+      if (event.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    });
+
+    card.append(icon, title, text, note, close);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    close.focus();
+  }
+
   // Apply CMS-managed section background images after the public theme loads.
   const sectionMap = {
     hero: '#rb-home-hero',
