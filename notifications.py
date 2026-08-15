@@ -2,7 +2,6 @@
 
 Notifications are deliberately optional: the enquiry is stored first and the
 public confirmation flow does not depend on SMTP or a messaging provider.
-Configure these Render environment variables to enable notifications:
 
 Email:
   NOTIFICATION_EMAIL      optional recipient override
@@ -17,10 +16,11 @@ Twilio SMS / WhatsApp:
   TWILIO_AUTH_TOKEN
   TWILIO_FROM_NUMBER       for SMS
   TWILIO_WHATSAPP_FROM     for WhatsApp, e.g. whatsapp:+14155238886
+  TWILIO_WHATSAPP_CONTENT_SID
+                           approved WhatsApp Content Template SID (HX...)
 
-When overrides are absent, the wrapper uses the business email/phone already
-stored in SiteSettings (footer_email/footer_phone), then INITIAL_OWNER_EMAIL
-or WHATSAPP_PHONE as final fallbacks.
+WhatsApp production messages use an approved template. A raw Body is retained
+only as a development/Sandbox fallback when no Content SID is configured.
 """
 
 import base64
@@ -76,33 +76,63 @@ def _smtp_send(subject, body, recipient):
     return True
 
 
-def _twilio_send(from_number, body, to_number):
+def _twilio_send(from_number, body, to_number, *, content_sid='', content_variables=None):
     sid = (os.environ.get('TWILIO_ACCOUNT_SID') or '').strip()
     token = os.environ.get('TWILIO_AUTH_TOKEN') or ''
     if not sid or not token or not from_number or not to_number:
         return False
 
-    encoded = urlencode({'From': from_number, 'To': to_number, 'Body': body}).encode('utf-8')
+    payload = {
+        'From': from_number,
+        'To': to_number,
+    }
+    if content_sid:
+        payload['ContentSid'] = content_sid
+        payload['ContentVariables'] = json.dumps(content_variables or {}, ensure_ascii=False)
+    else:
+        payload['Body'] = body
+
+    encoded = urlencode(payload).encode('utf-8')
     auth = base64.b64encode(f'{sid}:{token}'.encode('utf-8')).decode('ascii')
-    request = Request(
+    req = Request(
         f'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json',
         data=encoded,
         headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/x-www-form-urlencoded'},
         method='POST',
     )
-    with urlopen(request, timeout=10) as response:
+    with urlopen(req, timeout=10) as response:
         return 200 <= response.status < 300
 
 
-def _send_messaging(body, recipient_phone):
+def _send_messaging(body, recipient_phone, data):
     phone = _recipient_phone(recipient_phone)
     if not phone:
         return False
 
     whatsapp_from = (os.environ.get('TWILIO_WHATSAPP_FROM') or '').strip()
     if whatsapp_from:
+        content_sid = (os.environ.get('TWILIO_WHATSAPP_CONTENT_SID') or '').strip()
         target = phone if phone.startswith('whatsapp:') else f'whatsapp:{phone}'
-        return _twilio_send(whatsapp_from, body, target)
+
+        if not content_sid:
+            print('[RI BUROM notifications] WhatsApp sender configured but TWILIO_WHATSAPP_CONTENT_SID is missing; skipping WhatsApp notification.')
+            return False
+
+        variables = {
+            '1': str(data.get('name') or 'Visitor'),
+            '2': str(data.get('tour_interest') or 'General enquiry'),
+            '3': str(data.get('travel_dates') or 'Not provided'),
+            '4': str(data.get('travellers') or 'Not provided'),
+            '5': str(data.get('phone') or 'Not provided'),
+            '6': str(data.get('message') or 'No message provided'),
+        }
+        return _twilio_send(
+            whatsapp_from,
+            body,
+            target,
+            content_sid=content_sid,
+            content_variables=variables,
+        )
 
     sms_from = (os.environ.get('TWILIO_FROM_NUMBER') or '').strip()
     if sms_from:
@@ -137,7 +167,7 @@ def _dispatch(data):
         outcomes.append(f'email-error:{exc}')
 
     try:
-        if _send_messaging(body, data.get('notification_phone', '')):
+        if _send_messaging(body, data.get('notification_phone', ''), data):
             outcomes.append('messaging')
     except Exception as exc:
         outcomes.append(f'messaging-error:{exc}')

@@ -2,7 +2,7 @@ name: RI BUROM CMS Workspace Validation
 
 on:
   push:
-    branches: [feature/cms-workspace, fix/inquiry-notifications-ux]
+    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/whatsapp-enquiry-notifications]
   pull_request:
     branches: [main]
 
@@ -26,7 +26,9 @@ jobs:
       - name: Import WSGI app and inspect routes
         run: |
           python - <<'PY'
+          import os
           import wsgi
+          import notifications
           rules = {rule.rule for rule in wsgi.app.url_map.iter_rules()}
           required = {
               '/workspace',
@@ -48,7 +50,48 @@ jobs:
               raise SystemExit(f'Missing workspace routes: {sorted(missing)}')
           if wsgi.app.view_functions.get('send_message', lambda: None).__name__ != 'send_message':
               raise SystemExit('Public enquiry view wrapper is not preserving send_message naming')
+
+          # Verify production WhatsApp configuration is template-first. A raw
+          # Body is not acceptable as the production WhatsApp path because
+          # business-initiated messages outside the customer-service window
+          # require an approved WhatsApp template.
+          os.environ['TWILIO_WHATSAPP_FROM'] = 'whatsapp:+14155550123'
+          os.environ['TWILIO_WHATSAPP_CONTENT_SID'] = 'HXci-only-template'
+          os.environ['TWILIO_ACCOUNT_SID'] = 'ACci-only-account'
+          os.environ['TWILIO_AUTH_TOKEN'] = 'ci-only-token'
+
+          captured = {}
+          class FakeResponse:
+              status = 201
+              def __enter__(self): return self
+              def __exit__(self, *args): return False
+
+          def fake_urlopen(request, timeout=10):
+              captured['body'] = request.data.decode('utf-8')
+              return FakeResponse()
+
+          notifications.urlopen = fake_urlopen
+          ok = notifications._send_messaging(
+              'fallback body',
+              '+919999999999',
+              {
+                  'name': 'Test Visitor',
+                  'tour_interest': 'Mawlyngbna Adventure',
+                  'travel_dates': '12–15 October 2026',
+                  'travellers': '4',
+                  'phone': '+919999999999',
+                  'message': 'Test enquiry',
+              },
+          )
+          if not ok:
+              raise SystemExit('WhatsApp template dispatch smoke test failed')
+          if 'ContentSid=HXci-only-template' not in captured['body']:
+              raise SystemExit('WhatsApp ContentSid was not sent')
+          if 'ContentVariables=' not in captured['body']:
+              raise SystemExit('WhatsApp ContentVariables were not sent')
+
           print('WSGI IMPORT OK')
           print('WORKSPACE ROUTES OK')
           print('ENQUIRY NOTIFICATION WRAPPER OK')
+          print('WHATSAPP TEMPLATE DISPATCH OK')
           PY
