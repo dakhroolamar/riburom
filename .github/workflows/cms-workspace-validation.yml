@@ -2,7 +2,7 @@ name: RI BUROM CMS Workspace Validation
 
 on:
   push:
-    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications]
+    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation]
   pull_request:
     branches: [main]
 
@@ -22,8 +22,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py wsgi.py tests/test_notifications.py
-      - name: Run notification transport tests
+        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py seo.py wsgi.py tests/test_notifications.py tests/test_seo.py
+      - name: Run test suite
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Import WSGI app and inspect routes
         run: |
@@ -44,13 +44,16 @@ jobs:
               '/workspace/cms/save-typography',
               '/workspace/administration',
               '/workspace/developer',
+              '/robots.txt',
+              '/sitemap.xml',
           }
           missing = required - rules
           if missing:
-              raise SystemExit(f'Missing workspace routes: {sorted(missing)}')
+              raise SystemExit(f'Missing required routes: {sorted(missing)}')
           if wsgi.app.view_functions.get('send_message', lambda: None).__name__ != 'send_message':
               raise SystemExit('Public enquiry view wrapper is not preserving send_message naming')
           print('WSGI IMPORT OK')
           print('WORKSPACE ROUTES OK')
+          print('SEO ROUTES OK')
           print('ENQUIRY NOTIFICATION WRAPPER OK')
           PY
