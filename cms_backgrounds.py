@@ -3,7 +3,7 @@
 from functools import wraps
 import json
 
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
 from app import add_audit, get_current_user, get_public_config, get_site_settings
 from models import db
@@ -40,6 +40,22 @@ def register_section_backgrounds(flask_app):
     if getattr(flask_app, '_ri_burom_section_backgrounds_registered', False):
         return
     flask_app._ri_burom_section_backgrounds_registered = True
+
+    @flask_app.route('/api/public-section-backgrounds')
+    def public_section_backgrounds():
+        settings = get_site_settings()
+        cfg = get_public_config(settings)
+        sections = cfg.get('theme', {}).get('sections') or {}
+        return jsonify({
+            'backgrounds': _get_backgrounds(settings),
+            'styles': {
+                key: {
+                    'overlay_color': value.get('overlay_color', '#000000'),
+                    'overlay_opacity': value.get('overlay_opacity', 0),
+                }
+                for key, value in sections.items()
+            },
+        })
 
     @flask_app.route('/workspace/cms/backgrounds')
     @_media_required
