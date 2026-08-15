@@ -264,64 +264,69 @@ def _run_legacy_migrations():
     if team_rows:
         db.session.commit()
 
- # Create or repair the initial Owner account.
-# ADMIN_PASSWORD_HASH must already be a valid Werkzeug password hash.
-# Validate it before writing it to the database so a malformed environment
-# variable cannot poison the Owner record and break every subsequent login.
-if inspect(db.engine).has_table('users') and initial_password_hash:
-    owner = User.query.filter_by(username=initial_owner_username).first()
-
-    try:
-        # Deliberately use a non-secret sentinel; this only validates the hash
-        # format and never authenticates a real user.
-        check_password_hash(initial_password_hash, '__ri_burom_hash_validation__')
-    except (ValueError, TypeError):
-        raise RuntimeError(
-            'ADMIN_PASSWORD_HASH is not a valid Werkzeug password hash. '
-            'Generate it with generate_password_hash.py and replace the Render environment variable.'
-        ) from None
-
-    if owner is None:
-        owner = User(
-            username=initial_owner_username,
-            full_name=initial_owner_name,
-            email=initial_owner_email,
-            password_hash=initial_password_hash,
-            role='owner',
-            is_active=True,
-        )
-        db.session.add(owner)
-        db.session.flush()
-
-        add_audit(
-            'initial_owner_created',
-            'user',
-            owner.id,
-            'Initial Owner created from ADMIN_PASSWORD_HASH'
-        )
-    else:
-        # Keep the bootstrap hash synchronized intentionally. This is safe
-        # because the value has already passed Werkzeug validation above.
-        owner.password_hash = initial_password_hash
-        owner.role = 'owner'
-        owner.is_active = True
-        owner.full_name = initial_owner_name
-        owner.email = initial_owner_email
-
-        add_audit(
-            'initial_owner_repaired',
-            'user',
-            owner.id,
-            'Owner password hash refreshed from ADMIN_PASSWORD_HASH'
-        )
-
-    db.session.commit()
-
 with app.app_context():
+    # Application setup that requires Flask-SQLAlchemy context.
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     db.create_all()
     _run_legacy_migrations()
     seed_defaults()
+
+    # Bootstrap / repair the initial Owner account.
+    # ADMIN_PASSWORD_HASH must already be a valid Werkzeug password hash.
+    if initial_password_hash and inspect(db.engine).has_table('users'):
+        try:
+            # Validate the configured bootstrap hash format without using a real password.
+            check_password_hash(initial_password_hash, '__ri_burom_hash_validation__')
+        except (ValueError, TypeError):
+            raise RuntimeError(
+                'ADMIN_PASSWORD_HASH is not a valid Werkzeug password hash. '
+                'Generate it with generate_password_hash.py and replace the Render environment variable.'
+            ) from None
+
+        owner = User.query.filter_by(username=initial_owner_username).first()
+
+        if owner is None:
+            owner = User(
+                username=initial_owner_username,
+                full_name=initial_owner_name,
+                email=initial_owner_email,
+                password_hash=initial_password_hash,
+                role='owner',
+                is_active=True,
+            )
+            db.session.add(owner)
+            db.session.flush()
+            add_audit(
+                'initial_owner_created',
+                'user',
+                owner.id,
+                'Initial Owner created from ADMIN_PASSWORD_HASH'
+            )
+        else:
+            # Preserve an existing valid password. Only repair the password when the
+            # stored hash itself is malformed; this prevents every restart from
+            # silently resetting a password changed through the admin panel.
+            try:
+                check_password_hash(owner.password_hash, '__ri_burom_hash_validation__')
+                stored_hash_is_valid = True
+            except (ValueError, TypeError):
+                stored_hash_is_valid = False
+
+            if not stored_hash_is_valid:
+                owner.password_hash = initial_password_hash
+                add_audit(
+                    'initial_owner_password_repaired',
+                    'user',
+                    owner.id,
+                    'Malformed Owner password hash replaced from ADMIN_PASSWORD_HASH'
+                )
+
+            owner.role = 'owner'
+            owner.is_active = True
+            owner.full_name = initial_owner_name
+            owner.email = initial_owner_email
+
+        db.session.commit()
 
 
 # ------------------------------------------------------------
