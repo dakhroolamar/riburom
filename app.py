@@ -12,6 +12,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, send_from_directory, abort, has_request_context,
 )
+from sqlalchemy import inspect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
