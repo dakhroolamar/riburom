@@ -46,9 +46,24 @@ body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,s
     <div class="style-card" style="grid-column:1/-1"><h3>Footer & mobile labels</h3><div class="grid grid-2">{% for key,label in [('footer_explore','Footer Explore'),('footer_contact','Footer Contact'),('footer_qr','Footer QR label'),('footer_instagram_button','Instagram button'),('mobile_tours','Mobile Tours'),('mobile_about','Mobile About'),('mobile_contact','Mobile Contact'),('mobile_menu','Mobile Menu'),('about_page_title','About browser title'),('about_page_eyebrow','About eyebrow'),('about_page_intro','About intro'),('about_team_empty','Team empty message'),('about_logo_pdf','Logo PDF button'),('about_logo_created','Logo credit label')] %}<div class="field"><label>{{ label }}</label><input name="{{ key }}" value="{{ public.content[key] }}"></div>{% endfor %}</div></div>
     <div><button class="btn btn-blue">Save Public Text</button></div>
   </form>
-  {% else %}
-  <p class="muted">You can view the CMS area, but your account is not permitted to change public text.</p>
-  {% endif %}
+  {% else %}<p class="muted">You can view the CMS area, but your account is not permitted to change public text.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Global Typography</h2><p class="muted">Set the overall font families and base scale. Section-specific colours, weight and italic settings remain below.</p></div><span class="pill">Global</span></div>
+  {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}
+  <form action="{{ url_for('workspace_cms_save_typography') }}" method="POST" class="grid grid-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label>Body font</label><select name="body_font">{% for key,label in font_options.items() %}<option value="{{ key }}" {% if settings.body_font==key %}selected{% endif %}>{{ label[0] }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Heading font</label><select name="heading_font">{% for key,label in font_options.items() %}<option value="{{ key }}" {% if settings.heading_font==key %}selected{% endif %}>{{ label[0] }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Base font size (px)</label><input type="number" name="base_font_size" min="14" max="20" value="{{ settings.base_font_size }}"></div>
+    <div class="field"><label>Heading scale (%)</label><input type="number" name="heading_scale" min="80" max="130" value="{{ settings.heading_scale }}"></div>
+    <div class="field"><label>Default body colour</label><input type="color" name="body_text_color" value="{{ settings.body_text_color }}"></div>
+    <div class="field"><label>Default heading colour</label><input type="color" name="heading_text_color" value="{{ settings.heading_text_color }}"></div>
+    <div class="field"><label>Default link colour</label><input type="color" name="link_text_color" value="{{ settings.link_text_color }}"></div>
+    <div><button class="btn btn-blue">Save Global Typography</button></div>
+  </form>
+  {% else %}<p class="muted">Your account can view the CMS, but it does not have appearance/media permission.</p>{% endif %}
 </section>
 
 <section class="panel">
