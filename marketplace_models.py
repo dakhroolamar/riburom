@@ -35,13 +35,17 @@ SERVICE_STATUSES = {
 
 class ProviderType(db.Model):
     __tablename__ = 'provider_types'
+    __table_args__ = (
+        db.Index('ix_provider_types_is_active', 'is_active'),
+        db.Index('ix_provider_types_sort_order', 'sort_order'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    slug = db.Column(db.String(140), unique=True, nullable=False, index=True)
+    slug = db.Column(db.String(140), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
-    sort_order = db.Column(db.Integer, default=0, nullable=False, index=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -53,13 +57,17 @@ class ProviderType(db.Model):
 
 class ServiceCategory(db.Model):
     __tablename__ = 'service_categories'
+    __table_args__ = (
+        db.Index('ix_service_categories_is_active', 'is_active'),
+        db.Index('ix_service_categories_sort_order', 'sort_order'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    slug = db.Column(db.String(140), unique=True, nullable=False, index=True)
+    slug = db.Column(db.String(140), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
-    sort_order = db.Column(db.Integer, default=0, nullable=False, index=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -71,15 +79,18 @@ class ServiceCategory(db.Model):
 
 class Provider(db.Model):
     __tablename__ = 'providers'
+    __table_args__ = (
+        db.Index('ix_providers_is_active', 'is_active'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    slug = db.Column(db.String(240), unique=True, nullable=False, index=True)
+    slug = db.Column(db.String(240), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
     email = db.Column(db.String(254), nullable=True)
     phone = db.Column(db.String(40), nullable=True)
     status = db.Column(db.String(40), nullable=False, default='DRAFT')
-    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
