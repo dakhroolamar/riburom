@@ -1,7 +1,7 @@
 import unittest
 
 from flask import Flask
-from sqlalchemy import event, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from models import Package, db
@@ -127,12 +127,14 @@ class PackageItemModelTests(unittest.TestCase):
         item = PackageItem(package=package, service=service)
         db.session.add(item)
         db.session.commit()
+        item_id = item.id
+        service_id = service.id
 
         db.session.delete(package)
         db.session.commit()
 
-        self.assertIsNone(db.session.get(PackageItem, item.id))
-        self.assertIsNotNone(db.session.get(Service, service.id))
+        self.assertIsNone(db.session.get(PackageItem, item_id))
+        self.assertIsNotNone(db.session.get(Service, service_id))
 
     def test_deleting_package_item_does_not_delete_service(self):
         package = self._package()
@@ -140,11 +142,12 @@ class PackageItemModelTests(unittest.TestCase):
         item = PackageItem(package=package, service=service)
         db.session.add(item)
         db.session.commit()
+        service_id = service.id
 
         db.session.delete(item)
         db.session.commit()
 
-        self.assertIsNotNone(db.session.get(Service, service.id))
+        self.assertIsNotNone(db.session.get(Service, service_id))
 
 
 if __name__ == '__main__':
