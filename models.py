@@ -267,3 +267,9 @@ def seed_defaults():
             created = True
     if created:
         db.session.commit()
+
+
+# Import Phase A marketplace models after the legacy models and shared db object
+# are defined. This registers their tables in the same SQLAlchemy metadata while
+# keeping all legacy application entities independent.
+import marketplace_models  # noqa: E402,F401
