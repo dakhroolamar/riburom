@@ -2,7 +2,7 @@ name: RI BUROM CMS Workspace Validation
 
 on:
   push:
-    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation]
+    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation, feature/marketplace-foundation]
   pull_request:
     branches: [main]
 
@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py seo.py wsgi.py tests/test_notifications.py tests/test_seo.py
+        run: python -m py_compile app.py models.py marketplace_models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py seo.py wsgi.py migrations/env.py migrations/versions/8d1f2c4a9b01_add_marketplace_foundation.py tests/test_notifications.py tests/test_seo.py tests/test_marketplace_models.py tests/test_marketplace_migration.py
       - name: Run test suite
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Import WSGI app and inspect routes
