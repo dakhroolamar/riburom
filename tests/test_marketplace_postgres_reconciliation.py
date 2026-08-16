@@ -35,9 +35,13 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
 
     def create_pre_alembic_schema(self, connection):
+        # These definitions model the known SQLAlchemy-metadata-created
+        # production shape, including PostgreSQL integer PK sequences. The
+        # intentional pre-Alembic differences are server defaults on selected
+        # business columns and the slug uniqueness representation.
         connection.execute(text(
             'CREATE TABLE packages ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'title VARCHAR(200) NOT NULL, '
             'slug VARCHAR(240) NOT NULL, '
             'description TEXT NOT NULL)'
@@ -48,7 +52,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
         connection.execute(text(
             'CREATE TABLE provider_types ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'name VARCHAR(120) NOT NULL, '
             'slug VARCHAR(140) NOT NULL, '
             'description TEXT, '
@@ -59,7 +63,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
         connection.execute(text(
             'CREATE TABLE service_categories ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'name VARCHAR(120) NOT NULL, '
             'slug VARCHAR(140) NOT NULL, '
             'description TEXT, '
@@ -70,7 +74,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
         connection.execute(text(
             'CREATE TABLE providers ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'name VARCHAR(200) NOT NULL, '
             'slug VARCHAR(240) NOT NULL, '
             'description TEXT, '
@@ -83,7 +87,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
         connection.execute(text(
             'CREATE TABLE provider_type_assignments ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'provider_id INTEGER NOT NULL REFERENCES providers(id), '
             'provider_type_id INTEGER NOT NULL REFERENCES provider_types(id), '
             'created_at TIMESTAMP NOT NULL, '
@@ -91,7 +95,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         ))
         connection.execute(text(
             'CREATE TABLE services ('
-            'id INTEGER PRIMARY KEY, '
+            'id SERIAL PRIMARY KEY, '
             'provider_id INTEGER NOT NULL REFERENCES providers(id), '
             'category_id INTEGER NOT NULL REFERENCES service_categories(id), '
             'name VARCHAR(200) NOT NULL, '
