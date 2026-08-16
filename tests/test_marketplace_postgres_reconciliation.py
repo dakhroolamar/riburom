@@ -144,18 +144,12 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
             upgrade(directory='migrations', revision='head')
 
             with db.engine.connect() as connection:
-                self.assertEqual(
-                    connection.execute(text("SELECT COUNT(*) FROM packages WHERE id=1")).scalar_one(),
-                    1,
-                )
+                self.assertEqual(connection.execute(text("SELECT COUNT(*) FROM packages WHERE id=1")).scalar_one(), 1)
                 self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM provider_types')).scalar_one(), 8)
                 self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM service_categories')).scalar_one(), 9)
                 self.assertEqual(connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one(), '8d1f2c4a9b01')
                 for table, oid in table_oids.items():
-                    self.assertEqual(
-                        connection.execute(text(f"SELECT '{table}'::regclass::oid")).scalar_one(),
-                        oid,
-                    )
+                    self.assertEqual(connection.execute(text(f"SELECT '{table}'::regclass::oid")).scalar_one(), oid)
                 defaults = connection.execute(text(
                     "SELECT table_name, column_name, column_default "
                     "FROM information_schema.columns "
@@ -172,8 +166,6 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
                 self.assertEqual(default_map[('services', 'status')], "'DRAFT'::character varying")
                 self.assertIsNotNone(default_map[('services', 'is_active')])
 
-                # The known pre-Alembic unique slug indexes are converted into
-                # canonical unique constraints without weakening enforcement.
                 constraints = connection.execute(text(
                     "SELECT conname FROM pg_constraint "
                     "WHERE conname IN ('uq_provider_types_slug', 'uq_service_categories_slug', 'uq_providers_slug')"
@@ -183,6 +175,48 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
                     'uq_service_categories_slug',
                     'uq_providers_slug',
                 })
+
+                foreign_keys = connection.execute(text(
+                    "SELECT tc.table_name, kcu.column_name, ccu.table_name AS foreign_table_name "
+                    "FROM information_schema.table_constraints tc "
+                    "JOIN information_schema.key_column_usage kcu "
+                    "  ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema "
+                    "JOIN information_schema.constraint_column_usage ccu "
+                    "  ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema "
+                    "WHERE tc.constraint_type = 'FOREIGN KEY' "
+                    "AND tc.table_name IN ('provider_type_assignments', 'services')"
+                )).all()
+                fk_pairs = {(row[0], row[1], row[2]) for row in foreign_keys}
+                self.assertIn(('provider_type_assignments', 'provider_id', 'providers'), fk_pairs)
+                self.assertIn(('provider_type_assignments', 'provider_type_id', 'provider_types'), fk_pairs)
+                self.assertIn(('services', 'provider_id', 'providers'), fk_pairs)
+                self.assertIn(('services', 'category_id', 'service_categories'), fk_pairs)
+
+    def test_existing_marketplace_table_with_rows_fails_on_postgresql(self):
+        app = self.make_app()
+        with app.app_context():
+            with db.engine.begin() as connection:
+                self.reset_database(connection)
+                self.create_pre_alembic_schema(connection)
+                connection.execute(text(
+                    "INSERT INTO provider_types "
+                    "(id, name, slug, is_active, sort_order, created_at, updated_at) "
+                    "VALUES (1, 'Unexpected', 'unexpected', TRUE, 99, NOW(), NOW())"
+                ))
+
+            with self.assertRaises(SystemExit):
+                upgrade(directory='migrations', revision='head')
+
+    def test_unexpected_schema_fails_on_postgresql(self):
+        app = self.make_app()
+        with app.app_context():
+            with db.engine.begin() as connection:
+                self.reset_database(connection)
+                self.create_pre_alembic_schema(connection)
+                connection.execute(text('ALTER TABLE provider_types ADD COLUMN unexpected_marker TEXT'))
+
+            with self.assertRaises(SystemExit):
+                upgrade(directory='migrations', revision='head')
 
 
 if __name__ == '__main__':
