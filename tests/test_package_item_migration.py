@@ -98,7 +98,7 @@ class PackageItemMigrationTests(unittest.TestCase):
         )
 
     def test_package_item_migration_requires_existing_packages_table(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(SystemExit):
             upgrade(directory='migrations', revision='head')
 
 
