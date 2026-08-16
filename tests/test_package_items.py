@@ -1,6 +1,7 @@
 import unittest
 
 from flask import Flask
+from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
 from models import Package, db
@@ -19,6 +20,8 @@ class PackageItemModelTests(unittest.TestCase):
         db.init_app(cls.app)
         cls.app_context = cls.app.app_context()
         cls.app_context.push()
+        with db.engine.begin() as connection:
+            connection.execute(text('PRAGMA foreign_keys=ON'))
         db.create_all()
 
     @classmethod
@@ -45,7 +48,7 @@ class PackageItemModelTests(unittest.TestCase):
             slug=slug,
         )
         db.session.add_all([provider, category, service])
-        db.session.commit()
+        db.session.flush()
         return service
 
     def _package(self, slug='package-one'):
@@ -56,7 +59,7 @@ class PackageItemModelTests(unittest.TestCase):
             published=True,
         )
         db.session.add(package)
-        db.session.commit()
+        db.session.flush()
         return package
 
     def test_package_item_creation_and_relationships(self):
@@ -96,6 +99,7 @@ class PackageItemModelTests(unittest.TestCase):
         db.session.add(PackageItem(package=package, service=service, sort_order=2))
         with self.assertRaises(IntegrityError):
             db.session.commit()
+        db.session.rollback()
 
     def test_package_items_are_ordered_by_sort_order_then_id(self):
         package = self._package()
