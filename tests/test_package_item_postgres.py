@@ -6,7 +6,8 @@ from flask_migrate import Migrate, upgrade
 from sqlalchemy import text
 
 from models import db
-import marketplace_models  # noqa: F401 - register PackageItem metadata
+from marketplace_models import PackageItem
+import marketplace_models  # noqa: F401 - register Phase A metadata
 
 
 DATABASE_URL = os.environ.get('MARKETPLACE_TEST_DATABASE_URL')
@@ -42,37 +43,43 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
                 'providers, service_categories, provider_types, packages, alembic_version CASCADE'
             ))
 
+    def _create_packages_table(self, connection):
+        connection.execute(text(
+            'CREATE TABLE packages ('
+            'id SERIAL PRIMARY KEY, '
+            'title VARCHAR(200) NOT NULL, '
+            'slug VARCHAR(240) NOT NULL UNIQUE, '
+            'description TEXT NOT NULL)'
+        ))
+
+    def _create_provider_and_service(self, connection):
+        provider_id = connection.execute(text(
+            "INSERT INTO providers (name, slug, status, is_active, created_at, updated_at) "
+            "VALUES ('Guide Co', 'guide-co', 'DRAFT', TRUE, NOW(), NOW()) RETURNING id"
+        )).scalar_one()
+        category_id = connection.execute(text(
+            'SELECT id FROM service_categories ORDER BY id LIMIT 1'
+        )).scalar_one()
+        service_id = connection.execute(text(
+            "INSERT INTO services "
+            "(provider_id, category_id, name, slug, status, is_active, created_at, updated_at) "
+            "VALUES (:provider_id, :category_id, 'Local Guide', 'local-guide', 'DRAFT', TRUE, NOW(), NOW()) "
+            "RETURNING id"
+        ), {'provider_id': provider_id, 'category_id': category_id}).scalar_one()
+        return provider_id, service_id
+
     def test_fresh_phase_b_migration_preserves_packages_and_phase_a(self):
         self.reset_database()
 
         upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
         with db.engine.begin() as connection:
-            connection.execute(text(
-                'CREATE TABLE packages ('
-                'id SERIAL PRIMARY KEY, '
-                'title VARCHAR(200) NOT NULL, '
-                'slug VARCHAR(240) NOT NULL UNIQUE, '
-                'description TEXT NOT NULL)'
-            ))
+            self._create_packages_table(connection)
             connection.execute(text(
                 "INSERT INTO packages (title, slug, description) "
                 "VALUES ('Existing Package', 'existing-package', 'Legacy package remains.')"
             ))
-
-            provider_id = connection.execute(text(
-                "INSERT INTO providers (name, slug, status, is_active, created_at, updated_at) "
-                "VALUES ('Guide Co', 'guide-co', 'DRAFT', TRUE, NOW(), NOW()) "
-                "RETURNING id"
-            )).scalar_one()
-            category_id = connection.execute(text(
-                "SELECT id FROM service_categories ORDER BY id LIMIT 1"
-            )).scalar_one()
-            connection.execute(text(
-                "INSERT INTO services "
-                "(provider_id, category_id, name, slug, status, is_active, created_at, updated_at) "
-                "VALUES (:provider_id, :category_id, 'Local Guide', 'local-guide', 'DRAFT', TRUE, NOW(), NOW())"
-            ), {'provider_id': provider_id, 'category_id': category_id})
+            self._create_provider_and_service(connection)
 
         upgrade(directory='migrations', revision='head')
 
@@ -132,30 +139,67 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             self.assertEqual(package_sort_index, 'ix_package_items_package_sort')
             self.assertEqual(service_index, 'ix_package_items_service_id')
 
+    def test_preexisting_empty_package_items_table_is_adopted_in_place(self):
+        self.reset_database()
+        upgrade(directory='migrations', revision='8d1f2c4a9b01')
+
+        with db.engine.begin() as connection:
+            self._create_packages_table(connection)
+            connection.execute(text(
+                "INSERT INTO packages (title, slug, description) "
+                "VALUES ('Existing Package', 'existing-package', 'Legacy package remains.')"
+            ))
+            self._create_provider_and_service(connection)
+            PackageItem.__table__.create(bind=connection)
+            table_oid = connection.execute(
+                text("SELECT 'package_items'::regclass::oid")
+            ).scalar_one()
+
+        upgrade(directory='migrations', revision='head')
+
+        with db.engine.connect() as connection:
+            self.assertEqual(
+                connection.execute(text("SELECT 'package_items'::regclass::oid")).scalar_one(),
+                table_oid,
+            )
+            self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM package_items')).scalar_one(), 0)
+            self.assertEqual(
+                connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one(),
+                '3f7a9c2d1e64',
+            )
+
+    def test_nonempty_preexisting_package_items_table_fails(self):
+        self.reset_database()
+        upgrade(directory='migrations', revision='8d1f2c4a9b01')
+
+        with db.engine.begin() as connection:
+            self._create_packages_table(connection)
+            connection.execute(text(
+                "INSERT INTO packages (title, slug, description) "
+                "VALUES ('Package', 'package', 'Package')"
+            ))
+            provider_id, service_id = self._create_provider_and_service(connection)
+            PackageItem.__table__.create(bind=connection)
+            package_id = connection.execute(text('SELECT id FROM packages LIMIT 1')).scalar_one()
+            connection.execute(text(
+                "INSERT INTO package_items (package_id, service_id, sort_order, created_at, updated_at) "
+                "VALUES (:package_id, :service_id, 1, NOW(), NOW())"
+            ), {'package_id': package_id, 'service_id': service_id})
+
+        with self.assertRaises(SystemExit):
+            upgrade(directory='migrations', revision='head')
+
     def test_package_item_does_not_cascade_delete_service(self):
         self.reset_database()
         upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
         with db.engine.begin() as connection:
-            connection.execute(text(
-                'CREATE TABLE packages ('
-                'id SERIAL PRIMARY KEY, title VARCHAR(200) NOT NULL, '
-                'slug VARCHAR(240) NOT NULL UNIQUE, description TEXT NOT NULL)'
-            ))
+            self._create_packages_table(connection)
             package_id = connection.execute(text(
                 "INSERT INTO packages (title, slug, description) "
                 "VALUES ('Package', 'package', 'Package') RETURNING id"
             )).scalar_one()
-            provider_id = connection.execute(text(
-                "INSERT INTO providers (name, slug, status, is_active, created_at, updated_at) "
-                "VALUES ('Provider', 'provider', 'DRAFT', TRUE, NOW(), NOW()) RETURNING id"
-            )).scalar_one()
-            category_id = connection.execute(text('SELECT id FROM service_categories ORDER BY id LIMIT 1')).scalar_one()
-            service_id = connection.execute(text(
-                "INSERT INTO services "
-                "(provider_id, category_id, name, slug, status, is_active, created_at, updated_at) "
-                "VALUES (:provider_id, :category_id, 'Service', 'service', 'DRAFT', TRUE, NOW(), NOW()) RETURNING id"
-            ), {'provider_id': provider_id, 'category_id': category_id}).scalar_one()
+            provider_id, service_id = self._create_provider_and_service(connection)
 
         upgrade(directory='migrations', revision='head')
 
