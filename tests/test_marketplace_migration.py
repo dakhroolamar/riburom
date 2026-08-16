@@ -9,6 +9,7 @@ from sqlalchemy import inspect, text
 from models import db
 import models as legacy_models
 from migrate_to_postgres import create_legacy_tables
+from marketplace_models import ProviderType
 import marketplace_models  # noqa: F401 - register Phase A metadata
 
 
@@ -32,6 +33,207 @@ class MarketplaceMigrationTests(unittest.TestCase):
         db.init_app(app)
         Migrate(app, db, directory='migrations')
         return app
+
+    def make_marketplace_tables(self):
+        return [
+            marketplace_models.ProviderType.__table__,
+            marketplace_models.ServiceCategory.__table__,
+            marketplace_models.Provider.__table__,
+            marketplace_models.ProviderTypeAssignment.__table__,
+            marketplace_models.Service.__table__,
+        ]
+
+    def create_pre_alembic_marketplace_schema(self, app):
+        with app.app_context():
+            db.metadata.create_all(bind=db.engine, tables=self.make_marketplace_tables())
+
+    def test_fresh_database_creates_marketplace_schema_and_taxonomy(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                upgrade(directory='migrations', revision='head')
+
+                tables = set(inspect(db.engine).get_table_names())
+                self.assertTrue(MARKETPLACE_TABLES.issubset(tables))
+                self.assertEqual(
+                    db.session.execute(text('SELECT COUNT(*) FROM provider_types')).scalar_one(),
+                    8,
+                )
+                self.assertEqual(
+                    db.session.execute(text('SELECT COUNT(*) FROM service_categories')).scalar_one(),
+                    9,
+                )
+
+                defaults = {
+                    row['name']: row.get('default')
+                    for row in inspect(db.engine).get_columns('providers')
+                }
+                self.assertIn("'DRAFT'", defaults['status'])
+                self.assertIsNotNone(defaults['is_active'])
+
+                version = db.session.execute(
+                    text('SELECT version_num FROM alembic_version')
+                ).scalar_one()
+                self.assertEqual(version, '8d1f2c4a9b01')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+    def test_legacy_production_shaped_database_is_reconciled_in_place(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                create_legacy_tables(db, legacy_models)
+                self.create_pre_alembic_marketplace_schema(app)
+
+                before_tables = set(inspect(db.engine).get_table_names())
+                self.assertTrue(MARKETPLACE_TABLES.issubset(before_tables))
+                for table in MARKETPLACE_TABLES:
+                    self.assertEqual(
+                        db.session.execute(text(f'SELECT COUNT(*) FROM "{table}"')).scalar_one(),
+                        0,
+                    )
+
+                # Sentinel legacy data proves the adoption migration does not
+                # recreate or modify the legacy system.
+                with db.engine.begin() as connection:
+                    connection.execute(text(
+                        "INSERT INTO packages (id, title, slug, description) "
+                        "VALUES (1, 'Legacy Tour', 'legacy-tour', 'Legacy data')"
+                    ))
+
+                upgrade(directory='migrations', revision='head')
+
+                after_tables = set(inspect(db.engine).get_table_names())
+                self.assertTrue(MARKETPLACE_TABLES.issubset(after_tables))
+                self.assertEqual(
+                    db.session.execute(
+                        text("SELECT title, slug FROM packages WHERE id = 1")
+                    ).one(),
+                    ('Legacy Tour', 'legacy-tour'),
+                )
+                self.assertEqual(
+                    db.session.execute(text('SELECT COUNT(*) FROM provider_types')).scalar_one(),
+                    8,
+                )
+                self.assertEqual(
+                    db.session.execute(text('SELECT COUNT(*) FROM service_categories')).scalar_one(),
+                    9,
+                )
+                version = db.session.execute(
+                    text('SELECT version_num FROM alembic_version')
+                ).scalar_one()
+                self.assertEqual(version, '8d1f2c4a9b01')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+    def test_existing_marketplace_table_with_rows_fails(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                self.create_pre_alembic_marketplace_schema(app)
+                db.session.execute(
+                    ProviderType.__table__.insert().values(
+                        name='Unexpected', slug='unexpected', is_active=True, sort_order=99
+                    )
+                )
+                db.session.commit()
+
+                with self.assertRaisesRegex(RuntimeError, 'not empty'):
+                    upgrade(directory='migrations', revision='head')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+    def test_unexpected_schema_fails(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                self.create_pre_alembic_marketplace_schema(app)
+                with db.engine.begin() as connection:
+                    connection.execute(text('ALTER TABLE provider_types ADD COLUMN unexpected_marker TEXT'))
+
+                with self.assertRaisesRegex(RuntimeError, 'Unexpected schema for provider_types'):
+                    upgrade(directory='migrations', revision='head')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+    def test_missing_expected_foreign_key_fails(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                tables = self.make_marketplace_tables()
+                db.metadata.create_all(bind=db.engine, tables=tables)
+                with db.engine.begin() as connection:
+                    connection.execute(text('DROP TABLE provider_type_assignments'))
+                    connection.execute(text(
+                        'CREATE TABLE provider_type_assignments ('
+                        'id INTEGER NOT NULL PRIMARY KEY, '
+                        'provider_id INTEGER NOT NULL, '
+                        'provider_type_id INTEGER NOT NULL, '
+                        'created_at DATETIME NOT NULL, '
+                        'CONSTRAINT uq_provider_type_assignment UNIQUE (provider_id, provider_type_id), '
+                        'FOREIGN KEY(provider_id) REFERENCES providers (id)'
+                        ')'
+                    ))
+                    connection.execute(text(
+                        'CREATE INDEX ix_provider_type_assignments_provider_id '
+                        'ON provider_type_assignments (provider_id)'
+                    ))
+                    connection.execute(text(
+                        'CREATE INDEX ix_provider_type_assignments_provider_type_id '
+                        'ON provider_type_assignments (provider_type_id)'
+                    ))
+
+                with self.assertRaisesRegex(RuntimeError, 'Unexpected foreign keys for provider_type_assignments'):
+                    upgrade(directory='migrations', revision='head')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+    def test_unexpected_taxonomy_rows_fail(self):
+        fd, path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        try:
+            app = self.make_app(path)
+            with app.app_context():
+                self.create_pre_alembic_marketplace_schema(app)
+                db.session.execute(
+                    ProviderType.__table__.insert().values(
+                        name='Unexpected', slug='unexpected', is_active=True, sort_order=99
+                    )
+                )
+                db.session.commit()
+
+                with self.assertRaisesRegex(RuntimeError, 'not empty'):
+                    upgrade(directory='migrations', revision='head')
+        finally:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
 
     def test_legacy_schema_preparation_does_not_create_marketplace_tables(self):
         fd, path = tempfile.mkstemp(suffix='.db')
@@ -75,81 +277,6 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     db.session.execute(text('SELECT COUNT(*) FROM service_categories')).scalar_one(),
                     9,
                 )
-        finally:
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-
-    def test_phase_a_migration_preserves_legacy_tables_and_data(self):
-        fd, path = tempfile.mkstemp(suffix='.db')
-        os.close(fd)
-        try:
-            app = self.make_app(path)
-
-            with app.app_context():
-                with db.engine.begin() as connection:
-                    connection.execute(text(
-                        'CREATE TABLE packages ('
-                        'id INTEGER PRIMARY KEY, '
-                        'title VARCHAR(200) NOT NULL, '
-                        'slug VARCHAR(240) NOT NULL, '
-                        'description TEXT NOT NULL)'
-                    ))
-                    connection.execute(text(
-                        "INSERT INTO packages (id, title, slug, description) "
-                        "VALUES (1, 'Legacy Tour', 'legacy-tour', 'Legacy data')"
-                    ))
-                    connection.execute(text(
-                        'CREATE TABLE messages ('
-                        'id INTEGER PRIMARY KEY, '
-                        'email VARCHAR(254) NOT NULL, '
-                        'message TEXT NOT NULL)'
-                    ))
-                    connection.execute(text(
-                        "INSERT INTO messages (id, email, message) "
-                        "VALUES (1, 'traveller@example.com', 'Existing enquiry')"
-                    ))
-                    connection.execute(text(
-                        'CREATE TABLE users ('
-                        'id INTEGER PRIMARY KEY, '
-                        'username VARCHAR(80) NOT NULL)'
-                    ))
-                    connection.execute(text(
-                        "INSERT INTO users (id, username) VALUES (1, 'owner')"
-                    ))
-
-                upgrade(directory='migrations', revision='head')
-
-                inspector = inspect(db.engine)
-                tables = set(inspector.get_table_names())
-                for table in MARKETPLACE_TABLES:
-                    self.assertIn(table, tables)
-
-                for table in ('packages', 'messages', 'users'):
-                    self.assertIn(table, tables)
-
-                package = db.session.execute(
-                    text("SELECT title, slug FROM packages WHERE id = 1")
-                ).one()
-                message = db.session.execute(
-                    text("SELECT email, message FROM messages WHERE id = 1")
-                ).one()
-                user = db.session.execute(
-                    text("SELECT username FROM users WHERE id = 1")
-                ).one()
-                self.assertEqual(tuple(package), ('Legacy Tour', 'legacy-tour'))
-                self.assertEqual(tuple(message), ('traveller@example.com', 'Existing enquiry'))
-                self.assertEqual(tuple(user), ('owner',))
-
-                provider_types = db.session.execute(
-                    text('SELECT COUNT(*) FROM provider_types')
-                ).scalar_one()
-                service_categories = db.session.execute(
-                    text('SELECT COUNT(*) FROM service_categories')
-                ).scalar_one()
-                self.assertEqual(provider_types, 8)
-                self.assertEqual(service_categories, 9)
         finally:
             try:
                 os.remove(path)
