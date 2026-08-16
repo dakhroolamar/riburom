@@ -122,6 +122,17 @@ class Package(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    # Phase B: a Package can contain zero or more reusable marketplace Services
+    # through PackageItem. This relationship does not change any existing
+    # Package fields or public rendering behaviour.
+    package_items = db.relationship(
+        'PackageItem',
+        back_populates='package',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        order_by='PackageItem.sort_order.asc(), PackageItem.id.asc()',
+    )
+
 
 class AboutContent(db.Model):
     __tablename__ = 'about_content'
