@@ -27,6 +27,11 @@ EXPECTED_INDEXES = {
     ('ix_package_items_package_sort', ('package_id', 'sort_order'), False),
     ('ix_package_items_service_id', ('service_id',), False),
 }
+EXPECTED_UNIQUE_INDEX = (
+    'uq_package_item_package_service',
+    ('package_id', 'service_id'),
+    True,
+)
 
 
 def _validate_existing_package_items(connection, inspector):
@@ -43,6 +48,22 @@ def _validate_existing_package_items(connection, inspector):
             f'Unexpected package_items schema: columns={sorted(column_names)!r}; '
             f'expected={sorted(EXPECTED_COLUMNS)!r}.'
         )
+
+    expected_types = {
+        'id': sa.Integer,
+        'package_id': sa.Integer,
+        'service_id': sa.Integer,
+        'sort_order': sa.Integer,
+        'created_at': sa.DateTime,
+        'updated_at': sa.DateTime,
+    }
+    for column in columns:
+        expected_type = expected_types[column['name']]
+        if column['type']._type_affinity is not expected_type:
+            raise RuntimeError(
+                f"Unexpected type for package_items.{column['name']}: "
+                f"{column['type']!r}; expected affinity {expected_type.__name__}."
+            )
 
     expected_nullability = {
         'id': False,
@@ -116,10 +137,12 @@ def _validate_existing_package_items(connection, inspector):
         )
         for index in inspector.get_indexes(TABLE_NAME)
     }
-    if indexes != EXPECTED_INDEXES:
+    non_unique_indexes = indexes - {EXPECTED_UNIQUE_INDEX}
+    if non_unique_indexes != EXPECTED_INDEXES:
         raise RuntimeError(
             f'Unexpected package_items indexes: {sorted(indexes)!r}; '
-            f'expected={sorted(EXPECTED_INDEXES)!r}.'
+            f'expected explicit indexes={sorted(EXPECTED_INDEXES)!r} plus the '
+            f'backing uniqueness index for uq_package_item_package_service.'
         )
 
 
