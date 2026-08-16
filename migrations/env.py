@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -8,7 +7,7 @@ from flask import current_app
 # `flask db`. The application already configures the real database URL.
 config = context.config
 
-if config.config_file_name is not None and os.path.exists(config.config_file_name):
+if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
