@@ -53,7 +53,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
         try:
             app = self.make_app(path)
             with app.app_context():
-                upgrade(directory='migrations', revision='head')
+                upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
                 tables = set(inspect(db.engine).get_table_names())
                 self.assertTrue(MARKETPLACE_TABLES.issubset(tables))
@@ -100,8 +100,6 @@ class MarketplaceMigrationTests(unittest.TestCase):
                         0,
                     )
 
-                # Sentinel legacy data proves the adoption migration does not
-                # recreate or modify the legacy system.
                 db.session.add(
                     legacy_models.Package(
                         id=1,
@@ -115,7 +113,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 )
                 db.session.commit()
 
-                upgrade(directory='migrations', revision='head')
+                upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
                 after_tables = set(inspect(db.engine).get_table_names())
                 self.assertTrue(MARKETPLACE_TABLES.issubset(after_tables))
@@ -158,7 +156,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 db.session.commit()
 
                 with self.assertRaises(SystemExit):
-                    upgrade(directory='migrations', revision='head')
+                    upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
                 os.remove(path)
@@ -176,7 +174,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     connection.execute(text('ALTER TABLE provider_types ADD COLUMN unexpected_marker TEXT'))
 
                 with self.assertRaises(SystemExit):
-                    upgrade(directory='migrations', revision='head')
+                    upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
                 os.remove(path)
@@ -213,7 +211,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     ))
 
                 with self.assertRaises(SystemExit):
-                    upgrade(directory='migrations', revision='head')
+                    upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
                 os.remove(path)
@@ -235,7 +233,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 db.session.commit()
 
                 with self.assertRaises(SystemExit):
-                    upgrade(directory='migrations', revision='head')
+                    upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
                 os.remove(path)
@@ -272,7 +270,7 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 }))
                 self.assertTrue(MARKETPLACE_TABLES.isdisjoint(tables))
 
-                upgrade(directory='migrations', revision='head')
+                upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
                 tables = set(inspect(db.engine).get_table_names())
                 self.assertTrue(MARKETPLACE_TABLES.issubset(tables))

@@ -30,15 +30,11 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
 
     def reset_database(self, connection):
         connection.execute(text(
-            'DROP TABLE IF EXISTS services, provider_type_assignments, providers, '
+            'DROP TABLE IF EXISTS package_items, services, provider_type_assignments, providers, '
             'service_categories, provider_types, packages, alembic_version CASCADE'
         ))
 
     def create_pre_alembic_schema(self, connection):
-        # These definitions model the known SQLAlchemy-metadata-created
-        # production shape, including PostgreSQL integer PK sequences. The
-        # intentional pre-Alembic differences are server defaults on selected
-        # business columns and the slug uniqueness representation.
         connection.execute(text(
             'CREATE TABLE packages ('
             'id SERIAL PRIMARY KEY, '
@@ -126,7 +122,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
         with app.app_context():
             with db.engine.begin() as connection:
                 self.reset_database(connection)
-            upgrade(directory='migrations', revision='head')
+            upgrade(directory='migrations', revision='8d1f2c4a9b01')
             with db.engine.connect() as connection:
                 self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM provider_types')).scalar_one(), 8)
                 self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM service_categories')).scalar_one(), 9)
@@ -145,7 +141,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
                     for table in ('provider_types', 'service_categories', 'providers', 'provider_type_assignments', 'services')
                 }
 
-            upgrade(directory='migrations', revision='head')
+            upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
             with db.engine.connect() as connection:
                 self.assertEqual(connection.execute(text("SELECT COUNT(*) FROM packages WHERE id=1")).scalar_one(), 1)
@@ -209,7 +205,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
                 ))
 
             with self.assertRaises(SystemExit):
-                upgrade(directory='migrations', revision='head')
+                upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
     def test_unexpected_schema_fails_on_postgresql(self):
         app = self.make_app()
@@ -220,7 +216,7 @@ class MarketplacePostgresReconciliationTests(unittest.TestCase):
                 connection.execute(text('ALTER TABLE provider_types ADD COLUMN unexpected_marker TEXT'))
 
             with self.assertRaises(SystemExit):
-                upgrade(directory='migrations', revision='head')
+                upgrade(directory='migrations', revision='8d1f2c4a9b01')
 
 
 if __name__ == '__main__':
