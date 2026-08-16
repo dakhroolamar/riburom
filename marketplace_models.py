@@ -2,12 +2,15 @@
 
 Phase A establishes provider and service foundations without coupling them to
 legacy CMS, Package, Message, or User models.
+
+Phase B intentionally introduces PackageItem as the first bridge between the
+legacy Package aggregate and reusable marketplace Services.
 """
 from datetime import datetime
 
 from sqlalchemy.orm import validates
 
-from models import db
+from models import db, Package
 
 
 PROVIDER_STATUSES = {
@@ -185,9 +188,53 @@ class Service(db.Model):
         'ServiceCategory',
         back_populates='services',
     )
+    package_items = db.relationship(
+        'PackageItem',
+        back_populates='service',
+        passive_deletes=True,
+    )
 
     @validates('status')
     def validate_status(self, key, value):
         if value not in SERVICE_STATUSES:
             raise ValueError(f'Invalid service status: {value!r}')
         return value
+
+
+class PackageItem(db.Model):
+    """Bridge between a curated Package and a reusable marketplace Service."""
+
+    __tablename__ = 'package_items'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'package_id',
+            'service_id',
+            name='uq_package_item_package_service',
+        ),
+        db.Index('ix_package_items_package_sort', 'package_id', 'sort_order'),
+        db.Index('ix_package_items_service_id', 'service_id'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    package_id = db.Column(
+        db.Integer,
+        db.ForeignKey('packages.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    service_id = db.Column(
+        db.Integer,
+        db.ForeignKey('services.id', ondelete='RESTRICT'),
+        nullable=False,
+    )
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    package = db.relationship(
+        Package,
+        back_populates='package_items',
+    )
+    service = db.relationship(
+        'Service',
+        back_populates='package_items',
+    )
