@@ -41,6 +41,9 @@ SERVICE_CATEGORIES = [
 
 
 def upgrade() -> None:
+    # These tables are deliberately created without if_not_exists. Alembic is
+    # the schema authority for Phase A; an existing table must fail loudly
+    # rather than allowing an unknown/pre-existing schema to be accepted.
     op.create_table(
         'provider_types',
         sa.Column('id', sa.Integer(), primary_key=True),
@@ -52,11 +55,10 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.UniqueConstraint('slug', name='uq_provider_types_slug'),
-        if_not_exists=True,
     )
-    op.create_index('ix_provider_types_slug', 'provider_types', ['slug'], unique=False, if_not_exists=True)
-    op.create_index('ix_provider_types_is_active', 'provider_types', ['is_active'], unique=False, if_not_exists=True)
-    op.create_index('ix_provider_types_sort_order', 'provider_types', ['sort_order'], unique=False, if_not_exists=True)
+    op.create_index('ix_provider_types_slug', 'provider_types', ['slug'], unique=False)
+    op.create_index('ix_provider_types_is_active', 'provider_types', ['is_active'], unique=False)
+    op.create_index('ix_provider_types_sort_order', 'provider_types', ['sort_order'], unique=False)
 
     op.create_table(
         'service_categories',
@@ -69,11 +71,10 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.UniqueConstraint('slug', name='uq_service_categories_slug'),
-        if_not_exists=True,
     )
-    op.create_index('ix_service_categories_slug', 'service_categories', ['slug'], unique=False, if_not_exists=True)
-    op.create_index('ix_service_categories_is_active', 'service_categories', ['is_active'], unique=False, if_not_exists=True)
-    op.create_index('ix_service_categories_sort_order', 'service_categories', ['sort_order'], unique=False, if_not_exists=True)
+    op.create_index('ix_service_categories_slug', 'service_categories', ['slug'], unique=False)
+    op.create_index('ix_service_categories_is_active', 'service_categories', ['is_active'], unique=False)
+    op.create_index('ix_service_categories_sort_order', 'service_categories', ['sort_order'], unique=False)
 
     op.create_table(
         'providers',
@@ -88,10 +89,9 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.UniqueConstraint('slug', name='uq_providers_slug'),
-        if_not_exists=True,
     )
-    op.create_index('ix_providers_slug', 'providers', ['slug'], unique=False, if_not_exists=True)
-    op.create_index('ix_providers_is_active', 'providers', ['is_active'], unique=False, if_not_exists=True)
+    op.create_index('ix_providers_slug', 'providers', ['slug'], unique=False)
+    op.create_index('ix_providers_is_active', 'providers', ['is_active'], unique=False)
 
     op.create_table(
         'provider_type_assignments',
@@ -102,10 +102,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['provider_id'], ['providers.id']),
         sa.ForeignKeyConstraint(['provider_type_id'], ['provider_types.id']),
         sa.UniqueConstraint('provider_id', 'provider_type_id', name='uq_provider_type_assignment'),
-        if_not_exists=True,
     )
-    op.create_index('ix_provider_type_assignments_provider_id', 'provider_type_assignments', ['provider_id'], unique=False, if_not_exists=True)
-    op.create_index('ix_provider_type_assignments_provider_type_id', 'provider_type_assignments', ['provider_type_id'], unique=False, if_not_exists=True)
+    op.create_index('ix_provider_type_assignments_provider_id', 'provider_type_assignments', ['provider_id'], unique=False)
+    op.create_index('ix_provider_type_assignments_provider_type_id', 'provider_type_assignments', ['provider_type_id'], unique=False)
 
     op.create_table(
         'services',
@@ -122,11 +121,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['provider_id'], ['providers.id']),
         sa.ForeignKeyConstraint(['category_id'], ['service_categories.id']),
         sa.UniqueConstraint('provider_id', 'slug', name='uq_service_provider_slug'),
-        if_not_exists=True,
     )
-    op.create_index('ix_services_provider_id', 'services', ['provider_id'], unique=False, if_not_exists=True)
-    op.create_index('ix_services_category_id', 'services', ['category_id'], unique=False, if_not_exists=True)
-    op.create_index('ix_services_status', 'services', ['status'], unique=False, if_not_exists=True)
+    op.create_index('ix_services_provider_id', 'services', ['provider_id'], unique=False)
+    op.create_index('ix_services_category_id', 'services', ['category_id'], unique=False)
+    op.create_index('ix_services_status', 'services', ['status'], unique=False)
 
     now = datetime.utcnow()
     provider_type_table = sa.table(
