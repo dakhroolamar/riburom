@@ -17,7 +17,7 @@ body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-seri
   <div class="ws-sub">Workspace</div>
   <nav class="ws-nav">
     <a href="{{ url_for('workspace_operations') }}" class="{% if area=='operations' %}active{% endif %}">Operations</a>
-    {% if current_user.role == 'owner' %}<a href="{{ url_for('workspace_cms') }}" class="{% if area=='cms' %}active{% endif %}">Website CMS</a>{% endif %}
+    {% if current_user.role == 'owner' %}<a href="{{ url_for('workspace_cms') }}" class="{% if area=='cms' %}active{% endif %}">Website CMS</a>{% endif %}{% if current_user.has_permission('view_marketplace') or current_user.has_permission('manage_marketplace') %}<a href="{{ url_for('workspace_marketplace') }}" class="{% if area=='marketplace' %}active{% endif %}">Marketplace</a>{% endif %}
     {% if current_user.role == 'owner' %}<a href="{{ url_for('workspace_administration') }}" class="{% if area=='administration' %}active{% endif %}">Administration</a>{% endif %}
     {% if current_user.role == 'owner' %}<a href="{{ url_for('workspace_developer') }}" class="{% if area=='developer' %}active{% endif %}">Developer / System</a>{% endif %}
   </nav>

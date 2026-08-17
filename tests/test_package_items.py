@@ -27,6 +27,7 @@ class PackageItemModelTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         db.session.remove()
+        db.engine.dispose()
         cls.app_context.pop()
 
     def setUp(self):
