@@ -18,6 +18,15 @@ from app import (
     get_site_settings,
 )
 from models import AuditLog, AboutContent, AboutSection, Message, Package, TeamMember, User, db
+from marketplace_models import (
+    PROVIDER_STATUSES,
+    SERVICE_STATUSES,
+    Provider,
+    ProviderType,
+    ProviderTypeAssignment,
+    Service,
+    ServiceCategory,
+)
 
 
 CONTENT_FIELDS = [
@@ -114,6 +123,8 @@ cms_content_required = _access_required('manage_about')
 cms_media_required = _access_required('manage_media')
 cms_structure_required = _access_required('manage_structure')
 cms_access_required = _access_required('manage_about', 'manage_media', 'manage_structure')
+marketplace_view_required = _access_required('view_marketplace', 'manage_marketplace')
+marketplace_manage_required = _access_required('manage_marketplace')
 
 
 def _get_context(area):
@@ -133,6 +144,20 @@ def _get_context(area):
         'permission_labels': PERMISSION_LABELS, 'permission_keys': PERMISSION_KEYS, 'role_labels': ROLE_LABELS,
     }
 
+
+def _marketplace_context():
+    return {
+        'providers': Provider.query.order_by(Provider.name.asc(), Provider.id.asc()).all(),
+        'provider_types': ProviderType.query.order_by(ProviderType.sort_order.asc(), ProviderType.name.asc()).all(),
+        'service_categories': ServiceCategory.query.order_by(ServiceCategory.sort_order.asc(), ServiceCategory.name.asc()).all(),
+        'services': Service.query.order_by(Service.name.asc(), Service.id.asc()).all(),
+        'provider_statuses': sorted(PROVIDER_STATUSES),
+        'service_statuses': sorted(SERVICE_STATUSES),
+        'provider_type_ids': {
+            provider.id: [assignment.provider_type_id for assignment in provider.provider_type_assignments]
+            for provider in Provider.query.all()
+        },
+    }
 
 def register_workspace(flask_app):
     if getattr(flask_app, '_ri_burom_workspace_registered', False):
@@ -169,6 +194,11 @@ def register_workspace(flask_app):
         settings = get_site_settings(); public = _with_defaults(get_public_config(settings))
         context = _get_context('cms_structure'); context.update({'public': public, 'section_labels': SECTION_LABELS})
         return render_template('cms_structure.html', **context)
+
+    @flask_app.route('/workspace/marketplace')
+    @marketplace_view_required
+    def workspace_marketplace():
+        return render_template('marketplace.html', **_marketplace_context())
 
     @flask_app.route('/workspace/administration')
     @owner_required

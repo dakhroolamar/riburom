@@ -23,6 +23,7 @@ class PackageItemMigrationTests(unittest.TestCase):
 
     def tearDown(self):
         db.session.remove()
+        db.engine.dispose()
         self.context.pop()
 
     def _create_legacy_packages(self):
