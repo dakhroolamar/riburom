@@ -31,6 +31,7 @@ from storage import (
     save_image, save_pdf, save_generated_png, delete_media, allowed_file, imgsrc,
     STORAGE_BACKEND, ALLOWED_IMAGE_EXTENSIONS,
 )
+from marketplace_models import Provider, Service
 
 app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -691,6 +692,54 @@ def export_customer_inquiries():
         headers={'Content-Disposition': 'attachment; filename="ri-burom-customer-inquiries.csv"'},
     )
 
+
+PUBLIC_PROVIDER_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
+PUBLIC_SERVICE_STATUSES = {'PUBLISHED', 'ACTIVE'}
+
+
+def _public_provider_query():
+    return Provider.query.filter(
+        Provider.is_active.is_(True),
+        Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+    )
+
+
+@app.route('/marketplace')
+def marketplace_public_index():
+    providers = _public_provider_query().order_by(
+        Provider.name.asc(),
+        Provider.id.asc(),
+    ).all()
+
+    for provider in providers:
+        provider.public_services = [
+            service
+            for service in provider.services
+            if service.is_active and service.status in PUBLIC_SERVICE_STATUSES
+        ]
+
+    return render_template(
+        'marketplace_public.html',
+        providers=providers,
+    )
+
+
+@app.route('/marketplace/providers/<slug>')
+def marketplace_public_provider(slug):
+    provider = _public_provider_query().filter_by(slug=slug).first_or_404()
+
+    services = [
+        service
+        for service in provider.services
+        if service.is_active and service.status in PUBLIC_SERVICE_STATUSES
+    ]
+    services.sort(key=lambda item: (item.name.lower(), item.id))
+
+    return render_template(
+        'marketplace_provider.html',
+        provider=provider,
+        services=services,
+    )
 
 @app.route('/all_tours')
 def all_tours():
