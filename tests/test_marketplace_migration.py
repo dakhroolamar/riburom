@@ -45,8 +45,98 @@ class MarketplaceMigrationTests(unittest.TestCase):
 
     def create_pre_alembic_marketplace_schema(self, app):
         with app.app_context():
-            db.metadata.create_all(bind=db.engine, tables=self.make_marketplace_tables())
+            statements = (
+                """
+                CREATE TABLE provider_types (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    name VARCHAR(120) NOT NULL,
+                    slug VARCHAR(140) NOT NULL,
+                    description TEXT,
+                    is_active BOOLEAN NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_provider_types_slug UNIQUE (slug)
+                )
+                """,
+                """
+                CREATE TABLE service_categories (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    name VARCHAR(120) NOT NULL,
+                    slug VARCHAR(140) NOT NULL,
+                    description TEXT,
+                    is_active BOOLEAN NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_service_categories_slug UNIQUE (slug)
+                )
+                """,
+                """
+                CREATE TABLE providers (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    slug VARCHAR(240) NOT NULL,
+                    description TEXT,
+                    email VARCHAR(254),
+                    phone VARCHAR(40),
+                    status VARCHAR(40) NOT NULL,
+                    is_active BOOLEAN NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_providers_slug UNIQUE (slug)
+                )
+                """,
+                """
+                CREATE TABLE provider_type_assignments (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    provider_id INTEGER NOT NULL,
+                    provider_type_id INTEGER NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    CONSTRAINT uq_provider_type_assignment
+                        UNIQUE (provider_id, provider_type_id),
+                    FOREIGN KEY(provider_id) REFERENCES providers (id),
+                    FOREIGN KEY(provider_type_id) REFERENCES provider_types (id)
+                )
+                """,
+                """
+                CREATE TABLE services (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    provider_id INTEGER NOT NULL,
+                    category_id INTEGER NOT NULL,
+                    name VARCHAR(200) NOT NULL,
+                    slug VARCHAR(240) NOT NULL,
+                    description TEXT,
+                    status VARCHAR(40) NOT NULL,
+                    is_active BOOLEAN NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    CONSTRAINT uq_service_provider_slug
+                        UNIQUE (provider_id, slug),
+                    FOREIGN KEY(provider_id) REFERENCES providers (id),
+                    FOREIGN KEY(category_id) REFERENCES service_categories (id)
+                )
+                """,
+            )
 
+            indexes = (
+                "CREATE INDEX ix_provider_types_is_active ON provider_types (is_active)",
+                "CREATE INDEX ix_provider_types_sort_order ON provider_types (sort_order)",
+                "CREATE INDEX ix_service_categories_is_active ON service_categories (is_active)",
+                "CREATE INDEX ix_service_categories_sort_order ON service_categories (sort_order)",
+                "CREATE INDEX ix_providers_is_active ON providers (is_active)",
+                "CREATE INDEX ix_provider_type_assignments_provider_id ON provider_type_assignments (provider_id)",
+                "CREATE INDEX ix_provider_type_assignments_provider_type_id ON provider_type_assignments (provider_type_id)",
+                "CREATE INDEX ix_services_provider_id ON services (provider_id)",
+                "CREATE INDEX ix_services_category_id ON services (category_id)",
+                "CREATE INDEX ix_services_status ON services (status)",
+            )
+
+            with db.engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
+                for statement in indexes:
+                    connection.execute(text(statement))
     def test_fresh_database_creates_marketplace_schema_and_taxonomy(self):
         fd, path = tempfile.mkstemp(suffix='.db')
         os.close(fd)

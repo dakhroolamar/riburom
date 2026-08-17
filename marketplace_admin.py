@@ -17,6 +17,7 @@ from marketplace_models import (
     ServiceCategory,
 )
 from models import db
+from storage import delete_media, save_image
 
 
 def _slugify(value):
@@ -113,6 +114,20 @@ def _service_target(id):
     return service
 
 
+def _save_marketplace_image(file_storage, current_url=None):
+    if not file_storage or not file_storage.filename:
+        return current_url
+
+    try:
+        new_url = save_image(file_storage)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+
+    if current_url and new_url != current_url:
+        delete_media(current_url)
+
+    return new_url
+
 def register_marketplace_admin(flask_app, view_required, manage_required):
     if getattr(flask_app, '_ri_burom_marketplace_admin_registered', False):
         return
@@ -131,6 +146,12 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         phone = (request.form.get('phone') or '').strip() or None
         description = (request.form.get('description') or '').strip() or None
         status = (request.form.get('status') or 'DRAFT').strip().upper()
+
+        try:
+            image_url = _save_marketplace_image(request.files.get('image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('workspace_marketplace'))
 
         if email and (len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)):
             flash('Please provide a valid provider email address.', 'error')
@@ -151,6 +172,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             email=email,
             phone=phone,
             status=status,
+            image_url=image_url,
             is_active=bool(request.form.get('is_active')),
         )
 
@@ -178,6 +200,15 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         description = (request.form.get('description') or '').strip() or None
         status = (request.form.get('status') or 'DRAFT').strip().upper()
 
+        try:
+            image_url = _save_marketplace_image(
+                request.files.get('image'),
+                provider.image_url,
+            )
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('workspace_marketplace'))
+
         if email and (len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)):
             flash('Please provide a valid provider email address.', 'error')
             return redirect(url_for('workspace_marketplace'))
@@ -197,6 +228,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             current_id=provider.id,
         )
         provider.description = description
+        provider.image_url = image_url
         provider.email = email
         provider.phone = phone
         provider.status = status
@@ -395,6 +427,12 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             flash('Invalid service status.', 'error')
             return redirect(url_for('workspace_marketplace'))
 
+        try:
+            image_url = _save_marketplace_image(request.files.get('image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('workspace_marketplace'))
+
         service = Service(
             provider=provider,
             service_category=category,
@@ -406,6 +444,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             ),
             description=(request.form.get('description') or '').strip() or None,
             status=status,
+            image_url=image_url,
             is_active=bool(request.form.get('is_active')),
         )
 
@@ -446,6 +485,15 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             flash('Invalid service status.', 'error')
             return redirect(url_for('workspace_marketplace'))
 
+        try:
+            image_url = _save_marketplace_image(
+                request.files.get('image'),
+                service.image_url,
+            )
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('workspace_marketplace'))
+
         service.provider = provider
         service.service_category = category
         service.name = name
@@ -457,6 +505,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         )
         service.description = (request.form.get('description') or '').strip() or None
         service.status = status
+        service.image_url = image_url
         service.is_active = bool(request.form.get('is_active'))
 
         add_audit('updated', 'service', service.id, f'{provider.name}: {service.name}')

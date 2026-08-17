@@ -95,7 +95,7 @@ class PackageItemMigrationTests(unittest.TestCase):
         self.assertEqual(db.session.execute(text('SELECT COUNT(*) FROM packages')).scalar_one(), 1)
         self.assertEqual(
             db.session.execute(text('SELECT version_num FROM alembic_version')).scalar_one(),
-            '3f7a9c2d1e64',
+            '6a4b7c9e2d10',
         )
 
     def test_package_item_migration_requires_existing_packages_table(self):
