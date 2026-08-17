@@ -2,10 +2,10 @@ import os
 import unittest
 from xml.etree import ElementTree
 
-os.environ.setdefault('APP_ENV', 'development')
-os.environ.setdefault('SECRET_KEY', 'seo-test-secret')
-os.environ.setdefault('ADMIN_PASSWORD', 'seo-test-password')
-os.environ.setdefault('DATABASE_URL', 'sqlite:///seo_test.db')
+from tests.test_bootstrap import configure_isolated_sqlite
+
+
+SEO_DB_PATH = configure_isolated_sqlite('seo_test')
 
 import wsgi
 from app import app, db
@@ -16,6 +16,7 @@ class SeoFoundationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+        cls.db_path = SEO_DB_PATH
         cls.client = app.test_client()
         with app.app_context():
             db.create_all()
@@ -29,6 +30,16 @@ class SeoFoundationTests(unittest.TestCase):
                 )
                 db.session.add(cls.package)
                 db.session.commit()
+
+    @classmethod
+    def tearDownClass(cls):
+        with app.app_context():
+            db.session.remove()
+            db.engine.dispose()
+        try:
+            os.remove(cls.db_path)
+        except FileNotFoundError:
+            pass
 
     def test_robots_txt(self):
         response = self.client.get('/robots.txt')

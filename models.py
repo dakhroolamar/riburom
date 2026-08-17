@@ -21,7 +21,7 @@ ROLE_PERMISSIONS = {
     'owner': {
         'view_dashboard', 'manage_users', 'manage_tours', 'manage_media',
         'manage_about', 'manage_team', 'view_messages', 'manage_messages',
-        'view_audit_log', 'manage_structure', 'view_customer_analytics',
+        'view_audit_log', 'manage_structure', 'view_customer_analytics', 'view_marketplace', 'manage_marketplace',
     },
     'content_manager': {
         'view_dashboard', 'manage_tours', 'manage_media', 'manage_about',

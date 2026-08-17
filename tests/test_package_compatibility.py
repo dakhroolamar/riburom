@@ -1,16 +1,12 @@
 import os
-import tempfile
 import unittest
 
+from tests.test_bootstrap import configure_isolated_sqlite
 
 class PackageCompatibilityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.db_path = tempfile.mktemp(suffix='.db')
-        os.environ.setdefault('APP_ENV', 'development')
-        os.environ.setdefault('SECRET_KEY', 'package-compatibility-test-secret')
-        os.environ.setdefault('ADMIN_PASSWORD', 'package-compatibility-test-password')
-        os.environ['DATABASE_URL'] = f'sqlite:///{cls.db_path}'
+        cls.db_path = configure_isolated_sqlite('package_compatibility')
 
         from app import app, db
         from models import Package, User
@@ -39,6 +35,7 @@ class PackageCompatibilityTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.db.session.remove()
+        cls.db.engine.dispose()
         cls.context.pop()
         try:
             os.remove(cls.db_path)

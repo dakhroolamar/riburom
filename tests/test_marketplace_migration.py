@@ -79,6 +79,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 self.assertEqual(version, '8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -137,6 +140,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 self.assertEqual(version, '8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -159,6 +165,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -177,6 +186,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -214,6 +226,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -236,6 +251,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                     upgrade(directory='migrations', revision='8d1f2c4a9b01')
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass
@@ -284,6 +302,9 @@ class MarketplaceMigrationTests(unittest.TestCase):
                 )
         finally:
             try:
+                with app.app_context():
+                    db.session.remove()
+                    db.engine.dispose()
                 os.remove(path)
             except FileNotFoundError:
                 pass

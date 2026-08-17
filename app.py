@@ -66,6 +66,24 @@ app.config['RATELIMIT_STORAGE_URI'] = os.environ.get('RATELIMIT_STORAGE_URI', 'm
 
 # --- Database ---
 database_url = os.environ.get('DATABASE_URL')
+
+if os.environ.get('TESTING') == '1':
+    if not database_url:
+        raise RuntimeError(
+            'TESTING requires DATABASE_URL to be configured to an isolated SQLite database.'
+        )
+
+    normalized_database_url = database_url.lower()
+    if normalized_database_url.startswith(('postgres://', 'postgresql://')):
+        raise RuntimeError(
+            'TESTING cannot use a PostgreSQL database. '
+            'Tests must use an isolated SQLite database.'
+        )
+
+    if not normalized_database_url.startswith('sqlite:'):
+        raise RuntimeError(
+            'TESTING requires an isolated SQLite DATABASE_URL.'
+        )
 if database_url:
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -97,6 +115,8 @@ PERMISSION_LABELS = {
     'view_customer_analytics': 'View Customer Analytics',
     'view_audit_log': 'View Recent Activity / Audit Log',
     'manage_structure': 'Manage Page Structure / Ordering',
+    'view_marketplace': 'View Marketplace Providers & Services',
+    'manage_marketplace': 'Manage Marketplace Providers & Services',
 }
 PERMISSION_KEYS = tuple(PERMISSION_LABELS.keys())
 
