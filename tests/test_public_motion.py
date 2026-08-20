@@ -51,7 +51,7 @@ class PublicMotionTests(unittest.TestCase):
         self.assertIn('assembleHeroLogo', motion_script)
         self.assertIn("getElementById('rbHeroLogo')", motion_script)
         self.assertIn('rb-logo-assembly', motion_script)
-        self.assertIn('ri-burom-motion.js', response.data)
+        self.assertIn(b'ri-burom-motion.js', response.data)
 
 
 if __name__ == '__main__':
