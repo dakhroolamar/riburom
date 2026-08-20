@@ -24,28 +24,21 @@
 
         <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-6 py-10 sm:py-14 lg:py-20 text-white">
             <div class="mb-8">
-                <a href="{{ url_for('marketplace_public_index') }}"
-                   class="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition">
-                    <span aria-hidden="true">←</span>
-                    Back to marketplace
+                <a href="{{ url_for('marketplace_public_index') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition">
+                    <span aria-hidden="true">←</span> Back to marketplace
                 </a>
             </div>
 
             <div class="max-w-4xl">
                 <div class="flex flex-wrap gap-2 mb-5">
                     {% for assignment in provider.provider_type_assignments %}
-                    <span class="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs sm:text-sm font-semibold backdrop-blur-sm">
-                        {{ assignment.provider_type.name }}
-                    </span>
+                    <span class="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs sm:text-sm font-semibold backdrop-blur-sm">{{ assignment.provider_type.name }}</span>
                     {% endfor %}
                 </div>
 
                 <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-5">{{ provider.name }}</h1>
-
                 {% if provider.description %}
-                <p class="max-w-3xl text-base sm:text-lg lg:text-xl leading-relaxed text-white/85 whitespace-pre-line">
-                    {{ provider.description }}
-                </p>
+                <p class="max-w-3xl text-base sm:text-lg lg:text-xl leading-relaxed text-white/85 whitespace-pre-line">{{ provider.description }}</p>
                 {% endif %}
 
                 <div class="mt-8 flex flex-wrap gap-3">
@@ -78,7 +71,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                         <div>
                             <h2 class="text-3xl sm:text-4xl font-bold text-gray-900">Choose what you need</h2>
-                            <p class="text-gray-600 mt-2 max-w-2xl">Each request is tied to the service you select, so your enquiry reaches the right provider with the right context.</p>
+                            <p class="text-gray-600 mt-2 max-w-2xl">Browse what this provider offers. Use the provider enquiry button to choose a service and tell us what you need.</p>
                         </div>
                     </div>
                 </div>
@@ -87,44 +80,22 @@
                     {% for service in services %}
                     <article data-reveal="scale" class="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
                         <div class="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-                            <div class="h-52 md:h-full min-h-[220px] bg-gray-100 bg-cover bg-center"
-                                 {% if service.image_url %}
-                                 style="background-image:url('{{ service.image_url|imgsrc }}');"
-                                 {% endif %}>
-                            </div>
-
+                            <div class="h-52 md:h-full min-h-[220px] bg-gray-100 bg-cover bg-center" {% if service.image_url %}style="background-image:url('{{ service.image_url|imgsrc }}');"{% endif %}></div>
                             <div class="p-5 sm:p-6 lg:p-7 flex flex-col justify-between">
                                 <div>
                                     {% if service.service_category %}
                                     <div class="flex flex-wrap items-center gap-2 mb-3">
-                                        <span class="inline-flex rounded-full bg-green-50 text-green-800 px-3 py-1 text-xs font-bold uppercase tracking-wide">
-                                            {{ service.service_category.name }}
-                                        </span>
+                                        <span class="inline-flex rounded-full bg-green-50 text-green-800 px-3 py-1 text-xs font-bold uppercase tracking-wide">{{ service.service_category.name }}</span>
                                     </div>
                                     {% endif %}
-
                                     <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ service.name }}</h3>
-
                                     {% if service.description %}
                                     <p class="text-gray-600 leading-relaxed whitespace-pre-line">{{ service.description }}</p>
                                     {% else %}
                                     <p class="text-gray-500 leading-relaxed">Ask this provider about availability and what can be arranged for this service.</p>
                                     {% endif %}
                                 </div>
-
-                                <div class="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
-                                    <button type="button"
-                                            class="rb-button inline-flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-3 rounded-xl"
-                                            data-marketplace-inquiry-trigger
-                                            data-service-id="{{ service.id }}"
-                                            data-service-name="{{ service.name|e }}"
-                                            data-category-name="{{ service.service_category.name|e if service.service_category else 'Marketplace service' }}"
-                                            data-category-slug="{{ service.service_category.slug|e if service.service_category else '' }}">
-                                        Request this service
-                                        <span aria-hidden="true">→</span>
-                                    </button>
-                                    <span class="text-xs sm:text-sm text-gray-500">Independent marketplace enquiry</span>
-                                </div>
+                                <p class="mt-6 text-xs sm:text-sm text-gray-500">Select this service in the provider enquiry form to continue.</p>
                             </div>
                         </div>
                     </article>
@@ -140,45 +111,31 @@
             <aside class="xl:col-span-4">
                 <div class="xl:sticky xl:top-28 space-y-5">
                     <div class="bg-green-900 text-white rounded-2xl p-6 sm:p-7 shadow-xl">
-                        <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-2">How it works</p>
-                        <h2 class="text-2xl font-bold mb-5">Request a service directly</h2>
-                        <div class="space-y-4">
-                            <div class="flex gap-3">
-                                <span class="flex-none h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">1</span>
-                                <div><strong class="block">Choose a service</strong><span class="text-sm text-green-100/80">Start from the exact service you need.</span></div>
-                            </div>
-                            <div class="flex gap-3">
-                                <span class="flex-none h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">2</span>
-                                <div><strong class="block">Describe your requirements</strong><span class="text-sm text-green-100/80">The form adapts to the service and also lets you add anything else.</span></div>
-                            </div>
-                            <div class="flex gap-3">
-                                <span class="flex-none h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">3</span>
-                                <div><strong class="block">RI BUROM routes the request</strong><span class="text-sm text-green-100/80">Your request stays separate from the general website contact form.</span></div>
-                            </div>
-                        </div>
+                        <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-2">Marketplace enquiry</p>
+                        <h2 class="text-2xl font-bold mb-3">Interested in this provider?</h2>
+                        <p class="text-sm text-green-100/85 leading-relaxed mb-6">Send one request to this provider and choose a specific service inside the enquiry form, or leave it as a general provider enquiry.</p>
+                        <button type="button" data-marketplace-provider-inquiry class="w-full inline-flex items-center justify-center gap-2 bg-white text-green-900 hover:bg-green-50 font-bold px-5 py-3.5 rounded-xl transition">
+                            Enquire with this provider
+                            <span aria-hidden="true">→</span>
+                        </button>
+                        <p class="text-xs text-green-100/70 mt-3">Independent marketplace enquiry. Not the general Contact Us form.</p>
                     </div>
 
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-7">
                         <p class="text-xs uppercase tracking-[0.18em] font-bold text-gray-500 mb-2">Provider</p>
                         <h2 class="text-xl font-bold text-gray-900 mb-5">Contact details</h2>
-
                         {% if provider.email %}
                         <a href="mailto:{{ provider.email }}" class="flex items-start gap-3 py-3 border-b border-gray-100 hover:text-green-800 transition">
                             <span class="text-lg" aria-hidden="true">✉</span>
                             <span class="min-w-0"><span class="block text-xs text-gray-500">Email</span><span class="font-semibold break-words">{{ provider.email }}</span></span>
                         </a>
                         {% endif %}
-
                         {% if provider.phone %}
                         <a href="tel:{{ provider.phone }}" class="flex items-start gap-3 py-3 {% if provider.email %}border-b border-gray-100{% endif %} hover:text-green-800 transition">
                             <span class="text-lg" aria-hidden="true">☎</span>
                             <span><span class="block text-xs text-gray-500">Phone / WhatsApp</span><span class="font-semibold">{{ provider.phone }}</span></span>
                         </a>
                         {% endif %}
-
-                        <p class="text-sm text-gray-600 leading-relaxed mt-4">
-                            The marketplace request is independent from RI BUROM's general trip-planning enquiry.
-                        </p>
                     </div>
                 </div>
             </aside>
@@ -188,28 +145,42 @@
 
 <div id="marketplaceInquiryModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
     <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-marketplace-inquiry-close></div>
-
     <div class="relative z-10 min-h-full flex items-start justify-center px-3 sm:px-5 py-4 sm:py-8 overflow-y-auto">
         <div class="w-full max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
             <div class="px-5 sm:px-7 py-5 bg-green-900 text-white flex items-start justify-between gap-5">
                 <div class="min-w-0">
                     <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-1">Marketplace enquiry</p>
-                    <h2 id="marketplaceInquiryTitle" class="text-2xl sm:text-3xl font-bold break-words">Request a service</h2>
-                    <p id="marketplaceInquiryCategory" class="text-green-100 mt-1"></p>
+                    <h2 id="marketplaceInquiryTitle" class="text-2xl sm:text-3xl font-bold break-words">Enquire with this provider</h2>
+                    <p id="marketplaceInquiryCategory" class="text-green-100 mt-1">General provider enquiry</p>
                 </div>
                 <button type="button" class="flex-none h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl leading-none" aria-label="Close enquiry" data-marketplace-inquiry-close>&times;</button>
             </div>
 
             <div class="px-5 sm:px-7 pt-5">
                 <div class="rounded-xl bg-green-50 border border-green-100 px-4 py-3">
-                    <div class="text-xs uppercase tracking-wide text-green-700 font-bold">Selected service</div>
-                    <div id="marketplaceInquirySummary" class="font-semibold text-gray-900 mt-1"></div>
+                    <div class="text-xs uppercase tracking-wide text-green-700 font-bold">Provider</div>
+                    <div id="marketplaceInquirySummary" class="font-semibold text-gray-900 mt-1">{{ provider.name }}</div>
                 </div>
             </div>
 
             <form method="post" action="{{ url_for('marketplace_inquiry_create') }}" class="p-5 sm:p-7 space-y-7">
                 <input type="hidden" name="provider_id" value="{{ provider.id }}">
-                <input type="hidden" name="service_id" id="marketplaceInquiryServiceId" value="">
+
+                <section>
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-gray-900">What are you interested in?</h3>
+                        <p class="text-sm text-gray-500 mt-1">Choose a service when you have one in mind. Leave it as general provider enquiry if you want help deciding.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryService">Service</label>
+                        <select id="marketplaceInquiryService" name="service_id" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
+                            <option value="">General provider enquiry</option>
+                            {% for service in services %}
+                            <option value="{{ service.id }}" data-service-name="{{ service.name|e }}" data-category-name="{{ service.service_category.name|e if service.service_category else 'Marketplace service' }}" data-category-slug="{{ service.service_category.slug|e if service.service_category else '' }}">{{ service.name }}{% if service.service_category %} — {{ service.service_category.name }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </section>
 
                 <section>
                     <div class="mb-4">
@@ -235,7 +206,7 @@
                 <section>
                     <div class="mb-4">
                         <h3 class="text-lg font-bold text-gray-900">Service requirements</h3>
-                        <p class="text-sm text-gray-500 mt-1">Only the fields relevant to this service are shown.</p>
+                        <p id="marketplaceInquiryRequirementsHelp" class="text-sm text-gray-500 mt-1">General enquiry fields are shown. Choose a service above to see more specific fields.</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -293,12 +264,8 @@
                 </section>
 
                 <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-1">
-                    <button type="button" data-marketplace-inquiry-close class="px-5 py-3.5 rounded-xl border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50">
-                        Cancel
-                    </button>
-                    <button type="submit" class="rb-button px-6 py-3.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold">
-                        Send service enquiry
-                    </button>
+                    <button type="button" data-marketplace-inquiry-close class="px-5 py-3.5 rounded-xl border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="rb-button px-6 py-3.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold">Send marketplace enquiry</button>
                 </div>
             </form>
         </div>
@@ -312,10 +279,12 @@
     const modal = document.getElementById('marketplaceInquiryModal');
     if (!modal) return;
 
-    const serviceId = document.getElementById('marketplaceInquiryServiceId');
+    const providerButton = document.querySelector('[data-marketplace-provider-inquiry]');
+    const serviceSelect = document.getElementById('marketplaceInquiryService');
     const title = document.getElementById('marketplaceInquiryTitle');
     const category = document.getElementById('marketplaceInquiryCategory');
     const summary = document.getElementById('marketplaceInquirySummary');
+    const help = document.getElementById('marketplaceInquiryRequirementsHelp');
     const fields = Array.from(modal.querySelectorAll('.marketplace-inquiry-field'));
 
     const fieldSets = {
@@ -328,17 +297,6 @@
         general: ['travel_date', 'return_date', 'travellers', 'duration']
     };
 
-    function showFamily(family) {
-        const visible = new Set(fieldSets[family] || fieldSets.general);
-        fields.forEach((field) => {
-            const key = field.getAttribute('data-field');
-            const isVisible = visible.has(key);
-            field.classList.toggle('hidden', !isVisible);
-            const input = field.querySelector('input');
-            if (input && !isVisible) input.value = '';
-        });
-    }
-
     function detectFamily(slug) {
         slug = (slug || '').toLowerCase();
         if (/transport|taxi|driver|vehicle|transfer|rental/.test(slug)) return 'transport';
@@ -350,21 +308,46 @@
         return 'general';
     }
 
-    function openModal(button) {
-        const serviceName = button.dataset.serviceName || 'this service';
-        const categoryName = button.dataset.categoryName || 'Marketplace service';
-        const providerName = '{{ provider.name|e }}';
+    function showFamily(family, selectedName) {
+        const visible = new Set(fieldSets[family] || fieldSets.general);
+        fields.forEach((field) => {
+            const key = field.getAttribute('data-field');
+            const isVisible = visible.has(key);
+            field.classList.toggle('hidden', !isVisible);
+            const input = field.querySelector('input');
+            if (input && !isVisible) input.value = '';
+        });
+        help.textContent = selectedName
+            ? 'Only the fields relevant to the selected service are shown. You can add anything else below.'
+            : 'General enquiry fields are shown. Choose a service above to see more specific fields.';
+    }
 
-        serviceId.value = button.dataset.serviceId || '';
+    function applyServiceSelection() {
+        const option = serviceSelect.options[serviceSelect.selectedIndex];
+        const selectedId = serviceSelect.value;
+        const serviceName = option.dataset.serviceName || '';
+        const categoryName = option.dataset.categoryName || '';
+        const categorySlug = option.dataset.categorySlug || '';
+
+        if (!selectedId) {
+            title.textContent = 'Enquire with this provider';
+            category.textContent = 'General provider enquiry';
+            summary.textContent = '{{ provider.name|e }}';
+            showFamily('general', '');
+            return;
+        }
+
         title.textContent = 'Request ' + serviceName;
-        category.textContent = categoryName + ' • ' + providerName;
-        summary.textContent = serviceName + ' from ' + providerName;
+        category.textContent = categoryName + ' • {{ provider.name|e }}';
+        summary.textContent = serviceName + ' from {{ provider.name|e }}';
+        showFamily(detectFamily(categorySlug), serviceName);
+    }
 
-        showFamily(detectFamily(button.dataset.categorySlug));
+    function openModal() {
+        applyServiceSelection();
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('overflow-hidden');
-
         const nameInput = document.getElementById('marketplaceInquiryName');
         if (nameInput) nameInput.focus();
     }
@@ -375,9 +358,8 @@
         document.body.classList.remove('overflow-hidden');
     }
 
-    document.querySelectorAll('[data-marketplace-inquiry-trigger]').forEach((button) => {
-        button.addEventListener('click', () => openModal(button));
-    });
+    providerButton?.addEventListener('click', openModal);
+    serviceSelect?.addEventListener('change', applyServiceSelection);
 
     document.querySelectorAll('[data-marketplace-inquiry-close]').forEach((button) => {
         button.addEventListener('click', closeModal);
@@ -386,6 +368,8 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
     });
+
+    showFamily('general', '');
 })();
 </script>
 </body>
