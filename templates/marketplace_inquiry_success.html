@@ -7,19 +7,17 @@
     <title>Enquiry received | Marketplace | {{ public.content.site_title }}</title>
     <link rel="manifest" href="/static/manifest.json">
     {% include '_public_theme.html' %}
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
 </head>
-<body class="rb-public-site bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800 font-sans">
 {% include '_nav.html' %}
 
-<main class="max-w-3xl mx-auto px-6 py-16">
-    <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-800 text-3xl mb-6">
-            ✓
-        </div>
-        <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-2">Marketplace enquiry received</p>
-        <h1 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">Your request has been recorded.</h1>
+<main class="relative min-h-[70vh] flex items-center justify-center px-4 py-16">
+    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
+        <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-3">Marketplace enquiry received</p>
+        <h1 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">Your enquiry has been received</h1>
         <p class="text-gray-600 leading-relaxed max-w-2xl mx-auto mb-8">
-            Your enquiry is tied specifically to <strong>{{ service.name }}</strong> from <strong>{{ provider.name }}</strong>. RI BUROM can now review the requirements and coordinate the next step with you.
+            Thank you for contacting RI BUROM. Your marketplace enquiry has been recorded successfully. Our representative will review your request and get back to you by phone, WhatsApp, or email.
         </p>
 
         <div class="bg-gray-50 rounded-xl p-5 text-left max-w-xl mx-auto mb-8">
@@ -29,12 +27,16 @@
                     <p class="font-bold">#{{ inquiry.id }}</p>
                 </div>
                 <div>
+                    <p class="text-gray-500">Provider</p>
+                    <p class="font-bold">{{ provider.name }}</p>
+                </div>
+                <div>
                     <p class="text-gray-500">Category</p>
                     <p class="font-bold">{{ inquiry.category_name }}</p>
                 </div>
                 <div class="sm:col-span-2">
-                    <p class="text-gray-500">Service</p>
-                    <p class="font-bold">{{ inquiry.service_name }}</p>
+                    <p class="text-gray-500">Selected service(s)</p>
+                    <p class="font-bold">{{ inquiry.service_name or 'General provider enquiry' }}</p>
                 </div>
             </div>
         </div>
@@ -48,7 +50,44 @@
             </a>
         </div>
     </div>
+
+    <div id="marketplaceEnquiryConfirmation" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="marketplaceEnquiryConfirmationTitle">
+        <div class="w-full max-w-xl bg-white rounded-2xl shadow-2xl px-6 sm:px-8 py-8 sm:py-10 text-center">
+            <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-800 text-3xl font-bold">✓</div>
+            <p class="text-green-800 font-bold uppercase tracking-wider text-xs sm:text-sm mb-2">Marketplace enquiry received</p>
+            <h2 id="marketplaceEnquiryConfirmationTitle" class="text-2xl sm:text-3xl font-bold text-green-800 mb-4">Your enquiry has been received</h2>
+            <p class="text-gray-700 leading-relaxed max-w-md mx-auto mb-4">
+                Thank you for contacting RI BUROM. Your message has been recorded successfully. Our representative will review your enquiry and get back to you by phone, WhatsApp, or email.
+            </p>
+            <p class="text-gray-500 text-sm mb-6">You can safely close this message and continue exploring Meghalaya.</p>
+            <button type="button" id="marketplaceEnquiryContinue" class="rb-button bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded-full">
+                Continue browsing
+            </button>
+        </div>
+    </div>
 </main>
+
+<script>
+(function () {
+    const overlay = document.getElementById('marketplaceEnquiryConfirmation');
+    const closeButton = document.getElementById('marketplaceEnquiryContinue');
+    if (!overlay || !closeButton) return;
+
+    const close = () => {
+        overlay.remove();
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    closeButton.addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') close();
+    });
+    document.body.classList.add('overflow-hidden');
+})();
+</script>
 
 {% include '_footer.html' %}
 </body>

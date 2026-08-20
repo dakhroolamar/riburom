@@ -82,7 +82,7 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
 
         payload = {
             'provider_id': str(provider.id),
-            'service_id': str(service.id),
+            'service_ids': [str(service.id)],
             'name': 'Traveller Example',
             'email': 'traveller@example.com',
             'phone': '+918888888888',

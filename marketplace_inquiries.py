@@ -1,5 +1,6 @@
 """Public marketplace service enquiry workflow."""
 
+import json
 import re
 
 from flask import flash, redirect, render_template, request, url_for
@@ -11,7 +12,6 @@ from notifications import notify_new_enquiry
 
 PUBLIC_PROVIDER_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
 PUBLIC_SERVICE_STATUSES = {'PUBLISHED', 'ACTIVE'}
-
 
 _FIELD_LIMITS = {
     'travel_date': 120,
@@ -74,13 +74,11 @@ def register_marketplace_inquiries(flask_app):
     @limiter.limit('5 per minute')
     def marketplace_inquiry_create():
         provider_id_raw = (request.form.get('provider_id') or '').strip()
-        service_id_raw = (request.form.get('service_id') or '').strip()
 
         try:
             provider_id = int(provider_id_raw)
-            service_id = int(service_id_raw)
         except (TypeError, ValueError):
-            flash('Please select a valid marketplace service.', 'error')
+            flash('Please select a valid marketplace provider.', 'error')
             return redirect(request.referrer or url_for('marketplace_public_index'))
 
         provider = Provider.query.filter(
@@ -88,16 +86,32 @@ def register_marketplace_inquiries(flask_app):
             Provider.is_active.is_(True),
             Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
         ).first()
-        service = Service.query.filter(
-            Service.id == service_id,
-            Service.provider_id == provider_id,
-            Service.is_active.is_(True),
-            Service.status.in_(PUBLIC_SERVICE_STATUSES),
-        ).first()
-
-        if provider is None or service is None:
-            flash('That marketplace service is no longer available.', 'error')
+        if provider is None:
+            flash('That marketplace provider is no longer available.', 'error')
             return redirect(request.referrer or url_for('marketplace_public_index'))
+
+        selected_raw = request.form.getlist('service_ids')
+        selected_ids = []
+        for raw in selected_raw:
+            try:
+                service_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if service_id not in selected_ids:
+                selected_ids.append(service_id)
+
+        services = []
+        if selected_ids:
+            services = Service.query.filter(
+                Service.provider_id == provider.id,
+                Service.id.in_(selected_ids),
+                Service.is_active.is_(True),
+                Service.status.in_(PUBLIC_SERVICE_STATUSES),
+            ).all()
+            services.sort(key=lambda service: selected_ids.index(service.id))
+            if len(services) != len(selected_ids):
+                flash('One or more selected services are no longer available. Please review your selection.', 'error')
+                return redirect(url_for('marketplace_public_provider', slug=provider.slug))
 
         name = _clean('name')
         email = _clean('email')
@@ -134,12 +148,33 @@ def register_marketplace_inquiries(flask_app):
             flash(error, 'error')
             return redirect(url_for('marketplace_public_provider', slug=provider.slug))
 
+        selected_service_payload = [
+            {
+                'id': service.id,
+                'name': service.name,
+                'category': service.service_category.name if service.service_category else 'Marketplace service',
+                'category_family': _category_family(service),
+            }
+            for service in services
+        ]
+        selected_service_names = [item['name'] for item in selected_service_payload]
+        selected_categories = [item['category'] for item in selected_service_payload]
+
+        primary_service = services[0] if services else None
+        service_name = primary_service.name if primary_service else 'General provider enquiry'
+        if len(selected_service_names) > 1:
+            service_name = f'{service_name} + {len(selected_service_names) - 1} more'
+        category_name = primary_service.service_category.name if primary_service and primary_service.service_category else 'Provider enquiry'
+        if len(selected_categories) > 1:
+            category_name = 'Multiple service categories'
+
         inquiry = MarketplaceInquiry(
             provider_id=provider.id,
-            service_id=service.id,
+            service_id=primary_service.id if primary_service else None,
             provider_name=provider.name,
-            service_name=service.name,
-            category_name=service.service_category.name,
+            service_name=service_name,
+            category_name=category_name,
+            selected_services_json=json.dumps(selected_service_payload, ensure_ascii=False),
             name=name,
             email=email,
             phone=phone,
@@ -160,13 +195,13 @@ def register_marketplace_inquiries(flask_app):
         db.session.add(inquiry)
         db.session.commit()
 
+        service_lines = selected_service_names or ['General provider enquiry']
         notification_lines = [
-            'Marketplace service enquiry',
+            'Marketplace enquiry',
             '',
             f'Provider: {provider.name}',
-            f'Service: {service.name}',
-            f'Category: {service.service_category.name}',
-            f'Category family: {_category_family(service)}',
+            f'Selected service(s): {", ".join(service_lines)}',
+            f'Category: {category_name}',
             '',
             f'Traveller: {name}',
             f'Email: {email}',
@@ -189,15 +224,12 @@ def register_marketplace_inquiries(flask_app):
             f'Inquiry ID: {inquiry.id}',
         ]
 
-        # Use the same business recipient as the general Contact Us enquiry.
-        # Provider details remain in the notification body so operations still
-        # know exactly which provider/service the traveller selected.
         settings = get_site_settings()
         notify_new_enquiry({
             'name': name,
             'email': email,
             'phone': phone,
-            'tour_interest': f'Marketplace — {provider.name} — {service.name}',
+            'tour_interest': f'Marketplace — {provider.name} — {", ".join(service_lines)}',
             'message': '\n'.join(notification_lines),
             'notification_email': settings.footer_email,
             'notification_phone': provider.phone,
@@ -207,5 +239,5 @@ def register_marketplace_inquiries(flask_app):
             'marketplace_inquiry_success.html',
             inquiry=inquiry,
             provider=provider,
-            service=service,
+            service=primary_service,
         )
