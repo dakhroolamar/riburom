@@ -16,6 +16,7 @@ class MarketplacePublicTests(unittest.TestCase):
             ProviderType,
             Service,
             ServiceCategory,
+            ServiceImage,
         )
 
         cls.app = app
@@ -24,6 +25,7 @@ class MarketplacePublicTests(unittest.TestCase):
         cls.ProviderType = ProviderType
         cls.Service = Service
         cls.ServiceCategory = ServiceCategory
+        cls.ServiceImage = ServiceImage
 
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         cls.context = cls.app.app_context()
@@ -43,6 +45,7 @@ class MarketplacePublicTests(unittest.TestCase):
 
     def setUp(self):
         self.db.session.rollback()
+        self.db.session.query(self.ServiceImage).delete()
         self.db.session.query(self.Service).delete()
         self.db.session.query(self.Provider).delete()
         self.db.session.query(self.ServiceCategory).delete()
@@ -86,16 +89,17 @@ class MarketplacePublicTests(unittest.TestCase):
         ])
         self.db.session.commit()
 
+        public_service = self.Service(
+            provider=public_provider,
+            service_category=category,
+            name='Public Service',
+            slug='public-service',
+            description='Public service',
+            status='PUBLISHED',
+            is_active=True,
+        )
         self.db.session.add_all([
-            self.Service(
-                provider=public_provider,
-                service_category=category,
-                name='Public Service',
-                slug='public-service',
-                description='Public service',
-                status='PUBLISHED',
-                is_active=True,
-            ),
+            public_service,
             self.Service(
                 provider=public_provider,
                 service_category=category,
@@ -115,6 +119,15 @@ class MarketplacePublicTests(unittest.TestCase):
                 is_active=True,
             ),
         ])
+        self.db.session.flush()
+        self.db.session.add(
+            self.ServiceImage(
+                service_id=public_service.id,
+                image_url='/static/service-test-1.jpg',
+                alt_text='Public service test image',
+                sort_order=0,
+            )
+        )
         self.db.session.commit()
 
     def test_public_marketplace_lists_only_public_providers(self):
@@ -128,6 +141,27 @@ class MarketplacePublicTests(unittest.TestCase):
         self.assertIn(b'Public Service', response.data)
         self.assertNotIn(b'Hidden Service', response.data)
         self.assertNotIn(b'Hidden Provider Service', response.data)
+
+    def test_public_marketplace_has_provider_service_view_switch_and_category_filter(self):
+        self._seed()
+
+        response = self.client.get('/marketplace')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="marketplace-category"', response.data)
+        self.assertIn(b'id="marketplace-view-providers"', response.data)
+        self.assertIn(b'id="marketplace-view-services"', response.data)
+        self.assertIn(b'Browse individual services', response.data)
+
+    def test_public_marketplace_service_selection_includes_gallery(self):
+        self._seed()
+
+        response = self.client.get('/marketplace')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'data-service-open="1"', response.data)
+        self.assertIn(b'data-gallery-main="1"', response.data)
+        self.assertIn(b'Public service test image', response.data)
 
     def test_public_provider_detail_shows_only_public_services(self):
         self._seed()

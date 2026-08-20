@@ -8,6 +8,9 @@ legacy Package aggregate and reusable marketplace Services.
 
 Phase C introduces independent MarketplaceInquiry records so service requests
 do not enter the generic website contact/enquiry workflow.
+
+ServiceImage provides a reusable gallery for marketplace Services while
+preserving the existing single image_url field for backwards compatibility.
 """
 from datetime import datetime
 
@@ -17,36 +20,11 @@ from models import db, Package
 
 
 PROVIDER_STATUSES = {
-    'DRAFT',
-    'SUBMITTED',
-    'UNDER_REVIEW',
-    'VERIFIED',
-    'APPROVED',
-    'PUBLISHED',
-    'ACTIVE',
-    'REJECTED',
-    'SUSPENDED',
-    'INACTIVE',
-    'ARCHIVED',
+    'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'VERIFIED', 'APPROVED', 'PUBLISHED',
+    'ACTIVE', 'REJECTED', 'SUSPENDED', 'INACTIVE', 'ARCHIVED',
 }
-
-SERVICE_STATUSES = {
-    'DRAFT',
-    'PUBLISHED',
-    'ACTIVE',
-    'INACTIVE',
-    'ARCHIVED',
-}
-
-INQUIRY_STATUSES = {
-    'NEW',
-    'CONTACTED',
-    'IN_PROGRESS',
-    'QUOTED',
-    'CONFIRMED',
-    'DECLINED',
-    'CLOSED',
-}
+SERVICE_STATUSES = {'DRAFT', 'PUBLISHED', 'ACTIVE', 'INACTIVE', 'ARCHIVED'}
+INQUIRY_STATUSES = {'NEW', 'CONTACTED', 'IN_PROGRESS', 'QUOTED', 'CONFIRMED', 'DECLINED', 'CLOSED'}
 
 
 class ProviderType(db.Model):
@@ -55,7 +33,6 @@ class ProviderType(db.Model):
         db.Index('ix_provider_types_is_active', 'is_active'),
         db.Index('ix_provider_types_sort_order', 'sort_order'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     slug = db.Column(db.String(140), unique=True, nullable=False)
@@ -64,11 +41,7 @@ class ProviderType(db.Model):
     sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    provider_assignments = db.relationship(
-        'ProviderTypeAssignment',
-        back_populates='provider_type',
-    )
+    provider_assignments = db.relationship('ProviderTypeAssignment', back_populates='provider_type')
 
 
 class ServiceCategory(db.Model):
@@ -77,7 +50,6 @@ class ServiceCategory(db.Model):
         db.Index('ix_service_categories_is_active', 'is_active'),
         db.Index('ix_service_categories_sort_order', 'sort_order'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     slug = db.Column(db.String(140), unique=True, nullable=False)
@@ -86,19 +58,12 @@ class ServiceCategory(db.Model):
     sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    services = db.relationship(
-        'Service',
-        back_populates='service_category',
-    )
+    services = db.relationship('Service', back_populates='service_category')
 
 
 class Provider(db.Model):
     __tablename__ = 'providers'
-    __table_args__ = (
-        db.Index('ix_providers_is_active', 'is_active'),
-    )
-
+    __table_args__ = (db.Index('ix_providers_is_active', 'is_active'),)
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     slug = db.Column(db.String(240), unique=True, nullable=False)
@@ -110,15 +75,8 @@ class Provider(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    provider_type_assignments = db.relationship(
-        'ProviderTypeAssignment',
-        back_populates='provider',
-    )
-    services = db.relationship(
-        'Service',
-        back_populates='provider',
-    )
+    provider_type_assignments = db.relationship('ProviderTypeAssignment', back_populates='provider')
+    services = db.relationship('Service', back_populates='provider')
 
     @validates('status')
     def validate_status(self, key, value):
@@ -130,62 +88,29 @@ class Provider(db.Model):
 class ProviderTypeAssignment(db.Model):
     __tablename__ = 'provider_type_assignments'
     __table_args__ = (
-        db.UniqueConstraint(
-            'provider_id',
-            'provider_type_id',
-            name='uq_provider_type_assignment',
-        ),
+        db.UniqueConstraint('provider_id', 'provider_type_id', name='uq_provider_type_assignment'),
         db.Index('ix_provider_type_assignments_provider_id', 'provider_id'),
         db.Index('ix_provider_type_assignments_provider_type_id', 'provider_type_id'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
-    provider_id = db.Column(
-        db.Integer,
-        db.ForeignKey('providers.id'),
-        nullable=False,
-    )
-    provider_type_id = db.Column(
-        db.Integer,
-        db.ForeignKey('provider_types.id'),
-        nullable=False,
-    )
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=False)
+    provider_type_id = db.Column(db.Integer, db.ForeignKey('provider_types.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    provider = db.relationship(
-        'Provider',
-        back_populates='provider_type_assignments',
-    )
-    provider_type = db.relationship(
-        'ProviderType',
-        back_populates='provider_assignments',
-    )
+    provider = db.relationship('Provider', back_populates='provider_type_assignments')
+    provider_type = db.relationship('ProviderType', back_populates='provider_assignments')
 
 
 class Service(db.Model):
     __tablename__ = 'services'
     __table_args__ = (
-        db.UniqueConstraint(
-            'provider_id',
-            'slug',
-            name='uq_service_provider_slug',
-        ),
+        db.UniqueConstraint('provider_id', 'slug', name='uq_service_provider_slug'),
         db.Index('ix_services_provider_id', 'provider_id'),
         db.Index('ix_services_category_id', 'category_id'),
         db.Index('ix_services_status', 'status'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
-    provider_id = db.Column(
-        db.Integer,
-        db.ForeignKey('providers.id'),
-        nullable=False,
-    )
-    category_id = db.Column(
-        db.Integer,
-        db.ForeignKey('service_categories.id'),
-        nullable=False,
-    )
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('service_categories.id'), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     slug = db.Column(db.String(240), nullable=False)
     description = db.Column(db.Text, nullable=True)
@@ -194,19 +119,12 @@ class Service(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    provider = db.relationship(
-        'Provider',
-        back_populates='services',
-    )
-    service_category = db.relationship(
-        'ServiceCategory',
-        back_populates='services',
-    )
-    package_items = db.relationship(
-        'PackageItem',
-        back_populates='service',
-        passive_deletes=True,
+    provider = db.relationship('Provider', back_populates='services')
+    service_category = db.relationship('ServiceCategory', back_populates='services')
+    package_items = db.relationship('PackageItem', back_populates='service', passive_deletes=True)
+    images = db.relationship(
+        'ServiceImage', back_populates='service', cascade='all, delete-orphan',
+        order_by='ServiceImage.sort_order.asc(), ServiceImage.id.asc()'
     )
 
     @validates('status')
@@ -216,48 +134,39 @@ class Service(db.Model):
         return value
 
 
+class ServiceImage(db.Model):
+    """Gallery image attached to a reusable marketplace Service."""
+    __tablename__ = 'service_images'
+    __table_args__ = (db.Index('ix_service_images_service_sort', 'service_id', 'sort_order'),)
+    id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('services.id', ondelete='CASCADE'), nullable=False)
+    image_url = db.Column(db.String(500), nullable=False)
+    alt_text = db.Column(db.String(300), nullable=True)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    service = db.relationship('Service', back_populates='images')
+
+
 class PackageItem(db.Model):
     """Bridge between a curated Package and a reusable marketplace Service."""
-
     __tablename__ = 'package_items'
     __table_args__ = (
-        db.UniqueConstraint(
-            'package_id',
-            'service_id',
-            name='uq_package_item_package_service',
-        ),
+        db.UniqueConstraint('package_id', 'service_id', name='uq_package_item_package_service'),
         db.Index('ix_package_items_package_sort', 'package_id', 'sort_order'),
         db.Index('ix_package_items_service_id', 'service_id'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
-    package_id = db.Column(
-        db.Integer,
-        db.ForeignKey('packages.id', ondelete='CASCADE'),
-        nullable=False,
-    )
-    service_id = db.Column(
-        db.Integer,
-        db.ForeignKey('services.id', ondelete='RESTRICT'),
-        nullable=False,
-    )
+    package_id = db.Column(db.Integer, db.ForeignKey('packages.id', ondelete='CASCADE'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('services.id', ondelete='RESTRICT'), nullable=False)
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    package = db.relationship(
-        Package,
-        back_populates='package_items',
-    )
-    service = db.relationship(
-        'Service',
-        back_populates='package_items',
-    )
+    package = db.relationship(Package, back_populates='package_items')
+    service = db.relationship('Service', back_populates='package_items')
 
 
 class MarketplaceInquiry(db.Model):
     """Structured customer request tied to a marketplace service."""
-
     __tablename__ = 'marketplace_inquiries'
     __table_args__ = (
         db.Index('ix_marketplace_inquiries_email', 'email'),
@@ -266,28 +175,15 @@ class MarketplaceInquiry(db.Model):
         db.Index('ix_marketplace_inquiries_provider_id', 'provider_id'),
         db.Index('ix_marketplace_inquiries_service_id', 'service_id'),
     )
-
     id = db.Column(db.Integer, primary_key=True)
-
-    provider_id = db.Column(
-        db.Integer,
-        db.ForeignKey('providers.id', ondelete='SET NULL'),
-        nullable=True,
-    )
-    service_id = db.Column(
-        db.Integer,
-        db.ForeignKey('services.id', ondelete='SET NULL'),
-        nullable=True,
-    )
-
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id', ondelete='SET NULL'), nullable=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('services.id', ondelete='SET NULL'), nullable=True)
     provider_name = db.Column(db.String(200), nullable=False)
     service_name = db.Column(db.String(200), nullable=False)
     category_name = db.Column(db.String(120), nullable=False)
-
     name = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(254), nullable=False)
     phone = db.Column(db.String(40), nullable=True)
-
     travel_date = db.Column(db.String(120), nullable=True)
     return_date = db.Column(db.String(120), nullable=True)
     travellers = db.Column(db.Integer, nullable=True)
@@ -300,11 +196,9 @@ class MarketplaceInquiry(db.Model):
     language = db.Column(db.String(120), nullable=True)
     duration = db.Column(db.String(120), nullable=True)
     requirements = db.Column(db.Text, nullable=True)
-
     status = db.Column(db.String(40), nullable=False, default='NEW')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
     provider = db.relationship('Provider', backref=db.backref('marketplace_inquiries', lazy=True))
     service = db.relationship('Service', backref=db.backref('marketplace_inquiries', lazy=True))
 
