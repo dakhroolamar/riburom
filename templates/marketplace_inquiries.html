@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <title>Marketplace Enquiries | RI BUROM Workspace</title>
+    <style>
+        :root{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--panel:#fff;--soft:#f8fafc;--brand:#166534;}
+        body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+        .shell{max-width:1600px;margin:0 auto;padding:28px}
+        .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+        h1{margin:0;font-size:32px}.muted{color:var(--muted);font-size:13px}
+        .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:9px 12px;font-weight:800;text-decoration:none;cursor:pointer}.btn-green{background:#166534;color:#fff}.btn-gray{background:#e5e7eb;color:#111827}
+        .stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:18px}.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}.stat .n{font-size:24px;font-weight:800}.stat .l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
+        .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}
+        .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px}.field label{display:block;font-weight:800;font-size:12px;margin-bottom:6px}.field input,.field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff;color:#111827}
+        .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}.table tbody tr:hover{background:#fafafa}
+        .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.status-NEW{background:#dcfce7;color:#166534}.status-CONTACTED{background:#dbeafe;color:#1d4ed8}.status-IN_PROGRESS{background:#fef3c7;color:#92400e}.status-QUOTED{background:#ede9fe;color:#6d28d9}.status-CONFIRMED{background:#dcfce7;color:#166534}.status-DECLINED{background:#fee2e2;color:#991b1b}.status-CLOSED{background:#e5e7eb;color:#374151}
+        .empty{padding:50px 20px;text-align:center;color:var(--muted)}
+        @media(max-width:1100px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}.filters{grid-template-columns:1fr 1fr}}
+        @media(max-width:760px){.shell{padding:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:1fr}.top h1{font-size:27px}}
+    </style>
+</head>
+<body>
+<div class="shell">
+{% include '_flash.html' %}
+<div class="top">
+    <div>
+        <h1>Marketplace Enquiries</h1>
+        <p class="muted">Manage service requests separately from the general website contact inbox.</p>
+    </div>
+    <div class="row">
+        <a class="btn btn-gray" href="{{ url_for('workspace_marketplace') }}">Marketplace</a>
+        <a class="btn btn-gray" href="{{ url_for('workspace_operations') }}">Operations</a>
+    </div>
+</div>
+
+<div class="stats">
+    {% for status in statuses %}
+    <div class="stat"><div class="n">{{ counts[status] }}</div><div class="l">{{ status.replace('_',' ') }}</div></div>
+    {% endfor %}
+</div>
+
+<section class="panel">
+    <form method="GET" class="filters">
+        <div class="field"><label>Search</label><input name="q" value="{{ current_query }}" placeholder="Traveller, provider, service, email..." autocomplete="off"></div>
+        <div class="field"><label>Status</label><select name="status"><option value="">All statuses</option>{% for status in statuses %}<option value="{{ status }}" {% if current_status == status %}selected{% endif %}>{{ status.replace('_',' ') }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Provider</label><select name="provider_id"><option value="">All providers</option>{% for provider in providers %}<option value="{{ provider.id }}" {% if current_provider_id == provider.id %}selected{% endif %}>{{ provider.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Service</label><select name="service_id"><option value="">All services</option>{% for service in services %}<option value="{{ service.id }}" {% if current_service_id == service.id %}selected{% endif %}>{{ service.name }}</option>{% endfor %}</select></div>
+        <div class="row" style="align-self:end"><button class="btn btn-green" type="submit">Filter</button><a class="btn btn-gray" href="{{ url_for('workspace_marketplace_inquiries') }}">Reset</a></div>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div><strong>{{ inquiries|length }}</strong> matching enquiry{% if inquiries|length != 1 %}s{% endif %}</div><span class="muted">Newest first</span></div>
+    {% if inquiries %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Enquiry</th><th>Provider</th><th>Service</th><th>Traveller</th><th>Travel</th><th>Status</th><th>Received</th><th></th></tr></thead>
+            <tbody>
+            {% for inquiry in inquiries %}
+            <tr>
+                <td><strong>#{{ inquiry.id }}</strong><div class="muted">{{ inquiry.email }}</div></td>
+                <td>{{ inquiry.provider_name }}</td>
+                <td>{{ inquiry.service_name }}<div class="muted">{{ inquiry.category_name }}</div></td>
+                <td>{{ inquiry.name }}{% if inquiry.phone %}<div class="muted">{{ inquiry.phone }}</div>{% endif %}</td>
+                <td>{% if inquiry.travel_date %}{{ inquiry.travel_date }}{% elif inquiry.check_in %}{{ inquiry.check_in }}{% else %}—{% endif %}{% if inquiry.travellers %}<div class="muted">{{ inquiry.travellers }} traveller{% if inquiry.travellers != 1 %}s{% endif %}</div>{% endif %}</td>
+                <td><span class="pill status-{{ inquiry.status }}">{{ inquiry.status.replace('_',' ') }}</span></td>
+                <td>{{ inquiry.created_at.strftime('%d %b %Y') }}<div class="muted">{{ inquiry.created_at.strftime('%H:%M') }}</div></td>
+                <td><a class="btn btn-gray" href="{{ url_for('workspace_marketplace_inquiry_detail', id=inquiry.id) }}">Open</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty"><strong>No marketplace enquiries found.</strong><div>Try clearing the filters or wait for a new request.</div></div>
+    {% endif %}
+</section>
+</div>
+</body>
+</html>
