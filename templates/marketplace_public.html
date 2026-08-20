@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
     <title>Marketplace | {{ public.content.site_title }}</title>
-    <meta name="description" content="Discover verified local providers and services across Meghalaya.">
+    <meta name="description" content="Discover local providers and services across Meghalaya.">
     <link rel="manifest" href="/static/manifest.json">
 
     {% include '_public_theme.html' %}
@@ -16,18 +16,96 @@
 {% include '_flash.html' %}
 
 <section data-reveal class="max-w-7xl mx-auto px-6 py-12">
-    <div class="text-center mb-12">
+    <div class="text-center mb-10">
         <p class="text-green-800 font-bold uppercase tracking-wider mb-2">Marketplace</p>
-        <h1 class="text-4xl font-bold text-green-800 mb-4">Local providers and services</h1>
+        <h1 class="text-4xl font-bold text-green-800 mb-4">Find what you need in Meghalaya</h1>
         <p class="text-gray-600 max-w-3xl mx-auto">
-            Discover active providers and services that have been approved for public presentation.
+            Discover local providers and services, compare what is available, and choose the support that fits your journey.
         </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 rb-stagger">
+    <div class="max-w-4xl mx-auto mb-10">
+        <label for="marketplace-search" class="sr-only">Search providers and services</label>
+        <div class="relative">
+            <svg aria-hidden="true" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <input
+                id="marketplace-search"
+                type="search"
+                autocomplete="off"
+                placeholder="Search guides, transport, homestays, camping..."
+                class="w-full bg-white border border-gray-200 shadow-sm rounded-xl pl-12 pr-12 py-4 text-base outline-none focus:ring-2 focus:ring-green-700 focus:border-green-700"
+            >
+            <button
+                id="marketplace-search-clear"
+                type="button"
+                class="hidden absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100"
+                aria-label="Clear search"
+            >
+                Clear
+            </button>
+        </div>
+        <div class="mt-3 flex items-center justify-between gap-4 text-sm text-gray-500">
+            <p id="marketplace-result-count" aria-live="polite"></p>
+            <p>Search provider names, services, categories, or descriptions.</p>
+        </div>
+    </div>
+
+    {% set category_names = [] %}
+    {% for provider in providers %}
+        {% for service in provider.public_services %}
+            {% if service.service_category and service.service_category.name not in category_names %}
+                {% set _ = category_names.append(service.service_category.name) %}
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+    <div class="mb-10">
+        <div class="flex items-center justify-between gap-4 mb-4">
+            <h2 class="text-xl font-bold text-gray-900">Browse by category</h2>
+            <button id="marketplace-category-reset" type="button" class="text-sm font-semibold text-green-800 hover:text-green-900">
+                View all
+            </button>
+        </div>
+
+        {% if category_names %}
+        <div id="marketplace-categories" class="flex flex-wrap gap-3">
+            <button
+                type="button"
+                class="marketplace-category-btn rb-button bg-green-700 text-white px-4 py-2 rounded-full text-sm font-semibold"
+                data-category=""
+                aria-pressed="true"
+            >
+                All
+            </button>
+            {% for category_name in category_names|sort %}
+            <button
+                type="button"
+                class="marketplace-category-btn rb-button bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-green-700 hover:text-green-800"
+                data-category="{{ category_name|lower|e }}"
+                aria-pressed="false"
+            >
+                {{ category_name }}
+            </button>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500">Categories will appear here as marketplace services are added.</p>
+        {% endif %}
+    </div>
+
+    <div id="marketplace-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 rb-stagger">
         {% for provider in providers %}
-        <article data-reveal="scale" class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-green-700 flex flex-col">
-            <a href="{{ url_for('marketplace_public_provider', slug=provider.slug) }}">
+        <article
+            data-marketplace-card
+            data-search-text="{{ provider.name }} {{ provider.description or '' }} {% for service in provider.public_services %}{{ service.name }} {{ service.description or '' }} {{ service.service_category.name if service.service_category else '' }} {% endfor %}"
+            data-categories="{% for service in provider.public_services if service.service_category %}{{ service.service_category.name|lower|e }}{% if not loop.last %}|{% endif %}{% endfor %}"
+            data-reveal="scale"
+            class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-green-700 flex flex-col"
+        >
+            <a href="{{ url_for('marketplace_public_provider', slug=provider.slug) }}" aria-label="View {{ provider.name }}">
                 <div class="h-64 bg-gray-200 bg-cover bg-center rb-card-media"
                      {% if provider.image_url %}
                      style="background-image:url('{{ provider.image_url|imgsrc }}');"
@@ -48,21 +126,24 @@
                 <p class="text-gray-600 mb-5 whitespace-pre-line">{{ provider.description }}</p>
                 {% endif %}
 
+                {% if provider.public_services %}
+                <div class="mb-5">
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Services</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for service in provider.public_services[:4] %}
+                        <span class="text-xs font-semibold bg-gray-100 rounded-full px-3 py-1">
+                            {{ service.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="space-y-2 text-sm text-gray-500">
                     {% if provider.email %}<div>{{ provider.email }}</div>{% endif %}
                     {% if provider.phone %}<div>{{ provider.phone }}</div>{% endif %}
                     <div>{{ provider.public_services|length }} public service{% if provider.public_services|length != 1 %}s{% endif %}</div>
                 </div>
-
-                {% if provider.public_services %}
-                <div class="mt-5 flex flex-wrap gap-2">
-                    {% for service in provider.public_services[:4] %}
-                    <span class="text-xs font-semibold bg-gray-100 rounded-full px-3 py-1">
-                        {{ service.name }}
-                    </span>
-                    {% endfor %}
-                </div>
-                {% endif %}
             </div>
 
             <div class="p-6 pt-0">
@@ -78,7 +159,91 @@
         </div>
         {% endfor %}
     </div>
+
+    <div id="marketplace-no-results" class="hidden text-center py-16">
+        <div class="mx-auto max-w-md bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Nothing found</h2>
+            <p class="text-gray-600 mb-5">Try another keyword or browse all marketplace categories.</p>
+            <button id="marketplace-no-results-reset" type="button" class="rb-button inline-flex items-center justify-center bg-green-700 hover:bg-green-800 text-white font-bold px-5 py-3 rounded">
+                View all providers
+            </button>
+        </div>
+    </div>
 </section>
+
+<script>
+(function () {
+    const searchInput = document.getElementById('marketplace-search');
+    const clearButton = document.getElementById('marketplace-search-clear');
+    const countLabel = document.getElementById('marketplace-result-count');
+    const categoryButtons = Array.from(document.querySelectorAll('.marketplace-category-btn'));
+    const categoryReset = document.getElementById('marketplace-category-reset');
+    const noResults = document.getElementById('marketplace-no-results');
+    const noResultsReset = document.getElementById('marketplace-no-results-reset');
+    const cards = Array.from(document.querySelectorAll('[data-marketplace-card]'));
+
+    let activeCategory = '';
+
+    const normalize = (value) => (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+    function setCategory(category) {
+        activeCategory = normalize(category);
+        categoryButtons.forEach((button) => {
+            const selected = normalize(button.dataset.category) === activeCategory;
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.classList.toggle('bg-green-700', selected);
+            button.classList.toggle('text-white', selected);
+            button.classList.toggle('border-green-700', selected);
+            button.classList.toggle('bg-white', !selected);
+            button.classList.toggle('text-gray-700', !selected);
+        });
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const term = normalize(searchInput.value);
+        let visibleCount = 0;
+
+        cards.forEach((card) => {
+            const haystack = normalize(card.dataset.searchText);
+            const categories = normalize(card.dataset.categories).split('|').filter(Boolean);
+            const matchesSearch = !term || haystack.includes(term);
+            const matchesCategory = !activeCategory || categories.includes(activeCategory);
+            const visible = matchesSearch && matchesCategory;
+
+            card.classList.toggle('hidden', !visible);
+            if (visible) visibleCount += 1;
+        });
+
+        const hasActiveFilter = Boolean(term || activeCategory);
+        clearButton.classList.toggle('hidden', !term);
+        noResults.classList.toggle('hidden', visibleCount !== 0 || !hasActiveFilter);
+
+        if (hasActiveFilter) {
+            countLabel.textContent = `${visibleCount} provider${visibleCount === 1 ? '' : 's'} found`;
+        } else {
+            countLabel.textContent = `${cards.length} provider${cards.length === 1 ? '' : 's'} available`;
+        }
+    }
+
+    function resetFilters() {
+        searchInput.value = '';
+        setCategory('');
+        searchInput.focus();
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+    clearButton.addEventListener('click', resetFilters);
+    categoryReset.addEventListener('click', resetFilters);
+    noResultsReset.addEventListener('click', resetFilters);
+
+    categoryButtons.forEach((button) => {
+        button.addEventListener('click', () => setCategory(button.dataset.category || ''));
+    });
+
+    applyFilters();
+})();
+</script>
 
 {% include '_footer.html' %}
 </body>
