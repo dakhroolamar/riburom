@@ -4,10 +4,9 @@ Revision ID: 2c8e4a7f1b90
 Revises: 6a4b7c9e2d10
 Create Date: 2026-08-20
 
-The application bootstrap currently calls ``db.create_all()`` before Alembic
-runs.  SQLAlchemy therefore may already have created this table and its model
-indexes.  This migration is intentionally idempotent so a deployment can
-recover from a partially-applied migration without failing on DuplicateTable.
+The application bootstrap may create SQLAlchemy tables/indexes before Alembic
+runs. The migration therefore uses IF NOT EXISTS semantics so deployment can
+recover cleanly when the schema objects already exist.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -19,42 +18,62 @@ branch_labels = None
 depends_on = None
 
 
-INDEXES = (
-    ('ix_marketplace_inquiries_email', ['email']),
-    ('ix_marketplace_inquiries_status', ['status']),
-    ('ix_marketplace_inquiries_created_at', ['created_at']),
-    ('ix_marketplace_inquiries_provider_id', ['provider_id']),
-    ('ix_marketplace_inquiries_service_id', ['service_id']),
+TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS marketplace_inquiries (
+    id INTEGER NOT NULL PRIMARY KEY,
+    provider_id INTEGER NULL REFERENCES providers(id) ON DELETE SET NULL,
+    service_id INTEGER NULL REFERENCES services(id) ON DELETE SET NULL,
+    provider_name VARCHAR(200) NOT NULL,
+    service_name VARCHAR(200) NOT NULL,
+    category_name VARCHAR(120) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    phone VARCHAR(40) NULL,
+    travel_date VARCHAR(120) NULL,
+    return_date VARCHAR(120) NULL,
+    travellers INTEGER NULL,
+    pickup_location VARCHAR(300) NULL,
+    drop_location VARCHAR(300) NULL,
+    check_in VARCHAR(120) NULL,
+    check_out VARCHAR(120) NULL,
+    rooms INTEGER NULL,
+    nights INTEGER NULL,
+    language VARCHAR(120) NULL,
+    duration VARCHAR(120) NULL,
+    requirements TEXT NULL,
+    status VARCHAR(40) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+)
+"""
+
+INDEX_SQL = (
+    "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_email "
+    "ON marketplace_inquiries (email)",
+    "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_status "
+    "ON marketplace_inquiries (status)",
+    "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_created_at "
+    "ON marketplace_inquiries (created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_provider_id "
+    "ON marketplace_inquiries (provider_id)",
+    "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_service_id "
+    "ON marketplace_inquiries (service_id)",
 )
 
 
-def _existing_table_and_indexes(table_name):
-    inspector = sa.inspect(op.get_bind())
-    tables = set(inspector.get_table_names())
-    if table_name not in tables:
-        return False, set()
-    indexes = {
-        index['name']
-        for index in inspector.get_indexes(table_name)
-        if index.get('name')
-    }
-    return True, indexes
+def upgrade():
+    bind = op.get_bind()
+    dialect = bind.dialect.name
 
-
-def _ensure_indexes(table_name):
-    table_exists, existing_indexes = _existing_table_and_indexes(table_name)
-    if not table_exists:
+    if dialect in {'postgresql', 'sqlite'}:
+        op.execute(sa.text(TABLE_SQL))
+        for statement in INDEX_SQL:
+            op.execute(sa.text(statement))
         return
 
-    for index_name, columns in INDEXES:
-        if index_name not in existing_indexes:
-            op.create_index(index_name, table_name, columns)
-
-
-def upgrade():
-    table_exists, _ = _existing_table_and_indexes('marketplace_inquiries')
-
-    if not table_exists:
+    # Fallback for other SQLAlchemy dialects.
+    inspector = sa.inspect(bind)
+    if 'marketplace_inquiries' not in inspector.get_table_names():
         op.create_table(
             'marketplace_inquiries',
             sa.Column('id', sa.Integer(), nullable=False),
@@ -86,16 +105,33 @@ def upgrade():
             sa.PrimaryKeyConstraint('id'),
         )
 
-    _ensure_indexes('marketplace_inquiries')
+    existing = {index['name'] for index in sa.inspect(bind).get_indexes('marketplace_inquiries')}
+    for index_name, columns in (
+        ('ix_marketplace_inquiries_email', ['email']),
+        ('ix_marketplace_inquiries_status', ['status']),
+        ('ix_marketplace_inquiries_created_at', ['created_at']),
+        ('ix_marketplace_inquiries_provider_id', ['provider_id']),
+        ('ix_marketplace_inquiries_service_id', ['service_id']),
+    ):
+        if index_name not in existing:
+            op.create_index(index_name, 'marketplace_inquiries', columns)
 
 
 def downgrade():
-    table_exists, existing_indexes = _existing_table_and_indexes('marketplace_inquiries')
-    if not table_exists:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'marketplace_inquiries' not in inspector.get_table_names():
         return
 
-    for index_name, _ in reversed(INDEXES):
-        if index_name in existing_indexes:
+    existing = {index['name'] for index in inspector.get_indexes('marketplace_inquiries')}
+    for index_name in (
+        'ix_marketplace_inquiries_service_id',
+        'ix_marketplace_inquiries_provider_id',
+        'ix_marketplace_inquiries_created_at',
+        'ix_marketplace_inquiries_status',
+        'ix_marketplace_inquiries_email',
+    ):
+        if index_name in existing:
             op.drop_index(index_name, table_name='marketplace_inquiries')
 
     op.drop_table('marketplace_inquiries')
