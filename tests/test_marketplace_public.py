@@ -139,6 +139,18 @@ class MarketplacePublicTests(unittest.TestCase):
         self.assertIn(b'Public Service', response.data)
         self.assertNotIn(b'Hidden Service', response.data)
 
+    def test_public_provider_detail_has_independent_enquiry_ui(self):
+        self._seed()
+
+        response = self.client.get('/marketplace/providers/public-guide')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Request this service', response.data)
+        self.assertIn(b'marketplace_inquiry_create', response.data)
+        self.assertIn(b'Additional requirements', response.data)
+        self.assertIn(b'Independent marketplace enquiry', response.data)
+        self.assertNotIn(b'Plan Your Journey', response.data)
+
     def test_hidden_provider_detail_returns_404(self):
         self._seed()
 
