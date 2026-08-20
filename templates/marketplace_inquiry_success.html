@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <title>Enquiry received | Marketplace | {{ public.content.site_title }}</title>
+    <link rel="manifest" href="/static/manifest.json">
+    {% include '_public_theme.html' %}
+</head>
+<body class="rb-public-site bg-gray-50 text-gray-800 font-sans">
+{% include '_nav.html' %}
+
+<main class="max-w-3xl mx-auto px-6 py-16">
+    <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-800 text-3xl mb-6">
+            ✓
+        </div>
+        <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-2">Marketplace enquiry received</p>
+        <h1 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">Your request has been recorded.</h1>
+        <p class="text-gray-600 leading-relaxed max-w-2xl mx-auto mb-8">
+            Your enquiry is tied specifically to <strong>{{ service.name }}</strong> from <strong>{{ provider.name }}</strong>. RI BUROM can now review the requirements and coordinate the next step with you.
+        </p>
+
+        <div class="bg-gray-50 rounded-xl p-5 text-left max-w-xl mx-auto mb-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <p class="text-gray-500">Enquiry ID</p>
+                    <p class="font-bold">#{{ inquiry.id }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-500">Category</p>
+                    <p class="font-bold">{{ inquiry.category_name }}</p>
+                </div>
+                <div class="sm:col-span-2">
+                    <p class="text-gray-500">Service</p>
+                    <p class="font-bold">{{ inquiry.service_name }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-3">
+            <a href="{{ url_for('marketplace_public_provider', slug=provider.slug) }}" class="rb-button bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded-lg">
+                Back to provider
+            </a>
+            <a href="{{ url_for('marketplace_public_index') }}" class="px-6 py-3 rounded-lg border border-gray-300 font-semibold">
+                Browse marketplace
+            </a>
+        </div>
+    </div>
+</main>
+
+{% include '_footer.html' %}
+</body>
+</html>
