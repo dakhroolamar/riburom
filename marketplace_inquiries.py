@@ -68,7 +68,7 @@ def register_marketplace_inquiries(flask_app):
         return
     flask_app._ri_burom_marketplace_inquiries_registered = True
 
-    from app import limiter
+    from app import get_site_settings, limiter
 
     @flask_app.route('/marketplace/inquiries', methods=['POST'])
     @limiter.limit('5 per minute')
@@ -189,13 +189,17 @@ def register_marketplace_inquiries(flask_app):
             f'Inquiry ID: {inquiry.id}',
         ]
 
+        # Use the same business recipient as the general Contact Us enquiry.
+        # Provider details remain in the notification body so operations still
+        # know exactly which provider/service the traveller selected.
+        settings = get_site_settings()
         notify_new_enquiry({
             'name': name,
             'email': email,
             'phone': phone,
             'tour_interest': f'Marketplace — {provider.name} — {service.name}',
             'message': '\n'.join(notification_lines),
-            'notification_email': provider.email,
+            'notification_email': settings.footer_email,
             'notification_phone': provider.phone,
         })
 
