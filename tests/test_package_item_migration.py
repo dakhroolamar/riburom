@@ -8,6 +8,9 @@ from models import Package, db
 import marketplace_models  # noqa: F401 - register PackageItem metadata
 
 
+PHASE_B_REVISION = '3f7a9c2d1e64'
+
+
 class PackageItemMigrationTests(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
@@ -40,7 +43,7 @@ class PackageItemMigrationTests(unittest.TestCase):
     def test_fresh_migration_creates_package_items_without_populating_it(self):
         self._create_legacy_packages()
 
-        upgrade(directory='migrations', revision='head')
+        upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
         inspector = inspect(db.engine)
         self.assertIn('package_items', inspector.get_table_names())
@@ -89,18 +92,18 @@ class PackageItemMigrationTests(unittest.TestCase):
         self.assertEqual(db.session.execute(text('SELECT COUNT(*) FROM providers')).scalar_one(), 0)
         self.assertEqual(db.session.execute(text('SELECT COUNT(*) FROM services')).scalar_one(), 0)
 
-        upgrade(directory='migrations', revision='head')
+        upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
         self.assertEqual(db.session.execute(text('SELECT COUNT(*) FROM package_items')).scalar_one(), 0)
         self.assertEqual(db.session.execute(text('SELECT COUNT(*) FROM packages')).scalar_one(), 1)
         self.assertEqual(
             db.session.execute(text('SELECT version_num FROM alembic_version')).scalar_one(),
-            '6a4b7c9e2d10',
+            PHASE_B_REVISION,
         )
 
     def test_package_item_migration_requires_existing_packages_table(self):
         with self.assertRaises(SystemExit):
-            upgrade(directory='migrations', revision='head')
+            upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
 
 if __name__ == '__main__':
