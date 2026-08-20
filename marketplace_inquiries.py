@@ -68,7 +68,10 @@ def register_marketplace_inquiries(flask_app):
         return
     flask_app._ri_burom_marketplace_inquiries_registered = True
 
+    from app import limiter
+
     @flask_app.route('/marketplace/inquiries', methods=['POST'])
+    @limiter.limit('5 per minute')
     def marketplace_inquiry_create():
         provider_id_raw = (request.form.get('provider_id') or '').strip()
         service_id_raw = (request.form.get('service_id') or '').strip()
