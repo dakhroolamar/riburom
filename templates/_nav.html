@@ -149,7 +149,7 @@
 
 <div id="rb-page-loader" aria-hidden="true">
     <div class="rb-loader-inner">
-        {% set loader_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
+        {% set loader_logo = site_settings.hero_logo or site_settings.header_mark or site_settings.header_wordmark %}
         {% if loader_logo %}
             <img class="rb-loader-logo" src="{{ loader_logo|imgsrc }}" alt="" decoding="async">
         {% else %}
