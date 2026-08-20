@@ -5,6 +5,9 @@ legacy CMS, Package, Message, or User models.
 
 Phase B intentionally introduces PackageItem as the first bridge between the
 legacy Package aggregate and reusable marketplace Services.
+
+Phase C introduces independent MarketplaceInquiry records so service requests
+do not enter the generic website contact/enquiry workflow.
 """
 from datetime import datetime
 
@@ -33,6 +36,16 @@ SERVICE_STATUSES = {
     'ACTIVE',
     'INACTIVE',
     'ARCHIVED',
+}
+
+INQUIRY_STATUSES = {
+    'NEW',
+    'CONTACTED',
+    'IN_PROGRESS',
+    'QUOTED',
+    'CONFIRMED',
+    'DECLINED',
+    'CLOSED',
 }
 
 
@@ -240,3 +253,62 @@ class PackageItem(db.Model):
         'Service',
         back_populates='package_items',
     )
+
+
+class MarketplaceInquiry(db.Model):
+    """Structured customer request tied to a marketplace service."""
+
+    __tablename__ = 'marketplace_inquiries'
+    __table_args__ = (
+        db.Index('ix_marketplace_inquiries_status', 'status'),
+        db.Index('ix_marketplace_inquiries_created_at', 'created_at'),
+        db.Index('ix_marketplace_inquiries_provider_id', 'provider_id'),
+        db.Index('ix_marketplace_inquiries_service_id', 'service_id'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    provider_id = db.Column(
+        db.Integer,
+        db.ForeignKey('providers.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    service_id = db.Column(
+        db.Integer,
+        db.ForeignKey('services.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+
+    provider_name = db.Column(db.String(200), nullable=False)
+    service_name = db.Column(db.String(200), nullable=False)
+    category_name = db.Column(db.String(120), nullable=False)
+
+    name = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(254), nullable=False, index=True)
+    phone = db.Column(db.String(40), nullable=True)
+
+    travel_date = db.Column(db.String(120), nullable=True)
+    return_date = db.Column(db.String(120), nullable=True)
+    travellers = db.Column(db.Integer, nullable=True)
+    pickup_location = db.Column(db.String(300), nullable=True)
+    drop_location = db.Column(db.String(300), nullable=True)
+    check_in = db.Column(db.String(120), nullable=True)
+    check_out = db.Column(db.String(120), nullable=True)
+    rooms = db.Column(db.Integer, nullable=True)
+    nights = db.Column(db.Integer, nullable=True)
+    language = db.Column(db.String(120), nullable=True)
+    duration = db.Column(db.String(120), nullable=True)
+    requirements = db.Column(db.Text, nullable=True)
+
+    status = db.Column(db.String(40), nullable=False, default='NEW')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    provider = db.relationship('Provider', backref=db.backref('marketplace_inquiries', lazy=True))
+    service = db.relationship('Service', backref=db.backref('marketplace_inquiries', lazy=True))
+
+    @validates('status')
+    def validate_status(self, key, value):
+        if value not in INQUIRY_STATUSES:
+            raise ValueError(f'Invalid marketplace inquiry status: {value!r}')
+        return value
