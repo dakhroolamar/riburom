@@ -11,6 +11,7 @@ import marketplace_models  # noqa: F401 - register Phase A metadata
 
 
 DATABASE_URL = os.environ.get('MARKETPLACE_TEST_DATABASE_URL')
+PHASE_B_REVISION = '3f7a9c2d1e64'
 
 
 @unittest.skipUnless(
@@ -81,7 +82,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             ))
             self._create_provider_and_service(connection)
 
-        upgrade(directory='migrations', revision='head')
+        upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
         with db.engine.connect() as connection:
             self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM packages')).scalar_one(), 1)
@@ -90,7 +91,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM services')).scalar_one(), 1)
             self.assertEqual(
                 connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one(),
-                '3f7a9c2d1e64',
+                PHASE_B_REVISION,
             )
 
             fks = connection.execute(text(
@@ -155,7 +156,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
                 text("SELECT 'package_items'::regclass::oid")
             ).scalar_one()
 
-        upgrade(directory='migrations', revision='head')
+        upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
         with db.engine.connect() as connection:
             self.assertEqual(
@@ -165,7 +166,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM package_items')).scalar_one(), 0)
             self.assertEqual(
                 connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one(),
-                '3f7a9c2d1e64',
+                PHASE_B_REVISION,
             )
 
     def test_nonempty_preexisting_package_items_table_fails(self):
@@ -187,7 +188,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             ), {'package_id': package_id, 'service_id': service_id})
 
         with self.assertRaises(SystemExit):
-            upgrade(directory='migrations', revision='head')
+            upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
     def test_package_item_does_not_cascade_delete_service(self):
         self.reset_database()
@@ -201,7 +202,7 @@ class PackageItemPostgresMigrationTests(unittest.TestCase):
             )).scalar_one()
             provider_id, service_id = self._create_provider_and_service(connection)
 
-        upgrade(directory='migrations', revision='head')
+        upgrade(directory='migrations', revision=PHASE_B_REVISION)
 
         with db.engine.begin() as connection:
             connection.execute(text(

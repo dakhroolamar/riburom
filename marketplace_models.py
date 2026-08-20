@@ -260,6 +260,7 @@ class MarketplaceInquiry(db.Model):
 
     __tablename__ = 'marketplace_inquiries'
     __table_args__ = (
+        db.Index('ix_marketplace_inquiries_email', 'email'),
         db.Index('ix_marketplace_inquiries_status', 'status'),
         db.Index('ix_marketplace_inquiries_created_at', 'created_at'),
         db.Index('ix_marketplace_inquiries_provider_id', 'provider_id'),
@@ -284,7 +285,7 @@ class MarketplaceInquiry(db.Model):
     category_name = db.Column(db.String(120), nullable=False)
 
     name = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(254), nullable=False, index=True)
+    email = db.Column(db.String(254), nullable=False)
     phone = db.Column(db.String(40), nullable=True)
 
     travel_date = db.Column(db.String(120), nullable=True)
@@ -301,7 +302,7 @@ class MarketplaceInquiry(db.Model):
     requirements = db.Column(db.Text, nullable=True)
 
     status = db.Column(db.String(40), nullable=False, default='NEW')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     provider = db.relationship('Provider', backref=db.backref('marketplace_inquiries', lazy=True))
