@@ -10,6 +10,7 @@ from marketplace_admin import register_marketplace_admin
 from marketplace_service_media import register_marketplace_service_media
 from marketplace_inquiries import register_marketplace_inquiries
 from marketplace_inquiry_admin import register_marketplace_inquiry_admin
+from marketplace_appearance import register_marketplace_appearance
 from notifications import register_notifications
 from seo import register_seo
 
@@ -20,6 +21,7 @@ register_marketplace_admin(app, marketplace_view_required, marketplace_manage_re
 register_marketplace_service_media(app, marketplace_manage_required)
 register_marketplace_inquiries(app)
 register_marketplace_inquiry_admin(app, marketplace_view_required, marketplace_manage_required)
+register_marketplace_appearance(app)
 register_notifications(app)
 register_seo(app)
 

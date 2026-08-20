@@ -21,6 +21,7 @@
         .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.danger-note{padding:12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:9px}
         .section-note{padding:12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:9px;margin-bottom:14px}
         .stack{display:grid;gap:12px}.small{font-size:12px}
+        .appearance-panel{background:linear-gradient(135deg,#f8faf8,#ffffff);border-color:#cfe4d4}.appearance-panel h2{color:#173b1d}
         @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media(max-width:760px){.shell{padding:16px}.grid-4,.grid-2{grid-template-columns:1fr}}
     </style>
@@ -49,6 +50,18 @@
     <div class="stat"><div class="n">{{ provider_types|length }}</div><div class="l">Provider Types</div></div>
     <div class="stat"><div class="n">{{ service_categories|length }}</div><div class="l">Service Categories</div></div>
 </div>
+
+{% if current_user.has_permission('manage_marketplace') %}
+<section class="panel appearance-panel">
+    <div class="between">
+        <div>
+            <h2>Public Marketplace Appearance</h2>
+            <p class="muted">Shared colours, typography weights and enquiry-form contrast used by the public marketplace. This is the same editor available from the CMS.</p>
+        </div>
+        <a class="btn btn-green" href="{{ url_for('workspace_marketplace_appearance') }}">Open Appearance Editor</a>
+    </div>
+</section>
+{% endif %}
 
 {% if current_user.has_permission('manage_marketplace') %}
 <section class="panel">
