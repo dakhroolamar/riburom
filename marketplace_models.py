@@ -166,7 +166,7 @@ class PackageItem(db.Model):
 
 
 class MarketplaceInquiry(db.Model):
-    """Structured customer request tied to a marketplace service."""
+    """Structured customer request tied to a marketplace provider/service selection."""
     __tablename__ = 'marketplace_inquiries'
     __table_args__ = (
         db.Index('ix_marketplace_inquiries_email', 'email'),
@@ -181,6 +181,7 @@ class MarketplaceInquiry(db.Model):
     provider_name = db.Column(db.String(200), nullable=False)
     service_name = db.Column(db.String(200), nullable=False)
     category_name = db.Column(db.String(120), nullable=False)
+    selected_services_json = db.Column(db.Text, nullable=True)
     name = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(254), nullable=False)
     phone = db.Column(db.String(40), nullable=True)

@@ -35,16 +35,23 @@ class PublicMotionTests(unittest.TestCase):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
-                self.assertIn(b'id="rb-page-loader"', response.data)
-                self.assertIn(b'rb-loader-logo', response.data)
+                self.assertIn(b'rb-public-site', response.data)
+                self.assertIn(b'ri-burom-motion.js', response.data)
                 self.assertIn(b'prefers-reduced-motion', response.data)
 
-    def test_home_hero_contains_logo_motion_hooks(self):
+    def test_home_hero_contains_logo_assembly_hook(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'rb-home-hero', response.data)
-        self.assertIn(b'rb-hero-logo', response.data)
-        self.assertIn(b'rb-hero-media-in', response.data)
+
+        motion_js_path = self.app.static_folder + '/js/ri-burom-motion.js'
+        with open(motion_js_path, 'r', encoding='utf-8') as motion_js:
+            motion_script = motion_js.read()
+
+        self.assertIn('assembleHeroLogo', motion_script)
+        self.assertIn("getElementById('rbHeroLogo')", motion_script)
+        self.assertIn('rb-logo-assembly', motion_script)
+        self.assertIn(b'ri-burom-motion.js', response.data)
 
 
 if __name__ == '__main__':

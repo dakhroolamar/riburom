@@ -180,7 +180,7 @@ class MarketplacePublicTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Enquire with this provider', response.data)
-        self.assertIn(b'name="service_id"', response.data)
+        self.assertIn(b'name="service_ids"', response.data)
         self.assertIn(b'Public Service', response.data)
         self.assertIn(b'Anything else we should know?', response.data)
         self.assertIn(b'Independent marketplace enquiry', response.data)

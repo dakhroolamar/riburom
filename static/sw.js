@@ -1,5 +1,5 @@
-const CACHE_NAME = 'riburom-v2';
-const SHELL_URLS = ['/', '/all_tours', '/about'];
+const CACHE_NAME = 'riburom-v3';
+const SHELL_URLS = [];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,11 +27,14 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Never cache authenticated/admin pages or authentication endpoints.
-  if (
-    url.origin !== self.location.origin ||
-    url.pathname.startsWith('/admin')
-  ) {
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/admin')) {
+    return;
+  }
+
+  // Never cache HTML documents. Public pages contain CSRF/session state and
+  // must always be fetched fresh so forms cannot submit an expired token.
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(fetch(event.request));
     return;
   }
 

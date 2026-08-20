@@ -7,103 +7,96 @@
     <title>{{ provider.name }} | Marketplace | {{ public.content.site_title }}</title>
     <meta name="description" content="{{ (provider.description or provider.name)[:155] }}">
     <link rel="manifest" href="/static/manifest.json">
-
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+    <style>
+        .rb-provider-hero { position:relative; min-height:460px; overflow:hidden; background:#0f2f1b; }
+        .rb-provider-hero-media { position:absolute; inset:0; background-position:center; background-size:cover; transform:scale(1.04); }
+        .rb-provider-hero-overlay { position:absolute; inset:0; background:linear-gradient(90deg,rgba(6,24,12,.90) 0%,rgba(6,24,12,.72) 45%,rgba(6,24,12,.42) 100%); }
+        .rb-provider-hero-content { position:relative; z-index:2; max-width:1280px; margin:0 auto; padding:70px 24px 80px; color:#fff; }
+        .rb-provider-eyebrow { color:#f3d38a; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.18em; margin-bottom:12px; }
+        .rb-provider-title { color:#fff; font-size:clamp(2.5rem,6vw,4.8rem); line-height:1.04; font-weight:800; margin:0 0 18px; letter-spacing:-.03em; }
+        .rb-provider-description { max-width:760px; color:rgba(255,255,255,.88); font-size:clamp(1rem,1.8vw,1.2rem); line-height:1.7; white-space:pre-line; }
+        .rb-provider-stats { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+        .rb-provider-stat { border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); border-radius:14px; padding:12px 15px; }
+        .rb-provider-stat strong { display:block; color:#fff; font-size:1rem; }
+        .rb-provider-stat span { display:block; color:rgba(255,255,255,.68); font-size:11px; margin-top:2px; }
+        .rb-service-row { display:grid; grid-template-columns:180px 1fr; gap:24px; padding:22px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease; }
+        .rb-service-row:hover { transform:translateY(-3px); box-shadow:0 16px 35px rgba(15,23,42,.10); border-color:#d1d5db; }
+        .rb-service-media { min-height:180px; border-radius:14px; background:#f1f5f9 center/cover no-repeat; }
+        .rb-enquiry-overlay { position:fixed; inset:0; z-index:1200; display:none; background:rgba(9,18,12,.78); padding:16px; overflow:auto; }
+        .rb-enquiry-overlay.is-open { display:flex; align-items:flex-start; justify-content:center; }
+        .rb-enquiry-modal { width:min(760px,100%); margin:30px auto; background:#fff; border-radius:22px; overflow:hidden; box-shadow:0 30px 90px rgba(0,0,0,.30); }
+        .rb-enquiry-head { background:#14532d; color:#fff; padding:22px 24px; display:flex; justify-content:space-between; gap:16px; }
+        .rb-enquiry-head h2 { color:#fff; margin:0; font-size:clamp(1.5rem,4vw,2rem); }
+        .rb-enquiry-close { width:40px; height:40px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; font-size:24px; line-height:1; cursor:pointer; }
+        .rb-enquiry-body { padding:24px; }
+        .rb-field label { display:block; font-size:13px; font-weight:800; color:#334155; margin-bottom:7px; }
+        .rb-field input,.rb-field textarea { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px; background:#fff; color:#111827; font:inherit; }
+        .rb-field input:focus,.rb-field textarea:focus { outline:3px solid rgba(22,101,52,.12); border-color:#166534; }
+        .rb-multiselect { position:relative; }
+        .rb-multiselect-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left; border:1px solid #cbd5e1; background:#fff; border-radius:12px; padding:13px 14px; color:#111827; font:inherit; cursor:pointer; }
+        .rb-multiselect-menu { position:absolute; left:0; right:0; top:calc(100% + 7px); z-index:20; display:none; max-height:300px; overflow:auto; background:#fff; border:1px solid #dbe2ea; border-radius:14px; box-shadow:0 20px 45px rgba(15,23,42,.16); padding:8px; }
+        .rb-multiselect.open .rb-multiselect-menu { display:block; }
+        .rb-service-option { display:flex; gap:10px; align-items:flex-start; padding:11px 12px; border-radius:10px; cursor:pointer; }
+        .rb-service-option:hover { background:#f8fafc; }
+        .rb-service-option input { margin-top:3px; }
+        .rb-selection-summary { margin-top:8px; color:#475569; font-size:12px; line-height:1.5; }
+        .rb-requirement-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+        .rb-enquiry-actions { display:flex; gap:10px; justify-content:flex-end; padding-top:18px; border-top:1px solid #eef2f7; margin-top:22px; }
+        .rb-primary-button,.rb-secondary-button { border:0; border-radius:12px; padding:12px 18px; font-weight:800; cursor:pointer; }
+        .rb-primary-button { background:#166534; color:#fff; }
+        .rb-secondary-button { background:#eef2f7; color:#1f2937; }
+        @media (max-width:800px){ .rb-provider-hero{min-height:520px}.rb-provider-hero-content{padding:52px 18px 64px}.rb-service-row{grid-template-columns:1fr;padding:16px}.rb-service-media{min-height:180px}.rb-enquiry-body{padding:18px}.rb-requirement-grid{grid-template-columns:1fr}.rb-enquiry-overlay{padding:8px}.rb-enquiry-modal{margin:12px auto;border-radius:18px} }
+    </style>
 </head>
-<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
 {% include '_nav.html' %}
 {% include '_flash.html' %}
 
 <main>
-    <section class="relative overflow-hidden bg-gray-950">
-        {% if provider.image_url %}
-        <div class="absolute inset-0 bg-cover bg-center scale-105" style="background-image:url('{{ provider.image_url|imgsrc }}');"></div>
-        {% endif %}
-        <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/65 to-black/40"></div>
-
-        <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-6 py-10 sm:py-14 lg:py-20 text-white">
-            <div class="mb-8">
-                <a href="{{ url_for('marketplace_public_index') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition">
-                    <span aria-hidden="true">←</span> Back to marketplace
-                </a>
+    <section class="rb-provider-hero" data-reveal="scale">
+        {% if provider.image_url %}<div class="rb-provider-hero-media" style="background-image:url('{{ provider.image_url|imgsrc }}');"></div>{% endif %}
+        <div class="rb-provider-hero-overlay"></div>
+        <div class="rb-provider-hero-content">
+            <div style="margin-bottom:24px"><a href="{{ url_for('marketplace_public_index') }}" style="color:rgba(255,255,255,.78);font-weight:700;text-decoration:none">← Back to marketplace</a></div>
+            <div class="rb-provider-eyebrow">Marketplace provider</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+                {% for assignment in provider.provider_type_assignments %}<span style="display:inline-flex;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800">{{ assignment.provider_type.name }}</span>{% endfor %}
             </div>
-
-            <div class="max-w-4xl">
-                <div class="flex flex-wrap gap-2 mb-5">
-                    {% for assignment in provider.provider_type_assignments %}
-                    <span class="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs sm:text-sm font-semibold backdrop-blur-sm">{{ assignment.provider_type.name }}</span>
-                    {% endfor %}
-                </div>
-
-                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-5">{{ provider.name }}</h1>
-                {% if provider.description %}
-                <p class="max-w-3xl text-base sm:text-lg lg:text-xl leading-relaxed text-white/85 whitespace-pre-line">{{ provider.description }}</p>
-                {% endif %}
-
-                <div class="mt-8 flex flex-wrap gap-3">
-                    <span class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 backdrop-blur-sm">
-                        <strong class="block text-lg">{{ services|length }}</strong>
-                        <span class="text-xs text-white/70">public service{% if services|length != 1 %}s{% endif %}</span>
-                    </span>
-                    {% if provider.phone %}
-                    <span class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 backdrop-blur-sm">
-                        <strong class="block text-sm">{{ provider.phone }}</strong>
-                        <span class="text-xs text-white/70">direct contact</span>
-                    </span>
-                    {% endif %}
-                    {% if provider.email %}
-                    <span class="rounded-xl bg-white/10 border border-white/15 px-4 py-3 backdrop-blur-sm max-w-full">
-                        <strong class="block text-sm truncate max-w-[260px]">{{ provider.email }}</strong>
-                        <span class="text-xs text-white/70">email</span>
-                    </span>
-                    {% endif %}
-                </div>
+            <h1 class="rb-provider-title">{{ provider.name }}</h1>
+            {% if provider.description %}<p class="rb-provider-description">{{ provider.description }}</p>{% endif %}
+            <div class="rb-provider-stats">
+                <div class="rb-provider-stat"><strong>{{ services|length }}</strong><span>public service{% if services|length != 1 %}s{% endif %}</span></div>
+                {% if provider.phone %}<div class="rb-provider-stat"><strong>{{ provider.phone }}</strong><span>direct contact</span></div>{% endif %}
+                {% if provider.email %}<div class="rb-provider-stat"><strong>{{ provider.email }}</strong><span>email</span></div>{% endif %}
             </div>
         </div>
     </section>
 
-    <section class="max-w-7xl mx-auto px-5 sm:px-6 py-10 sm:py-14 lg:py-16">
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-10">
+    <section class="max-w-7xl mx-auto px-5 sm:px-6 py-12 lg:py-16">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
             <div class="xl:col-span-8">
-                <div class="mb-8">
-                    <p class="text-green-800 font-bold uppercase tracking-[0.18em] text-xs sm:text-sm mb-2">Marketplace services</p>
-                    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-                        <div>
-                            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900">Choose what you need</h2>
-                            <p class="text-gray-600 mt-2 max-w-2xl">Browse what this provider offers. Use the provider enquiry button to choose a service and tell us what you need.</p>
-                        </div>
-                    </div>
+                <div style="margin-bottom:28px">
+                    <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-2">Marketplace services</p>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900">Choose what you need</h2>
+                    <p class="text-gray-600 mt-2 max-w-2xl">Browse what this provider offers. You can select one or several services in a single enquiry.</p>
                 </div>
-
-                <div class="space-y-5 rb-stagger">
+                <div class="space-y-5">
                     {% for service in services %}
-                    <article data-reveal="scale" class="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
-                        <div class="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-                            <div class="h-52 md:h-full min-h-[220px] bg-gray-100 bg-cover bg-center" {% if service.image_url %}style="background-image:url('{{ service.image_url|imgsrc }}');"{% endif %}></div>
-                            <div class="p-5 sm:p-6 lg:p-7 flex flex-col justify-between">
-                                <div>
-                                    {% if service.service_category %}
-                                    <div class="flex flex-wrap items-center gap-2 mb-3">
-                                        <span class="inline-flex rounded-full bg-green-50 text-green-800 px-3 py-1 text-xs font-bold uppercase tracking-wide">{{ service.service_category.name }}</span>
-                                    </div>
-                                    {% endif %}
-                                    <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ service.name }}</h3>
-                                    {% if service.description %}
-                                    <p class="text-gray-600 leading-relaxed whitespace-pre-line">{{ service.description }}</p>
-                                    {% else %}
-                                    <p class="text-gray-500 leading-relaxed">Ask this provider about availability and what can be arranged for this service.</p>
-                                    {% endif %}
-                                </div>
-                                <p class="mt-6 text-xs sm:text-sm text-gray-500">Select this service in the provider enquiry form to continue.</p>
+                    <article class="rb-service-row">
+                        <div class="rb-service-media" {% if service.image_url %}style="background-image:url('{{ service.image_url|imgsrc }}');"{% endif %}></div>
+                        <div style="display:flex;flex-direction:column;justify-content:space-between">
+                            <div>
+                                {% if service.service_category %}<div class="inline-flex rounded-full bg-green-50 text-green-800 px-3 py-1 text-xs font-bold uppercase tracking-wide mb-3">{{ service.service_category.name }}</div>{% endif %}
+                                <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ service.name }}</h3>
+                                <p class="text-gray-600 leading-relaxed whitespace-pre-line">{{ service.description or 'Ask this provider about availability and what can be arranged for this service.' }}</p>
                             </div>
+                            <p class="mt-5 text-xs sm:text-sm text-gray-500">Select this service in the enquiry dropdown when you are ready.</p>
                         </div>
                     </article>
                     {% else %}
-                    <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-8 sm:p-10 text-center text-gray-500">
-                        <h3 class="text-xl font-bold text-gray-900 mb-2">No public services available</h3>
-                        <p>This provider has no published marketplace services at the moment.</p>
-                    </div>
+                    <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">No public services are currently available for this provider.</div>
                     {% endfor %}
                 </div>
             </div>
@@ -112,30 +105,16 @@
                 <div class="xl:sticky xl:top-28 space-y-5">
                     <div class="bg-green-900 text-white rounded-2xl p-6 sm:p-7 shadow-xl">
                         <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-2">Marketplace enquiry</p>
-                        <h2 class="text-2xl font-bold mb-3">Interested in this provider?</h2>
-                        <p class="text-sm text-green-100/85 leading-relaxed mb-6">Send one request to this provider and choose a specific service inside the enquiry form, or leave it as a general provider enquiry.</p>
-                        <button type="button" data-marketplace-provider-inquiry class="w-full inline-flex items-center justify-center gap-2 bg-white text-green-900 hover:bg-green-50 font-bold px-5 py-3.5 rounded-xl transition">
-                            Enquire with this provider
-                            <span aria-hidden="true">→</span>
-                        </button>
+                        <h2 class="text-2xl font-bold mb-3" style="color:#fff">Interested in this provider?</h2>
+                        <p class="text-sm text-green-100 leading-relaxed mb-6">Choose one or several services, or leave the selection empty for a general provider enquiry.</p>
+                        <button type="button" id="openProviderInquiry" class="w-full inline-flex items-center justify-center gap-2 bg-white text-green-900 hover:bg-green-50 font-bold px-5 py-3.5 rounded-xl transition">Enquire with this provider →</button>
                         <p class="text-xs text-green-100/70 mt-3">Independent marketplace enquiry. Not the general Contact Us form.</p>
                     </div>
-
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-7">
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <p class="text-xs uppercase tracking-[0.18em] font-bold text-gray-500 mb-2">Provider</p>
-                        <h2 class="text-xl font-bold text-gray-900 mb-5">Contact details</h2>
-                        {% if provider.email %}
-                        <a href="mailto:{{ provider.email }}" class="flex items-start gap-3 py-3 border-b border-gray-100 hover:text-green-800 transition">
-                            <span class="text-lg" aria-hidden="true">✉</span>
-                            <span class="min-w-0"><span class="block text-xs text-gray-500">Email</span><span class="font-semibold break-words">{{ provider.email }}</span></span>
-                        </a>
-                        {% endif %}
-                        {% if provider.phone %}
-                        <a href="tel:{{ provider.phone }}" class="flex items-start gap-3 py-3 {% if provider.email %}border-b border-gray-100{% endif %} hover:text-green-800 transition">
-                            <span class="text-lg" aria-hidden="true">☎</span>
-                            <span><span class="block text-xs text-gray-500">Phone / WhatsApp</span><span class="font-semibold">{{ provider.phone }}</span></span>
-                        </a>
-                        {% endif %}
+                        <h2 class="text-xl font-bold text-gray-900 mb-4">Contact details</h2>
+                        {% if provider.email %}<a href="mailto:{{ provider.email }}" class="block py-3 border-b border-gray-100 hover:text-green-800"><span class="block text-xs text-gray-500">Email</span><span class="font-semibold break-words">{{ provider.email }}</span></a>{% endif %}
+                        {% if provider.phone %}<a href="tel:{{ provider.phone }}" class="block py-3 hover:text-green-800"><span class="block text-xs text-gray-500">Phone / WhatsApp</span><span class="font-semibold">{{ provider.phone }}</span></a>{% endif %}
                     </div>
                 </div>
             </aside>
@@ -143,234 +122,109 @@
     </section>
 </main>
 
-<div id="marketplaceInquiryModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-marketplace-inquiry-close></div>
-    <div class="relative z-10 min-h-full flex items-start justify-center px-3 sm:px-5 py-4 sm:py-8 overflow-y-auto">
-        <div class="w-full max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
-            <div class="px-5 sm:px-7 py-5 bg-green-900 text-white flex items-start justify-between gap-5">
-                <div class="min-w-0">
-                    <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-1">Marketplace enquiry</p>
-                    <h2 id="marketplaceInquiryTitle" class="text-2xl sm:text-3xl font-bold break-words">Enquire with this provider</h2>
-                    <p id="marketplaceInquiryCategory" class="text-green-100 mt-1">General provider enquiry</p>
-                </div>
-                <button type="button" class="flex-none h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl leading-none" aria-label="Close enquiry" data-marketplace-inquiry-close>&times;</button>
-            </div>
-
-            <div class="px-5 sm:px-7 pt-5">
-                <div class="rounded-xl bg-green-50 border border-green-100 px-4 py-3">
-                    <div class="text-xs uppercase tracking-wide text-green-700 font-bold">Provider</div>
-                    <div id="marketplaceInquirySummary" class="font-semibold text-gray-900 mt-1">{{ provider.name }}</div>
-                </div>
-            </div>
-
-            <form method="post" action="{{ url_for('marketplace_inquiry_create') }}" class="p-5 sm:p-7 space-y-7">
+<div id="providerInquiryOverlay" class="rb-enquiry-overlay" aria-hidden="true">
+    <div class="rb-enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="providerInquiryTitle">
+        <div class="rb-enquiry-head">
+            <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-weight:800;color:#bbf7d0;margin-bottom:3px">Marketplace enquiry</div><h2 id="providerInquiryTitle">Enquire with this provider</h2><div id="providerInquirySubtitle" style="color:#dcfce7;margin-top:4px">General provider enquiry</div></div>
+            <button type="button" class="rb-enquiry-close" id="closeProviderInquiry" aria-label="Close enquiry">&times;</button>
+        </div>
+        <div class="rb-enquiry-body">
+            <form method="post" action="{{ url_for('marketplace_inquiry_create') }}" id="providerInquiryForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="provider_id" value="{{ provider.id }}">
 
-                <section>
-                    <div class="mb-4">
-                        <h3 class="text-lg font-bold text-gray-900">What are you interested in?</h3>
-                        <p class="text-sm text-gray-500 mt-1">Choose a service when you have one in mind. Leave it as general provider enquiry if you want help deciding.</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryService">Service</label>
-                        <select id="marketplaceInquiryService" name="service_id" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                            <option value="">General provider enquiry</option>
+                <div class="rb-field" style="margin-bottom:20px">
+                    <label>What services are you interested in?</label>
+                    <div class="rb-multiselect" id="serviceMultiSelect">
+                        <button type="button" class="rb-multiselect-toggle" id="serviceMultiSelectToggle"><span id="serviceMultiSelectLabel">General provider enquiry</span><span aria-hidden="true">▾</span></button>
+                        <div class="rb-multiselect-menu" id="serviceMultiSelectMenu">
                             {% for service in services %}
-                            <option value="{{ service.id }}" data-service-name="{{ service.name|e }}" data-category-name="{{ service.service_category.name|e if service.service_category else 'Marketplace service' }}" data-category-slug="{{ service.service_category.slug|e if service.service_category else '' }}">{{ service.name }}{% if service.service_category %} — {{ service.service_category.name }}{% endif %}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </section>
-
-                <section>
-                    <div class="mb-4">
-                        <h3 class="text-lg font-bold text-gray-900">Your details</h3>
-                        <p class="text-sm text-gray-500 mt-1">We need this to follow up on the request.</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryName">Name *</label>
-                            <input id="marketplaceInquiryName" name="name" required maxlength="200" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none" autocomplete="name">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryEmail">Email *</label>
-                            <input id="marketplaceInquiryEmail" type="email" name="email" required maxlength="254" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none" autocomplete="email">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryPhone">WhatsApp / Phone</label>
-                            <input id="marketplaceInquiryPhone" name="phone" maxlength="40" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none" autocomplete="tel">
+                            <label class="rb-service-option">
+                                <input type="checkbox" name="service_ids" value="{{ service.id }}" data-service-name="{{ service.name|e }}" data-category-family="{{ service.service_category.slug|e if service.service_category else 'general' }}">
+                                <span><strong style="display:block;color:#111827">{{ service.name }}</strong>{% if service.service_category %}<span style="display:block;color:#64748b;font-size:12px;margin-top:2px">{{ service.service_category.name }}</span>{% endif %}</span>
+                            </label>
+                            {% else %}<div style="padding:12px;color:#64748b;font-size:13px">No published services. You can still send a general provider enquiry.</div>{% endfor %}
                         </div>
                     </div>
-                </section>
-
-                <section>
-                    <div class="mb-4">
-                        <h3 class="text-lg font-bold text-gray-900">Service requirements</h3>
-                        <p id="marketplaceInquiryRequirementsHelp" class="text-sm text-gray-500 mt-1">General enquiry fields are shown. Choose a service above to see more specific fields.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div data-field="travel_date" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryTravelDate">Travel / service date</label>
-                            <input id="marketplaceInquiryTravelDate" name="travel_date" maxlength="120" placeholder="e.g. 12 October 2026" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="return_date" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryReturnDate">Return date</label>
-                            <input id="marketplaceInquiryReturnDate" name="return_date" maxlength="120" placeholder="e.g. 15 October 2026" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="travellers" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryTravellers">Travellers / people</label>
-                            <input id="marketplaceInquiryTravellers" type="number" min="1" max="999" name="travellers" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="duration" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryDuration">Duration</label>
-                            <input id="marketplaceInquiryDuration" name="duration" maxlength="120" placeholder="e.g. Full day / 3 hours" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="pickup_location" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryPickup">Pickup location</label>
-                            <input id="marketplaceInquiryPickup" name="pickup_location" maxlength="300" placeholder="e.g. Shillong Airport" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="drop_location" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryDrop">Drop location</label>
-                            <input id="marketplaceInquiryDrop" name="drop_location" maxlength="300" placeholder="e.g. Jowai" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="check_in" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryCheckIn">Check-in</label>
-                            <input id="marketplaceInquiryCheckIn" name="check_in" maxlength="120" placeholder="e.g. 12 October 2026" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="check_out" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryCheckOut">Check-out</label>
-                            <input id="marketplaceInquiryCheckOut" name="check_out" maxlength="120" placeholder="e.g. 15 October 2026" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="rooms" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryRooms">Rooms</label>
-                            <input id="marketplaceInquiryRooms" type="number" min="1" max="100" name="rooms" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="nights" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryNights">Nights</label>
-                            <input id="marketplaceInquiryNights" type="number" min="1" max="365" name="nights" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                        <div data-field="language" class="marketplace-inquiry-field">
-                            <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryLanguage">Preferred language</label>
-                            <input id="marketplaceInquiryLanguage" name="language" maxlength="120" placeholder="e.g. English / Khasi / Hindi" class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none">
-                        </div>
-                    </div>
-
-                    <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
-                        <label class="block text-sm font-semibold mb-1" for="marketplaceInquiryRequirements">Anything else we should know?</label>
-                        <textarea id="marketplaceInquiryRequirements" name="requirements" rows="5" maxlength="10000" class="w-full border border-gray-300 bg-white rounded-xl px-4 py-3.5 focus:border-green-700 focus:ring-2 focus:ring-green-100 outline-none" placeholder="Tell us anything not covered above — special arrangements, accessibility needs, timing preferences, equipment, children, food preferences, route changes, or anything else."></textarea>
-                        <p class="text-xs text-gray-500 mt-2">This field is always available. You are not limited to the structured fields.</p>
-                    </div>
-                </section>
-
-                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-1">
-                    <button type="button" data-marketplace-inquiry-close class="px-5 py-3.5 rounded-xl border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" class="rb-button px-6 py-3.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold">Send marketplace enquiry</button>
+                    <div class="rb-selection-summary" id="serviceSelectionSummary">Choose one or several services. Leave all unchecked for a general enquiry.</div>
                 </div>
+
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryName">Your name *</label><input id="providerInquiryName" name="name" required maxlength="200" autocomplete="name"></div>
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryEmail">Email *</label><input id="providerInquiryEmail" type="email" name="email" required maxlength="254" autocomplete="email"></div>
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryPhone">WhatsApp / Phone</label><input id="providerInquiryPhone" name="phone" maxlength="40" autocomplete="tel"></div>
+
+                <div style="margin-bottom:10px"><h3 style="margin:0;color:#111827;font-size:18px;font-weight:800">Service requirements</h3><p id="providerRequirementHelp" style="margin:4px 0 0;color:#64748b;font-size:13px">General fields are shown. Select a service to reveal more relevant fields.</p></div>
+                <div class="rb-requirement-grid">
+                    <div class="rb-field" data-family-field="travel"><label>Travel / service date</label><input name="travel_date" maxlength="120" placeholder="e.g. 12 October 2026"></div>
+                    <div class="rb-field" data-family-field="return"><label>Return date</label><input name="return_date" maxlength="120" placeholder="e.g. 15 October 2026"></div>
+                    <div class="rb-field" data-family-field="people"><label>Travellers / people</label><input type="number" min="1" max="999" name="travellers"></div>
+                    <div class="rb-field" data-family-field="duration"><label>Duration</label><input name="duration" maxlength="120" placeholder="e.g. full day / 3 hours"></div>
+                    <div class="rb-field" data-family-field="transport"><label>Pickup location</label><input name="pickup_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="transport"><label>Drop location</label><input name="drop_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Check-in</label><input name="check_in" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Check-out</label><input name="check_out" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Rooms</label><input type="number" min="1" max="100" name="rooms"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Nights</label><input type="number" min="1" max="365" name="nights"></div>
+                    <div class="rb-field" data-family-field="guide"><label>Preferred language</label><input name="language" maxlength="120"></div>
+                </div>
+
+                <div class="rb-field" style="margin-top:20px"><label for="providerInquiryRequirements">Anything else we should know?</label><textarea id="providerInquiryRequirements" name="requirements" rows="5" maxlength="10000" placeholder="Tell us anything not covered above — special arrangements, accessibility needs, timing preferences, children, food preferences, equipment, route changes, or anything else."></textarea></div>
+
+                <div class="rb-enquiry-actions"><button type="button" class="rb-secondary-button" id="cancelProviderInquiry">Cancel</button><button type="submit" class="rb-primary-button">Send marketplace enquiry</button></div>
             </form>
         </div>
     </div>
 </div>
 
-{% include '_footer.html' %}
-
 <script>
-(function () {
-    const modal = document.getElementById('marketplaceInquiryModal');
-    if (!modal) return;
+(function(){
+    const overlay=document.getElementById('providerInquiryOverlay');
+    const openBtn=document.getElementById('openProviderInquiry');
+    const closeBtn=document.getElementById('closeProviderInquiry');
+    const cancelBtn=document.getElementById('cancelProviderInquiry');
+    const multi=document.getElementById('serviceMultiSelect');
+    const toggle=document.getElementById('serviceMultiSelectToggle');
+    const label=document.getElementById('serviceMultiSelectLabel');
+    const summary=document.getElementById('serviceSelectionSummary');
+    const subtitle=document.getElementById('providerInquirySubtitle');
+    const help=document.getElementById('providerRequirementHelp');
+    const fields=[...document.querySelectorAll('[data-family-field]')];
+    const checks=[...document.querySelectorAll('#serviceMultiSelectMenu input[type="checkbox"]')];
 
-    const providerButton = document.querySelector('[data-marketplace-provider-inquiry]');
-    const serviceSelect = document.getElementById('marketplaceInquiryService');
-    const title = document.getElementById('marketplaceInquiryTitle');
-    const category = document.getElementById('marketplaceInquiryCategory');
-    const summary = document.getElementById('marketplaceInquirySummary');
-    const help = document.getElementById('marketplaceInquiryRequirementsHelp');
-    const fields = Array.from(modal.querySelectorAll('.marketplace-inquiry-field'));
-
-    const fieldSets = {
-        transport: ['travel_date', 'return_date', 'travellers', 'pickup_location', 'drop_location', 'duration'],
-        accommodation: ['check_in', 'check_out', 'travellers', 'rooms', 'nights'],
-        guide: ['travel_date', 'return_date', 'travellers', 'duration', 'language'],
-        camping: ['travel_date', 'return_date', 'travellers', 'nights', 'duration'],
-        dining: ['travel_date', 'travellers', 'duration'],
-        experience: ['travel_date', 'return_date', 'travellers', 'duration', 'language'],
-        general: ['travel_date', 'return_date', 'travellers', 'duration']
-    };
-
-    function detectFamily(slug) {
-        slug = (slug || '').toLowerCase();
-        if (/transport|taxi|driver|vehicle|transfer|rental/.test(slug)) return 'transport';
-        if (/homestay|hotel|resort|accommodation|lodge|stay/.test(slug)) return 'accommodation';
-        if (/guide/.test(slug)) return 'guide';
-        if (/camp/.test(slug)) return 'camping';
-        if (/restaurant|food|dining|cafe/.test(slug)) return 'dining';
-        if (/experience|village|tour|activity|adventure/.test(slug)) return 'experience';
-        return 'general';
+    function selected(){return checks.filter(c=>c.checked);}
+    function family(slug){
+        const s=(slug||'').toLowerCase();
+        if(/transport|taxi|driver|vehicle|transfer|rental/.test(s)) return ['transport','travel','return','people','duration'];
+        if(/homestay|hotel|resort|accommodation|lodge|stay/.test(s)) return ['stay','travel','return','people','duration'];
+        if(/guide|guiding/.test(s)) return ['guide','travel','return','people','duration'];
+        if(/camp|camping/.test(s)) return ['camp','travel','return','people','duration'];
+        if(/restaurant|food|dining|cafe/.test(s)) return ['travel','people','duration'];
+        if(/experience|village|tour|activity|adventure/.test(s)) return ['travel','return','people','duration'];
+        return ['travel','people','duration'];
     }
-
-    function showFamily(family, selectedName) {
-        const visible = new Set(fieldSets[family] || fieldSets.general);
-        fields.forEach((field) => {
-            const key = field.getAttribute('data-field');
-            const isVisible = visible.has(key);
-            field.classList.toggle('hidden', !isVisible);
-            const input = field.querySelector('input');
-            if (input && !isVisible) input.value = '';
-        });
-        help.textContent = selectedName
-            ? 'Only the fields relevant to the selected service are shown. You can add anything else below.'
-            : 'General enquiry fields are shown. Choose a service above to see more specific fields.';
-    }
-
-    function applyServiceSelection() {
-        const option = serviceSelect.options[serviceSelect.selectedIndex];
-        const selectedId = serviceSelect.value;
-        const serviceName = option.dataset.serviceName || '';
-        const categoryName = option.dataset.categoryName || '';
-        const categorySlug = option.dataset.categorySlug || '';
-
-        if (!selectedId) {
-            title.textContent = 'Enquire with this provider';
-            category.textContent = 'General provider enquiry';
-            summary.textContent = '{{ provider.name|e }}';
-            showFamily('general', '');
-            return;
+    function refresh(){
+        const chosen=selected();
+        if(!chosen.length){
+            label.textContent='General provider enquiry'; summary.textContent='Choose one or several services. Leave all unchecked for a general enquiry.'; subtitle.textContent='General provider enquiry';
+            fields.forEach(f=>f.style.display=['travel','people','duration'].includes(f.dataset.familyField)?'block':'none'); help.textContent='General fields are shown. Select a service to reveal more relevant fields.'; return;
         }
-
-        title.textContent = 'Request ' + serviceName;
-        category.textContent = categoryName + ' • {{ provider.name|e }}';
-        summary.textContent = serviceName + ' from {{ provider.name|e }}';
-        showFamily(detectFamily(categorySlug), serviceName);
+        const names=chosen.map(c=>c.dataset.serviceName);
+        label.textContent=names.length===1?names[0]:names.length+' services selected'; summary.textContent=names.join(' • '); subtitle.textContent=names.length===1?names[0]:names.length+' services selected';
+        const visible=new Set(['travel','people','duration']); chosen.forEach(c=>family(c.dataset.categoryFamily).forEach(x=>visible.add(x)));
+        fields.forEach(f=>f.style.display=visible.has(f.dataset.familyField)?'block':'none'); help.textContent='Fields below adapt to the services you selected. You can still add anything else in the requirements box.';
     }
-
-    function openModal() {
-        applyServiceSelection();
-        modal.classList.remove('hidden');
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('overflow-hidden');
-        const nameInput = document.getElementById('marketplaceInquiryName');
-        if (nameInput) nameInput.focus();
-    }
-
-    function closeModal() {
-        modal.classList.add('hidden');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    providerButton?.addEventListener('click', openModal);
-    serviceSelect?.addEventListener('change', applyServiceSelection);
-
-    document.querySelectorAll('[data-marketplace-inquiry-close]').forEach((button) => {
-        button.addEventListener('click', closeModal);
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
-    });
-
-    showFamily('general', '');
+    function open(){overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('providerInquiryName')?.focus(),50);}
+    function close(){overlay.classList.remove('is-open');overlay.setAttribute('aria-hidden','true');document.body.style.overflow='';multi.classList.remove('open');}
+    openBtn?.addEventListener('click',open); closeBtn?.addEventListener('click',close); cancelBtn?.addEventListener('click',close);
+    overlay?.addEventListener('click',e=>{if(e.target===overlay)close();});
+    toggle?.addEventListener('click',()=>multi.classList.toggle('open'));
+    document.addEventListener('click',e=>{if(!multi.contains(e.target))multi.classList.remove('open');});
+    checks.forEach(c=>c.addEventListener('change',refresh));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('is-open'))close();});
+    refresh();
 })();
 </script>
+
+{% include '_footer.html' %}
 </body>
 </html>
