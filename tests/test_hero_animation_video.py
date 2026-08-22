@@ -67,6 +67,14 @@ class HeroAnimationVideoTests(unittest.TestCase):
         image.save(buffer, format='PNG')
         return buffer.getvalue()
 
+    def test_hero_animation_video_is_deferred_for_pre_migration_bootstrap(self):
+        property_ = self.SiteSettings.__mapper__.attrs.hero_animation_video
+        self.assertTrue(property_.deferred)
+
+        statement = self.db.session.query(self.SiteSettings).statement
+        compiled = str(statement.compile(dialect=self.db.engine.dialect))
+        self.assertNotIn('hero_animation_video', compiled)
+
     def test_cms_exposes_current_replace_and_remove_video_controls(self):
         response = self.client.get('/workspace/cms/media')
         self.assertEqual(response.status_code, 200)
