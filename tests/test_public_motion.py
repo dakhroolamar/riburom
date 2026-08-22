@@ -51,6 +51,10 @@ class PublicMotionTests(unittest.TestCase):
         self.assertIn('assembleHeroLogo', motion_script)
         self.assertIn("getElementById('rbHeroLogo')", motion_script)
         self.assertIn('rb-logo-assembly', motion_script)
+        self.assertIn('waitForImage', motion_script)
+        self.assertIn('Element.prototype.animate', motion_script)
+        self.assertIn('createFragment', motion_script)
+        self.assertIn('rb-hero-media.is-playing', motion_script)
         self.assertIn(b'ri-burom-motion.js', response.data)
 
 
