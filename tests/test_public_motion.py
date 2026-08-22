@@ -11,9 +11,11 @@ class PublicMotionTests(unittest.TestCase):
 
         import wsgi
         from app import app, db
+        from models import SiteSettings
 
         cls.app = app
         cls.db = db
+        cls.SiteSettings = SiteSettings
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         cls.context = cls.app.app_context()
         cls.context.push()
@@ -36,10 +38,22 @@ class PublicMotionTests(unittest.TestCase):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(b'rb-public-site', response.data)
-                self.assertIn(b'ri-burom-motion.js?v=6', response.data)
+                self.assertIn(b'ri-burom-motion.js', response.data)
                 self.assertIn(b'prefers-reduced-motion', response.data)
 
+        homepage = self.client.get('/')
+        self.assertIn(b'ri-burom-motion.js?v=6', homepage.data)
+
     def test_home_hero_uses_persistent_logo_stage_and_fragment_enhancement(self):
+        settings = self.db.session.get(self.SiteSettings, 1)
+        if settings is None:
+            settings = self.SiteSettings(id=1)
+            self.db.session.add(settings)
+        settings.hero_logo = 'logo.png'
+        settings.header_mark = 'logo.png'
+        settings.header_wordmark = 'logo.png'
+        self.db.session.commit()
+
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'rb-home-hero', response.data)
