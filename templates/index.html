@@ -26,6 +26,7 @@
     {% include '_flash.html' %}
     <main id="rbHomeSections" class="flex flex-col">
     {% if public.home.visibility.hero %}
+    {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
     <header id="rb-home-hero" class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center" style="order:{{ home_order_index.hero }};{% if hero_image %} background-image: url('{{ hero_image|imgsrc }}');{% endif %}">
         <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content">
