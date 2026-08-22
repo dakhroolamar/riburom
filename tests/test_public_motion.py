@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 
 from tests.test_bootstrap import configure_isolated_sqlite
@@ -69,13 +70,26 @@ class PublicMotionTests(unittest.TestCase):
         with open(motion_css_path, 'r', encoding='utf-8') as motion_css:
             motion_styles = motion_css.read()
 
+        compiled_css_path = self.app.static_folder + '/css/ri-burom-compiled.css'
+        with open(compiled_css_path, 'r', encoding='utf-8') as compiled_css:
+            compiled_styles = compiled_css.read()
+        normalized_compiled_styles = re.sub(r'\s+', '', compiled_styles)
+
         self.assertIn('assembleHeroLogo', motion_script)
         self.assertIn('resolveHeroLogo', motion_script)
         self.assertIn('rb-hero-logo-fragment-layer', motion_script)
         self.assertIn('rb-hero-logo-stage', motion_styles)
+        self.assertIn('opacity:1 !important', motion_styles)
+        self.assertIn('visibility:visible !important', motion_styles)
         self.assertIn('is-assembling', motion_styles)
         self.assertNotIn('replaceWith(wrapper)', motion_script)
         self.assertIn(b'rb-hero-logo-stage', response.data)
+
+        # Regression guard: the stale compiled rule must not be allowed to
+        # become the only source of truth for the stage's visibility. The
+        # dedicated motion layer must explicitly restore it to visible.
+        self.assertIn('.rb-hero-content>*', normalized_compiled_styles)
+        self.assertIn('opacity:0', normalized_compiled_styles)
 
 
 if __name__ == '__main__':
