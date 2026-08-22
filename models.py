@@ -152,6 +152,7 @@ class SiteSettings(db.Model):
     header_wordmark = db.Column(db.String(500))
     header_mark = db.Column(db.String(500))
     hero_logo = db.Column(db.String(500))
+    hero_animation_video = db.Column(db.String(500))
     header_wordmark_width = db.Column(db.Integer, default=125, nullable=False)
     header_mark_width = db.Column(db.Integer, default=48, nullable=False)
     header_logo_gap = db.Column(db.Integer, default=8, nullable=False)

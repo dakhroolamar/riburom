@@ -6,68 +6,22 @@
   function ensureMotionStyles() {
     if (document.querySelector('link[data-rb-motion-css]')) return;
     const critical = document.createElement('style');
-    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}.rb-hero-logo-stage{position:relative;width:min(78vw,560px);max-height:420px;margin-bottom:32px}.rb-hero-logo-base{position:relative;z-index:1;display:block;max-width:78vw;max-height:420px;height:auto;object-fit:contain;opacity:1;filter:drop-shadow(0 18px 34px rgba(0,0,0,.3));transition:opacity .48s cubic-bezier(.22,.7,.25,1)}.rb-hero-logo-stage.is-assembling .rb-hero-logo-base{opacity:0}.rb-hero-logo-fragment-layer{position:absolute;inset:0;z-index:2;pointer-events:none}.rb-logo-fragment{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;will-change:transform,opacity,filter}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}';
+    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}';
     document.head.appendChild(critical);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-motion.css?v=6';
+    link.href = '/static/css/ri-burom-motion.css?v=7';
     link.dataset.rbMotionCss = '1';
     document.head.appendChild(link);
   }
 
-  function imageSource(element) {
-    return element.currentSrc || element.getAttribute('src') || '';
-  }
-
-  function waitForImage(image) {
-    if (image.complete) {
-      return Promise.resolve(image.naturalWidth > 0);
-    }
-    return new Promise((resolve) => {
-      const finish = (ok) => {
-        image.removeEventListener('load', onLoad);
-        image.removeEventListener('error', onError);
-        resolve(ok);
-      };
-      const onLoad = () => finish(true);
-      const onError = () => finish(false);
-      image.addEventListener('load', onLoad, { once: true });
-      image.addEventListener('error', onError, { once: true });
-    });
-  }
-
-  async function resolveHeroLogo(image) {
-    const candidates = [
-      imageSource(image),
-      image.dataset.fallbackSrc || '',
-      image.dataset.fallbackSrcSecondary || ''
-    ].filter(Boolean);
-
-    const seen = new Set();
-    for (const src of candidates) {
-      if (seen.has(src)) continue;
-      seen.add(src);
-      if (imageSource(image) !== src) {
-        image.src = src;
-      }
-      const loaded = await waitForImage(image);
-      if (loaded && image.naturalWidth > 0) {
-        if (image.decode) {
-          try { await image.decode(); } catch (_) {}
-        }
-        return src;
-      }
-    }
-    return '';
-  }
-
   function getBrandImage() {
-    const hero = document.getElementById('rbHeroLogo');
-    if (hero) return imageSource(hero);
+    const logo = document.querySelector('.rb-hero-permanent-logo');
+    if (logo && logo.currentSrc) return logo.currentSrc;
     const mark = document.querySelector('.rb-brand img:last-child');
-    if (mark) return imageSource(mark);
+    if (mark && mark.currentSrc) return mark.currentSrc;
     const wordmark = document.querySelector('.rb-brand img:first-child');
-    return wordmark ? imageSource(wordmark) : '';
+    return wordmark ? (wordmark.currentSrc || wordmark.getAttribute('src') || '') : '';
   }
 
   function showLoader() {
@@ -85,79 +39,46 @@
     setTimeout(hide, 1800);
   }
 
-  function createFragment(layer, source, clip) {
-    const img = document.createElement('img');
-    img.className = 'rb-logo-fragment';
-    img.src = source;
-    img.alt = '';
-    img.setAttribute('aria-hidden', 'true');
-    img.style.clipPath = 'inset(' + clip + ')';
-    layer.appendChild(img);
-    return img;
-  }
+  function initHeroAnimationVideo() {
+    const stage = document.querySelector('[data-rb-hero-video-stage]');
+    const video = stage && stage.querySelector('[data-rb-hero-animation-video]');
+    if (!stage || !video) return;
 
-  function playFragment(img, x, y, rotation, delay) {
-    if (typeof img.animate !== 'function') return null;
-    const from = 'translate3d(' + x + ', ' + y + ', 0) rotate(' + rotation + ') scale(.72)';
-    const to = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
-    return img.animate(
-      [
-        { opacity: 0, transform: from, filter: 'blur(14px) drop-shadow(0 24px 30px rgba(0,0,0,.28))' },
-        { opacity: 1, offset: 0.28 },
-        { opacity: 1, transform: to, filter: 'blur(0) drop-shadow(0 18px 28px rgba(0,0,0,.22))' }
-      ],
-      { duration: 1180, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'both' }
-    );
-  }
+    const fallback = () => {
+      stage.classList.remove('is-playing');
+      stage.classList.add('is-fallback');
+      try { video.pause(); } catch (_) {}
+    };
 
-  async function assembleHeroLogo() {
-    const stage = document.querySelector('[data-rb-hero-logo-stage]');
-    const original = document.getElementById('rbHeroLogo');
-    if (!stage || !original || stage.dataset.assembled === '1' || reduceMotion) return;
+    const complete = () => {
+      stage.classList.remove('is-playing');
+      stage.classList.add('is-complete');
+      try { video.pause(); } catch (_) {}
+    };
 
-    const source = await resolveHeroLogo(original);
-    if (!source || original.naturalWidth === 0 || typeof Element.prototype.animate !== 'function') return;
+    if (reduceMotion) {
+      stage.classList.add('is-fallback');
+      return;
+    }
 
-    stage.dataset.assembled = '1';
-    const layer = document.createElement('div');
-    layer.className = 'rb-hero-logo-fragment-layer';
-    layer.setAttribute('aria-hidden', 'true');
-    stage.appendChild(layer);
+    video.addEventListener('playing', () => {
+      stage.classList.remove('is-fallback');
+      stage.classList.add('is-playing');
+    }, { once: true });
+    video.addEventListener('ended', complete, { once: true });
+    video.addEventListener('error', fallback, { once: true });
+    video.addEventListener('abort', fallback, { once: true });
 
-    const fragments = [
-      ['0 66.67% 66.67% 0', '-54vw', '-38vh', '-18deg', 20],
-      ['0 33.33% 66.67% 33.33%', '-18vw', '-46vh', '11deg', 150],
-      ['0 0 66.67% 66.67%', '48vw', '-38vh', '18deg', 280],
-      ['33.33% 66.67% 33.33% 0', '-58vw', '2vh', '-14deg', 90],
-      ['33.33% 33.33% 33.33% 33.33%', '0', '45vh', '-8deg', 210],
-      ['33.33% 0 33.33% 66.67%', '58vw', '5vh', '16deg', 330],
-      ['66.67% 66.67% 0 0', '-48vw', '37vh', '-20deg', 170],
-      ['66.67% 33.33% 0 33.33%', '16vw', '46vh', '10deg', 300],
-      ['66.67% 0 0 66.67%', '52vw', '36vh', '-16deg', 430]
-    ];
-
-    const nodes = fragments.map((item) => ({
-      img: createFragment(layer, source, item[0]),
-      x: item[1], y: item[2], rotation: item[3], delay: item[4]
-    }));
-
-    stage.classList.add('is-assembling');
-    requestAnimationFrame(() => {
-      nodes.forEach((item) => playFragment(item.img, item.x, item.y, item.rotation, item.delay));
-    });
-
-    const assemblyEnd = 1750;
-    window.setTimeout(() => {
-      stage.classList.remove('is-assembling');
-      nodes.forEach(({ img }) => {
-        img.getAnimations().forEach((animation) => animation.cancel());
-        img.animate(
-          [{ opacity: 1 }, { opacity: 0 }],
-          { duration: 420, easing: 'cubic-bezier(.22,.7,.25,1)', fill: 'forwards' }
-        );
-      });
-      window.setTimeout(() => layer.remove(), 460);
-    }, assemblyEnd);
+    let playback;
+    try {
+      playback = video.play();
+    } catch (_) {
+      fallback();
+      return;
+    }
+    if (playback && typeof playback.catch === 'function') {
+      playback.catch(fallback);
+    }
   }
 
   function scrollReveal() {
@@ -221,7 +142,7 @@
   function bootstrap() {
     ensureMotionStyles();
     showLoader();
-    assembleHeroLogo();
+    initHeroAnimationVideo();
     scrollReveal();
     syncNav();
     applySectionBackgrounds();
