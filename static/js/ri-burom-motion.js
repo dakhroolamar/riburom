@@ -6,11 +6,11 @@
   function ensureMotionStyles() {
     if (document.querySelector('link[data-rb-motion-css]')) return;
     const critical = document.createElement('style');
-    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}.rb-hero-media{position:absolute;inset:0;z-index:0;background-position:center;background-size:cover;background-repeat:no-repeat;transform:scale(1.035);will-change:transform}.rb-hero-media.is-playing{animation:rb-hero-drift 16s cubic-bezier(.37,.08,.24,.99) forwards}.rb-logo-assembly{position:relative;width:min(78vw,560px);max-height:420px;margin-bottom:32px}.rb-logo-assembly-sizer{width:100%;height:auto;visibility:hidden;display:block}.rb-logo-fragment,.rb-logo-final{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.rb-logo-fragment{opacity:0;filter:blur(12px);will-change:transform,opacity,filter}.rb-logo-final{opacity:0;filter:drop-shadow(0 18px 28px rgba(0,0,0,.3));transition:opacity .48s ease}.rb-logo-final.is-ready{opacity:1}.rb-logo-assembly.is-playing{animation:none!important}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}@keyframes rb-hero-drift{from{transform:scale(1.035) translate3d(0,0,0)}to{transform:scale(1.09) translate3d(-.7%,-.5%,0)}}';
+    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}.rb-hero-logo-stage{position:relative;width:min(78vw,560px);max-height:420px;margin-bottom:32px}.rb-hero-logo-base{position:relative;z-index:1;display:block;max-width:78vw;max-height:420px;height:auto;object-fit:contain;opacity:1;filter:drop-shadow(0 18px 34px rgba(0,0,0,.3));transition:opacity .48s cubic-bezier(.22,.7,.25,1)}.rb-hero-logo-stage.is-assembling .rb-hero-logo-base{opacity:0}.rb-hero-logo-fragment-layer{position:absolute;inset:0;z-index:2;pointer-events:none}.rb-logo-fragment{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;will-change:transform,opacity,filter}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}';
     document.head.appendChild(critical);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-motion.css?v=4';
+    link.href = '/static/css/ri-burom-motion.css?v=6';
     link.dataset.rbMotionCss = '1';
     document.head.appendChild(link);
   }
@@ -20,18 +20,45 @@
   }
 
   function waitForImage(image) {
-    if (image.complete && image.naturalWidth > 0) {
-      return image.decode ? image.decode().catch(() => {}) : Promise.resolve();
+    if (image.complete) {
+      return Promise.resolve(image.naturalWidth > 0);
     }
     return new Promise((resolve) => {
-      const finish = () => {
-        image.removeEventListener('load', finish);
-        image.removeEventListener('error', finish);
-        resolve();
+      const finish = (ok) => {
+        image.removeEventListener('load', onLoad);
+        image.removeEventListener('error', onError);
+        resolve(ok);
       };
-      image.addEventListener('load', finish, { once: true });
-      image.addEventListener('error', finish, { once: true });
-    }).then(() => image.decode ? image.decode().catch(() => {}) : undefined);
+      const onLoad = () => finish(true);
+      const onError = () => finish(false);
+      image.addEventListener('load', onLoad, { once: true });
+      image.addEventListener('error', onError, { once: true });
+    });
+  }
+
+  async function resolveHeroLogo(image) {
+    const candidates = [
+      imageSource(image),
+      image.dataset.fallbackSrc || '',
+      image.dataset.fallbackSrcSecondary || ''
+    ].filter(Boolean);
+
+    const seen = new Set();
+    for (const src of candidates) {
+      if (seen.has(src)) continue;
+      seen.add(src);
+      if (imageSource(image) !== src) {
+        image.src = src;
+      }
+      const loaded = await waitForImage(image);
+      if (loaded && image.naturalWidth > 0) {
+        if (image.decode) {
+          try { await image.decode(); } catch (_) {}
+        }
+        return src;
+      }
+    }
+    return '';
   }
 
   function getBrandImage() {
@@ -58,67 +85,44 @@
     setTimeout(hide, 1800);
   }
 
-  function cinematicHero() {
-    const hero = document.getElementById('rb-home-hero');
-    if (!hero || reduceMotion) return;
-    const background = getComputedStyle(hero).backgroundImage;
-    if (!background || background === 'none') return;
-    const media = document.createElement('div');
-    media.className = 'rb-hero-media';
-    media.setAttribute('aria-hidden', 'true');
-    media.style.backgroundImage = background;
-    hero.style.backgroundImage = 'none';
-    hero.insertBefore(media, hero.firstChild);
-    requestAnimationFrame(() => requestAnimationFrame(() => media.classList.add('is-playing')));
-  }
-
-  function createFragment(wrapper, source, clip, x, y, rotation, delay) {
+  function createFragment(layer, source, clip) {
     const img = document.createElement('img');
     img.className = 'rb-logo-fragment';
     img.src = source;
     img.alt = '';
     img.setAttribute('aria-hidden', 'true');
     img.style.clipPath = 'inset(' + clip + ')';
-    wrapper.appendChild(img);
+    layer.appendChild(img);
+    return img;
+  }
 
+  function playFragment(img, x, y, rotation, delay) {
+    if (typeof img.animate !== 'function') return null;
     const from = 'translate3d(' + x + ', ' + y + ', 0) rotate(' + rotation + ') scale(.72)';
     const to = 'translate3d(0, 0, 0) rotate(0deg) scale(1)';
-
-    if (reduceMotion || typeof img.animate !== 'function') {
-      img.style.opacity = reduceMotion ? '0' : '1';
-      img.style.transform = to;
-      return;
-    }
-
-    img.animate(
+    return img.animate(
       [
         { opacity: 0, transform: from, filter: 'blur(14px) drop-shadow(0 24px 30px rgba(0,0,0,.28))' },
-        { opacity: 1, offset: 0.25 },
+        { opacity: 1, offset: 0.28 },
         { opacity: 1, transform: to, filter: 'blur(0) drop-shadow(0 18px 28px rgba(0,0,0,.22))' }
       ],
       { duration: 1180, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'both' }
-    ).finished.catch(() => {});
+    );
   }
 
   async function assembleHeroLogo() {
+    const stage = document.querySelector('[data-rb-hero-logo-stage]');
     const original = document.getElementById('rbHeroLogo');
-    if (!original || original.dataset.assembled === '1') return;
-    await waitForImage(original);
-    const source = imageSource(original);
-    if (!source) return;
-    original.dataset.assembled = '1';
+    if (!stage || !original || stage.dataset.assembled === '1' || reduceMotion) return;
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'rb-logo-assembly';
-    wrapper.setAttribute('role', 'img');
-    wrapper.setAttribute('aria-label', original.alt || 'Ri Burom Tours and Travels');
+    const source = await resolveHeroLogo(original);
+    if (!source || original.naturalWidth === 0 || typeof Element.prototype.animate !== 'function') return;
 
-    const sizer = document.createElement('img');
-    sizer.className = 'rb-logo-assembly-sizer';
-    sizer.src = source;
-    sizer.alt = '';
-    sizer.setAttribute('aria-hidden', 'true');
-    wrapper.appendChild(sizer);
+    stage.dataset.assembled = '1';
+    const layer = document.createElement('div');
+    layer.className = 'rb-hero-logo-fragment-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    stage.appendChild(layer);
 
     const fragments = [
       ['0 66.67% 66.67% 0', '-54vw', '-38vh', '-18deg', 20],
@@ -131,32 +135,29 @@
       ['66.67% 33.33% 0 33.33%', '16vw', '46vh', '10deg', 300],
       ['66.67% 0 0 66.67%', '52vw', '36vh', '-16deg', 430]
     ];
-    fragments.forEach((item) => createFragment(wrapper, source, item[0], item[1], item[2], item[3], item[4]));
 
-    const final = original.cloneNode(true);
-    final.removeAttribute('id');
-    final.removeAttribute('loading');
-    final.removeAttribute('decoding');
-    final.className = 'rb-logo-final';
-    wrapper.appendChild(final);
-    original.replaceWith(wrapper);
-    wrapper.classList.add('is-playing');
+    const nodes = fragments.map((item) => ({
+      img: createFragment(layer, source, item[0]),
+      x: item[1], y: item[2], rotation: item[3], delay: item[4]
+    }));
 
-    if (reduceMotion || typeof Element.prototype.animate !== 'function') {
-      final.classList.add('is-ready');
-      wrapper.querySelectorAll('.rb-logo-fragment').forEach((fragment) => fragment.style.opacity = '0');
-      return;
-    }
+    stage.classList.add('is-assembling');
+    requestAnimationFrame(() => {
+      nodes.forEach((item) => playFragment(item.img, item.x, item.y, item.rotation, item.delay));
+    });
 
-    setTimeout(() => {
-      final.classList.add('is-ready');
-      wrapper.querySelectorAll('.rb-logo-fragment').forEach((fragment) => {
-        fragment.animate(
+    const assemblyEnd = 1750;
+    window.setTimeout(() => {
+      stage.classList.remove('is-assembling');
+      nodes.forEach(({ img }) => {
+        img.getAnimations().forEach((animation) => animation.cancel());
+        img.animate(
           [{ opacity: 1 }, { opacity: 0 }],
           { duration: 420, easing: 'cubic-bezier(.22,.7,.25,1)', fill: 'forwards' }
         );
       });
-    }, 1920);
+      window.setTimeout(() => layer.remove(), 460);
+    }, assemblyEnd);
   }
 
   function scrollReveal() {
@@ -220,7 +221,6 @@
   function bootstrap() {
     ensureMotionStyles();
     showLoader();
-    cinematicHero();
     assembleHeroLogo();
     scrollReveal();
     syncNav();

@@ -36,32 +36,32 @@ class PublicMotionTests(unittest.TestCase):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(b'rb-public-site', response.data)
-                self.assertIn(b'ri-burom-motion.js', response.data)
+                self.assertIn(b'ri-burom-motion.js?v=6', response.data)
                 self.assertIn(b'prefers-reduced-motion', response.data)
 
-    def test_home_hero_contains_logo_assembly_hook_and_fallback(self):
+    def test_home_hero_uses_persistent_logo_stage_and_fragment_enhancement(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'rb-home-hero', response.data)
-        self.assertIn(b'ri-burom-motion.js', response.data)
+        self.assertIn(b'rb-hero-logo-stage', response.data)
+        self.assertIn(b'id="rbHeroLogo"', response.data)
+        self.assertIn(b'data-fallback-src', response.data)
 
         motion_js_path = self.app.static_folder + '/js/ri-burom-motion.js'
         with open(motion_js_path, 'r', encoding='utf-8') as motion_js:
             motion_script = motion_js.read()
 
-        index_path = os.path.join(self.app.root_path, 'templates', 'index.html')
-        with open(index_path, 'r', encoding='utf-8') as index_template:
-            index_html = index_template.read()
+        motion_css_path = self.app.static_folder + '/css/ri-burom-motion.css'
+        with open(motion_css_path, 'r', encoding='utf-8') as motion_css:
+            motion_styles = motion_css.read()
 
         self.assertIn('assembleHeroLogo', motion_script)
-        self.assertIn("getElementById('rbHeroLogo')", motion_script)
-        self.assertIn('rb-logo-assembly', motion_script)
-        self.assertIn('waitForImage', motion_script)
-        self.assertIn('Element.prototype.animate', motion_script)
-        self.assertIn('createFragment', motion_script)
-        self.assertIn('rb-hero-media.is-playing', motion_script)
-        self.assertIn('hero_logo or settings.header_mark or settings.header_wordmark', index_html)
-        self.assertIn('id="rbHeroLogo"', index_html)
+        self.assertIn('resolveHeroLogo', motion_script)
+        self.assertIn('rb-hero-logo-fragment-layer', motion_script)
+        self.assertIn('rb-hero-logo-stage', motion_styles)
+        self.assertIn('is-assembling', motion_styles)
+        self.assertNotIn('replaceWith(wrapper)', motion_script)
+        self.assertIn(b'rb-hero-logo-stage', response.data)
 
 
 if __name__ == '__main__':

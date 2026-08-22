@@ -18,7 +18,7 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(() => {}));
         }
     </script>
-    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=6" defer></script>
 {% include '_public_theme.html' %}
 </head>
 <body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
@@ -31,7 +31,9 @@
         <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content">
             {% if hero_logo %}
-            <img id="rbHeroLogo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;" class="mb-8 drop-shadow-lg rb-hero-logo">
+            <div class="rb-hero-logo-stage" data-rb-hero-logo-stage>
+                <img id="rbHeroLogo" class="rb-hero-logo-base" src="{{ hero_logo|imgsrc }}" data-fallback-src="{{ settings.header_mark|imgsrc if settings.header_mark else '' }}" data-fallback-src-secondary="{{ settings.header_wordmark|imgsrc if settings.header_wordmark else '' }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
+            </div>
             {% endif %}
             <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
             <h1 class="text-4xl md:text-6xl font-bold mb-5">{{ public.content.hero_title }}</h1>
@@ -150,8 +152,18 @@
     {% endif %}
 
     {% include '_footer.html' %}
-    {% if hero_logo and settings.hero_logo and settings.header_mark %}<script>
-        (function(){ const img=document.getElementById('rbHeroLogo'); if(!img) return; img.addEventListener('error', function(){ this.onerror=null; this.src={{ settings.header_mark|imgsrc|tojson }}; }); })();
+    {% if hero_logo %}<script>
+        (function(){
+            const img=document.getElementById('rbHeroLogo');
+            if(!img) return;
+            const candidates=[img.dataset.fallbackSrc,img.dataset.fallbackSrcSecondary].filter(Boolean);
+            let index=0;
+            img.addEventListener('error', function(){
+                if(index>=candidates.length) return;
+                const next=candidates[index++];
+                if(next && this.getAttribute('src')!==next) this.src=next;
+            });
+        })();
     </script>{% endif %}
 </body>
 </html>
