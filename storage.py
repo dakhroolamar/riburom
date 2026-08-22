@@ -8,8 +8,11 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 
 MAX_IMAGE_DIMENSION = 1600
+MAX_VIDEO_BYTES = 15 * 1024 * 1024
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 ALLOWED_PDF_EXTENSIONS = {'pdf'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm'}
+ALLOWED_VIDEO_MIMETYPES = {'video/mp4', 'video/webm', 'application/octet-stream', ''}
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 PROTECTED_STATIC_FILES = {'default.jpg', 'logo.png', 'manifest.json', 'robots.txt', 'sw.js'}
@@ -119,6 +122,7 @@ def save_generated_png(png_bytes, upload_folder=DEFAULT_UPLOAD_FOLDER):
         fh.write(png_bytes)
     return f'uploads/{safe_name}'
 
+
 def save_pdf(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
     if not file_storage or not file_storage.filename:
         return None
@@ -142,8 +146,57 @@ def save_pdf(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
     return f'uploads/{safe_name}'
 
 
+def _video_size(file_storage):
+    stream = file_storage.stream
+    position = stream.tell()
+    try:
+        stream.seek(0, os.SEEK_END)
+        return stream.tell()
+    finally:
+        stream.seek(position)
+
+
+def _validate_video(file_storage, ext):
+    if _video_size(file_storage) > MAX_VIDEO_BYTES:
+        raise ValueError('Video must be 15 MB or smaller.')
+    mimetype = (file_storage.mimetype or '').lower()
+    if mimetype not in ALLOWED_VIDEO_MIMETYPES:
+        raise ValueError('Supported hero animation formats are MP4 and WebM.')
+
+    header = file_storage.stream.read(12)
+    file_storage.stream.seek(0)
+    if ext == 'mp4' and (len(header) < 8 or header[4:8] != b'ftyp'):
+        raise ValueError('The uploaded MP4 does not appear to be a valid video file.')
+    if ext == 'webm' and not header.startswith(b'\x1a\x45\xdf\xa3'):
+        raise ValueError('The uploaded WebM does not appear to be a valid video file.')
+
+
+def save_video(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
+    """Save a CMS hero animation video through the configured storage backend."""
+    if not file_storage or not file_storage.filename:
+        return None
+    if not allowed_file(file_storage.filename, ALLOWED_VIDEO_EXTENSIONS):
+        raise ValueError('Supported hero animation formats are MP4 and WebM.')
+
+    ext = file_storage.filename.rsplit('.', 1)[1].lower()
+    _validate_video(file_storage, ext)
+
+    if USING_CLOUDINARY:
+        result = cloudinary.uploader.upload(
+            file_storage,
+            resource_type='video',
+            folder='riburom',
+        )
+        return result['secure_url']
+
+    os.makedirs(upload_folder, exist_ok=True)
+    safe_name = f"{uuid.uuid4().hex}.{ext}"
+    file_storage.save(os.path.join(upload_folder, safe_name))
+    return f'uploads/{safe_name}'
+
+
 def _cloudinary_public_id(value):
-    """Extract the Cloudinary public id from image/raw secure URLs."""
+    """Extract the Cloudinary public id from image/raw/video secure URLs."""
     parsed = urlparse(value)
     path = parsed.path
     match = re.search(r'/upload/(?:v\d+/)?(.+)$', path)
@@ -166,7 +219,12 @@ def delete_media(value):
             public_id = _cloudinary_public_id(value)
             if not public_id:
                 return
-            resource_type = 'raw' if '/raw/upload/' in value else 'image'
+            if '/video/upload/' in value:
+                resource_type = 'video'
+            elif '/raw/upload/' in value:
+                resource_type = 'raw'
+            else:
+                resource_type = 'image'
             cloudinary.uploader.destroy(
                 public_id,
                 resource_type=resource_type,
@@ -186,7 +244,6 @@ def delete_media(value):
             if os.path.commonpath([static_root, legacy_path]) == static_root and os.path.exists(legacy_path) and os.path.basename(relative) not in PROTECTED_STATIC_FILES:
                 os.remove(legacy_path)
     except Exception:
-        # Media cleanup should never prevent a database update/delete from completing.
         return
 
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="089Id0LC5YsQeLBPDnBq9LA7MSHMMwf3CfzHovsqdVs">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
     <title>{{ public.content.site_title }}</title>
     <meta name="description" content="{{ public.content.meta_description }}">
     <meta property="og:title" content="Ri Burom Tours & Travels">
@@ -18,8 +18,8 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(() => {}));
         }
     </script>
-    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=6" defer></script>
-{% include '_public_theme.html' %}
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=7" defer></script>
+    {% include '_public_theme.html' %}
 </head>
 <body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -31,8 +31,13 @@
         <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content">
             {% if hero_logo %}
-            <div class="rb-hero-logo-stage" data-rb-hero-logo-stage>
-                <img id="rbHeroLogo" class="rb-hero-logo-base" src="{{ hero_logo|imgsrc }}" data-fallback-src="{{ settings.header_mark|imgsrc if settings.header_mark else '' }}" data-fallback-src-secondary="{{ settings.header_wordmark|imgsrc if settings.header_wordmark else '' }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
+            <div class="rb-hero-video-stage" data-rb-hero-video-stage>
+                <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
+                {% if settings.hero_animation_video %}
+                <video class="rb-hero-animation-video" data-rb-hero-animation-video autoplay muted playsinline preload="metadata" poster="{{ hero_logo|imgsrc }}" aria-hidden="true">
+                    <source src="{{ settings.hero_animation_video|imgsrc }}">
+                </video>
+                {% endif %}
             </div>
             {% endif %}
             <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
@@ -147,23 +152,10 @@
     {% endif %}
     </main>
 
-{% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
+    {% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
     <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>
     {% endif %}
 
     {% include '_footer.html' %}
-    {% if hero_logo %}<script>
-        (function(){
-            const img=document.getElementById('rbHeroLogo');
-            if(!img) return;
-            const candidates=[img.dataset.fallbackSrc,img.dataset.fallbackSrcSecondary].filter(Boolean);
-            let index=0;
-            img.addEventListener('error', function(){
-                if(index>=candidates.length) return;
-                const next=candidates[index++];
-                if(next && this.getAttribute('src')!==next) this.src=next;
-            });
-        })();
-    </script>{% endif %}
 </body>
 </html>

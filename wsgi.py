@@ -13,6 +13,7 @@ from marketplace_inquiry_admin import register_marketplace_inquiry_admin
 from marketplace_appearance import register_marketplace_appearance
 from notifications import register_notifications
 from seo import register_seo
+from hero_animation_routes import register_hero_animation_routes
 
 register_workspace(app)
 register_typography(app)
@@ -24,6 +25,7 @@ register_marketplace_inquiry_admin(app, marketplace_view_required, marketplace_m
 register_marketplace_appearance(app)
 register_notifications(app)
 register_seo(app)
+register_hero_animation_routes(app)
 
 
 # Compatibility guard: keep the legacy /admin URL from opening the old,
