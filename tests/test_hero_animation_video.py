@@ -72,8 +72,23 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Current Hero Animation Video', response.data)
         self.assertIn(b'Replace Video', response.data)
-        self.assertIn(b'Remove Video', response.data)
         self.assertIn(b'hero_animation_video', response.data)
+        self.assertNotIn(b'>Remove Video<', response.data)
+
+        save_response = self.client.post(
+            '/workspace/cms/save-hero-animation-video',
+            data={'hero_animation_video': (io.BytesIO(self._valid_mp4()), 'hero.mp4', 'video/mp4')},
+            content_type='multipart/form-data',
+        )
+        self.assertEqual(save_response.status_code, 302)
+        value = self.db.session.get(self.SiteSettings, 1).hero_animation_video
+        self.created_media.append(value)
+
+        response = self.client.get('/workspace/cms/media')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Current Hero Animation Video', response.data)
+        self.assertIn(b'Replace Video', response.data)
+        self.assertIn(b'Remove Video', response.data)
 
     def test_homepage_renders_video_when_configured(self):
         settings = self.db.session.get(self.SiteSettings, 1)
