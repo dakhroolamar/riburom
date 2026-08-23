@@ -10,7 +10,7 @@
     document.head.appendChild(critical);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-motion.css?v=8';
+    link.href = '/static/css/ri-burom-motion.css?v=9';
     link.dataset.rbMotionCss = '1';
     document.head.appendChild(link);
   }
@@ -151,6 +151,11 @@
     }, { passive: true, once: false });
   }
 
+  function fixHeroCta() {
+    const button = document.querySelector('.rb-hero .rb-button-accent[href="#tours"]');
+    if (button) button.setAttribute('href', '/all_tours');
+  }
+
   function scrollReveal() {
     const items = document.querySelectorAll('[data-reveal]');
     if (reduceMotion) {
@@ -213,6 +218,7 @@
     ensureMotionStyles();
     showLoader();
     initHeroAnimationVideo();
+    fixHeroCta();
     scrollReveal();
     syncNav();
     applySectionBackgrounds();

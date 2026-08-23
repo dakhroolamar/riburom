@@ -123,9 +123,12 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertIn('hero.appendChild(video)', motion)
         self.assertIn('video.muted = false', motion)
         self.assertIn('Enable sound', motion)
+        self.assertIn("button.setAttribute('href', '/all_tours')", motion)
         self.assertIn('rb-hero-animation-video--background', styles)
         self.assertIn('object-fit:cover', styles)
         self.assertIn('.rb-hero-video-complete .rb-hero-animation-video--background', styles)
+        self.assertIn('.rb-hero.rb-hero-video-playing .rb-hero-content', styles)
+        self.assertIn('.rb-hero.rb-hero-video-complete .rb-hero-content', styles)
 
     def test_homepage_renders_permanent_logo_without_video(self):
         settings = self.db.session.get(self.SiteSettings, 1)
