@@ -114,6 +114,19 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertIn(b'preload="metadata"', response.data)
         self.assertIn(b'rb-hero-permanent-logo', response.data)
 
+        motion_path = os.path.join(self.app.static_folder, 'js', 'ri-burom-motion.js')
+        css_path = os.path.join(self.app.static_folder, 'css', 'ri-burom-motion.css')
+        with open(motion_path, 'r', encoding='utf-8') as fh:
+            motion = fh.read()
+        with open(css_path, 'r', encoding='utf-8') as fh:
+            styles = fh.read()
+        self.assertIn('hero.appendChild(video)', motion)
+        self.assertIn('video.muted = false', motion)
+        self.assertIn('Enable sound', motion)
+        self.assertIn('rb-hero-animation-video--background', styles)
+        self.assertIn('object-fit:cover', styles)
+        self.assertIn('.rb-hero-video-complete .rb-hero-animation-video--background', styles)
+
     def test_homepage_renders_permanent_logo_without_video(self):
         settings = self.db.session.get(self.SiteSettings, 1)
         settings.hero_logo = 'logo.png'
@@ -201,7 +214,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertIn('video.play()', motion)
         self.assertIn("video.addEventListener('ended'", motion)
         self.assertIn("video.addEventListener('error'", motion)
-        self.assertIn('.rb-hero-animation-video{display:none !important}', styles)
+        self.assertIn('.rb-hero-animation-video--background{display:none !important}', styles)
 
     def test_old_logo_animation_machinery_is_removed(self):
         motion_path = os.path.join(self.app.static_folder, 'js', 'ri-burom-motion.js')
