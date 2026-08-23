@@ -10,7 +10,7 @@
     document.head.appendChild(critical);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-motion.css?v=7';
+    link.href = '/static/css/ri-burom-motion.css?v=8';
     link.dataset.rbMotionCss = '1';
     document.head.appendChild(link);
   }
@@ -39,46 +39,116 @@
     setTimeout(hide, 1800);
   }
 
+  function makeSoundControl(hero, video) {
+    if (hero.querySelector('.rb-hero-video-sound')) return hero.querySelector('.rb-hero-video-sound');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'rb-hero-video-sound';
+    button.textContent = 'Enable sound';
+    button.setAttribute('aria-label', 'Enable sound for the hero animation');
+    button.hidden = true;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      video.muted = false;
+      video.removeAttribute('muted');
+      const playback = video.play();
+      if (playback && typeof playback.catch === 'function') {
+        playback.catch(() => {});
+      }
+      button.hidden = true;
+    });
+    hero.appendChild(button);
+    return button;
+  }
+
   function initHeroAnimationVideo() {
     const stage = document.querySelector('[data-rb-hero-video-stage]');
     const video = stage && stage.querySelector('[data-rb-hero-animation-video]');
-    if (!stage || !video) return;
+    const hero = document.getElementById('rb-home-hero');
+    if (!stage || !video || !hero) return;
+
+    const soundButton = makeSoundControl(hero, video);
+    hero.classList.add('rb-hero-video-enabled');
+
+    // Move the video out of the logo stage and into the hero itself so it can
+    // cover the complete hero viewport while the permanent logo stays in the
+    // content layer as the durable fallback/final state.
+    hero.appendChild(video);
+    video.classList.add('rb-hero-animation-video--background');
 
     const fallback = () => {
-      stage.classList.remove('is-playing');
+      hero.classList.remove('rb-hero-video-playing', 'rb-hero-video-complete');
+      hero.classList.add('rb-hero-video-fallback');
+      stage.classList.remove('is-playing', 'is-complete');
       stage.classList.add('is-fallback');
       try { video.pause(); } catch (_) {}
+      soundButton.hidden = true;
     };
 
     const complete = () => {
-      stage.classList.remove('is-playing');
+      hero.classList.remove('rb-hero-video-playing', 'rb-hero-video-fallback');
+      hero.classList.add('rb-hero-video-complete');
+      stage.classList.remove('is-playing', 'is-fallback');
       stage.classList.add('is-complete');
       try { video.pause(); } catch (_) {}
+      soundButton.hidden = true;
     };
 
     if (reduceMotion) {
+      hero.classList.add('rb-hero-video-fallback');
       stage.classList.add('is-fallback');
+      video.pause();
       return;
     }
 
     video.addEventListener('playing', () => {
-      stage.classList.remove('is-fallback');
+      hero.classList.remove('rb-hero-video-fallback', 'rb-hero-video-complete');
+      hero.classList.add('rb-hero-video-playing');
+      stage.classList.remove('is-fallback', 'is-complete');
       stage.classList.add('is-playing');
     }, { once: true });
     video.addEventListener('ended', complete, { once: true });
     video.addEventListener('error', fallback, { once: true });
     video.addEventListener('abort', fallback, { once: true });
 
+    // Try audible autoplay first. Browsers that disallow audible autoplay will
+    // reject play(); in that case we immediately fall back to muted autoplay
+    // and expose a small, explicit sound control for user-initiated playback.
+    video.muted = false;
+    video.removeAttribute('muted');
     let playback;
     try {
       playback = video.play();
     } catch (_) {
-      fallback();
-      return;
+      playback = null;
     }
     if (playback && typeof playback.catch === 'function') {
-      playback.catch(fallback);
+      playback.catch(() => {
+        video.muted = true;
+        video.setAttribute('muted', '');
+        soundButton.hidden = false;
+        const mutedPlayback = video.play();
+        if (mutedPlayback && typeof mutedPlayback.catch === 'function') {
+          mutedPlayback.catch(fallback);
+        }
+      });
     }
+
+    // A normal user interaction on the hero also provides a valid browser
+    // gesture for enabling audio, without requiring the visitor to find the
+    // small control first.
+    hero.addEventListener('pointerdown', () => {
+      if (!video.muted || video.paused || video.ended) return;
+      video.muted = false;
+      video.removeAttribute('muted');
+      const userPlayback = video.play();
+      if (userPlayback && typeof userPlayback.catch === 'function') {
+        userPlayback.catch(() => { video.muted = true; });
+      } else {
+        soundButton.hidden = true;
+      }
+    }, { passive: true, once: false });
   }
 
   function scrollReveal() {
