@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <title>{{ provider.name }} | Marketplace | {{ public.content.site_title }}</title>
+    <meta name="description" content="{{ (provider.description or provider.name)[:155] }}">
+    <link rel="manifest" href="/static/manifest.json">
+    {% include '_public_theme.html' %}
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
+    <style>
+        .rb-provider-hero { position:relative; min-height:460px; overflow:hidden; background:#0f2f1b; }
+        .rb-provider-hero-media { position:absolute; inset:0; background-position:center; background-size:cover; transform:scale(1.04); }
+        .rb-provider-hero-overlay { position:absolute; inset:0; background:linear-gradient(90deg,rgba(6,24,12,.90) 0%,rgba(6,24,12,.72) 45%,rgba(6,24,12,.42) 100%); }
+        .rb-provider-hero-content { position:relative; z-index:2; max-width:1280px; margin:0 auto; padding:70px 24px 80px; color:#fff; }
+        .rb-provider-eyebrow { color:#f3d38a; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.18em; margin-bottom:12px; }
+        .rb-provider-title { color:#fff; font-size:clamp(2.5rem,6vw,4.8rem); line-height:1.04; font-weight:800; margin:0 0 18px; letter-spacing:-.03em; }
+        .rb-provider-description { max-width:760px; color:rgba(255,255,255,.88); font-size:clamp(1rem,1.8vw,1.2rem); line-height:1.7; white-space:pre-line; }
+        .rb-provider-stats { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+        .rb-provider-stat { border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); border-radius:14px; padding:12px 15px; }
+        .rb-provider-stat strong { display:block; color:#fff; font-size:1rem; }
+        .rb-provider-stat span { display:block; color:rgba(255,255,255,.68); font-size:11px; margin-top:2px; }
+        .rb-service-row { display:grid; grid-template-columns:180px 1fr; gap:24px; padding:22px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease; }
+        .rb-service-row:hover { transform:translateY(-3px); box-shadow:0 16px 35px rgba(15,23,42,.10); border-color:#d1d5db; }
+        .rb-service-media { min-height:180px; border-radius:14px; background:#f1f5f9 center/cover no-repeat; }
+        .rb-enquiry-overlay { position:fixed; inset:0; z-index:1200; display:none; background:rgba(9,18,12,.78); padding:16px; overflow:auto; }
+        .rb-enquiry-overlay.is-open { display:flex; align-items:flex-start; justify-content:center; }
+        .rb-enquiry-modal { width:min(760px,100%); margin:30px auto; background:#fff; border-radius:22px; overflow:hidden; box-shadow:0 30px 90px rgba(0,0,0,.30); }
+        .rb-enquiry-head { background:#14532d; color:#fff; padding:22px 24px; display:flex; justify-content:space-between; gap:16px; }
+        .rb-enquiry-head h2 { color:#fff; margin:0; font-size:clamp(1.5rem,4vw,2rem); }
+        .rb-enquiry-close { width:40px; height:40px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; font-size:24px; line-height:1; cursor:pointer; }
+        .rb-enquiry-body { padding:24px; }
+        .rb-field label { display:block; font-size:13px; font-weight:800; color:#334155; margin-bottom:7px; }
+        .rb-field input,.rb-field textarea { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px; background:#fff; color:#111827; font:inherit; }
+        .rb-field input:focus,.rb-field textarea:focus { outline:3px solid rgba(22,101,52,.12); border-color:#166534; }
+        .rb-multiselect { position:relative; }
+        .rb-multiselect-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left; border:1px solid #cbd5e1; background:#fff; border-radius:12px; padding:13px 14px; color:#111827; font:inherit; cursor:pointer; }
+        .rb-multiselect-menu { position:absolute; left:0; right:0; top:calc(100% + 7px); z-index:20; display:none; max-height:300px; overflow:auto; background:#fff; border:1px solid #dbe2ea; border-radius:14px; box-shadow:0 20px 45px rgba(15,23,42,.16); padding:8px; }
+        .rb-multiselect.open .rb-multiselect-menu { display:block; }
+        .rb-service-option { display:flex; gap:10px; align-items:flex-start; padding:11px 12px; border-radius:10px; cursor:pointer; }
+        .rb-service-option:hover { background:#f8fafc; }
+        .rb-service-option input { margin-top:3px; }
+        .rb-selection-summary { margin-top:8px; color:#475569; font-size:12px; line-height:1.5; }
+        .rb-requirement-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+        .rb-enquiry-actions { display:flex; gap:10px; justify-content:flex-end; padding-top:18px; border-top:1px solid #eef2f7; margin-top:22px; }
+        .rb-primary-button,.rb-secondary-button { border:0; border-radius:12px; padding:12px 18px; font-weight:800; cursor:pointer; }
+        .rb-primary-button { background:#166534; color:#fff; }
+        .rb-secondary-button { background:#eef2f7; color:#1f2937; }
+        @media (max-width:800px){ .rb-provider-hero{min-height:520px}.rb-provider-hero-content{padding:52px 18px 64px}.rb-service-row{grid-template-columns:1fr;padding:16px}.rb-service-media{min-height:180px}.rb-enquiry-body{padding:18px}.rb-requirement-grid{grid-template-columns:1fr}.rb-enquiry-overlay{padding:8px}.rb-enquiry-modal{margin:12px auto;border-radius:18px} }
+    </style>
+</head>
+<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
+{% include '_nav.html' %}
+{% include '_flash.html' %}
+
+<main>
+    <section class="rb-provider-hero" data-reveal="scale">
+        {% if provider.image_url %}<div class="rb-provider-hero-media" style="background-image:url('{{ provider.image_url|imgsrc }}');"></div>{% endif %}
+        <div class="rb-provider-hero-overlay"></div>
+        <div class="rb-provider-hero-content">
+            <div style="margin-bottom:24px"><a href="{{ url_for('marketplace_public_index') }}" style="color:rgba(255,255,255,.78);font-weight:700;text-decoration:none">← Back to marketplace</a></div>
+            <div class="rb-provider-eyebrow">Marketplace provider</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+                {% for assignment in provider.provider_type_assignments %}<span style="display:inline-flex;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800">{{ assignment.provider_type.name }}</span>{% endfor %}
+            </div>
+            <h1 class="rb-provider-title">{{ provider.name }}</h1>
+            {% if provider.description %}<p class="rb-provider-description">{{ provider.description }}</p>{% endif %}
+            <div class="rb-provider-stats">
+                <div class="rb-provider-stat"><strong>{{ services|length }}</strong><span>public service{% if services|length != 1 %}s{% endif %}</span></div>
+                {% if provider.phone %}<div class="rb-provider-stat"><strong>{{ provider.phone }}</strong><span>direct contact</span></div>{% endif %}
+                {% if provider.email %}<div class="rb-provider-stat"><strong>{{ provider.email }}</strong><span>email</span></div>{% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-5 sm:px-6 py-12 lg:py-16">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            <div class="xl:col-span-8">
+                <div style="margin-bottom:28px">
+                    <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-2">Marketplace services</p>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900">Choose what you need</h2>
+                    <p class="text-gray-600 mt-2 max-w-2xl">Browse what this provider offers. You can select one or several services in a single enquiry.</p>
+                </div>
+                <div class="space-y-5">
+                    {% for service in services %}
+                    <article class="rb-service-row">
+                        <div class="rb-service-media" {% if service.image_url %}style="background-image:url('{{ service.image_url|imgsrc }}');"{% endif %}></div>
+                        <div style="display:flex;flex-direction:column;justify-content:space-between">
+                            <div>
+                                {% if service.service_category %}<div class="inline-flex rounded-full bg-green-50 text-green-800 px-3 py-1 text-xs font-bold uppercase tracking-wide mb-3">{{ service.service_category.name }}</div>{% endif %}
+                                <h3 class="text-2xl font-bold text-gray-900 mb-3">{{ service.name }}</h3>
+                                <p class="text-gray-600 leading-relaxed whitespace-pre-line">{{ service.description or 'Ask this provider about availability and what can be arranged for this service.' }}</p>
+                            </div>
+                            <p class="mt-5 text-xs sm:text-sm text-gray-500">Select this service in the enquiry dropdown when you are ready.</p>
+                        </div>
+                    </article>
+                    {% else %}
+                    <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">No public services are currently available for this provider.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <aside class="xl:col-span-4">
+                <div class="xl:sticky xl:top-28 space-y-5">
+                    <div class="bg-green-900 text-white rounded-2xl p-6 sm:p-7 shadow-xl">
+                        <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-2">Marketplace enquiry</p>
+                        <h2 class="text-2xl font-bold mb-3" style="color:#fff">Interested in this provider?</h2>
+                        <p class="text-sm text-green-100 leading-relaxed mb-6">Choose one or several services, or leave the selection empty for a general provider enquiry.</p>
+                        <button type="button" id="openProviderInquiry" class="w-full inline-flex items-center justify-center gap-2 bg-white text-green-900 hover:bg-green-50 font-bold px-5 py-3.5 rounded-xl transition">Enquire with this provider →</button>
+                        <p class="text-xs text-green-100/70 mt-3">Independent marketplace enquiry. Not the general Contact Us form.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        <p class="text-xs uppercase tracking-[0.18em] font-bold text-gray-500 mb-2">Provider</p>
+                        <h2 class="text-xl font-bold text-gray-900 mb-4">Contact details</h2>
+                        {% if provider.email %}<a href="mailto:{{ provider.email }}" class="block py-3 border-b border-gray-100 hover:text-green-800"><span class="block text-xs text-gray-500">Email</span><span class="font-semibold break-words">{{ provider.email }}</span></a>{% endif %}
+                        {% if provider.phone %}<a href="tel:{{ provider.phone }}" class="block py-3 hover:text-green-800"><span class="block text-xs text-gray-500">Phone / WhatsApp</span><span class="font-semibold">{{ provider.phone }}</span></a>{% endif %}
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+</main>
+
+<div id="providerInquiryOverlay" class="rb-enquiry-overlay" aria-hidden="true">
+    <div class="rb-enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="providerInquiryTitle">
+        <div class="rb-enquiry-head">
+            <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-weight:800;color:#bbf7d0;margin-bottom:3px">Marketplace enquiry</div><h2 id="providerInquiryTitle">Enquire with this provider</h2><div id="providerInquirySubtitle" style="color:#dcfce7;margin-top:4px">General provider enquiry</div></div>
+            <button type="button" class="rb-enquiry-close" id="closeProviderInquiry" aria-label="Close enquiry">&times;</button>
+        </div>
+        <div class="rb-enquiry-body">
+            <form method="post" action="{{ url_for('marketplace_inquiry_create') }}" id="providerInquiryForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="provider_id" value="{{ provider.id }}">
+
+                <div class="rb-field" style="margin-bottom:20px">
+                    <label>What services are you interested in?</label>
+                    <div class="rb-multiselect" id="serviceMultiSelect">
+                        <button type="button" class="rb-multiselect-toggle" id="serviceMultiSelectToggle"><span id="serviceMultiSelectLabel">General provider enquiry</span><span aria-hidden="true">▾</span></button>
+                        <div class="rb-multiselect-menu" id="serviceMultiSelectMenu">
+                            {% for service in services %}
+                            <label class="rb-service-option">
+                                <input type="checkbox" name="service_ids" value="{{ service.id }}" data-service-name="{{ service.name|e }}" data-category-family="{{ service.service_category.slug|e if service.service_category else 'general' }}">
+                                <span><strong style="display:block;color:#111827">{{ service.name }}</strong>{% if service.service_category %}<span style="display:block;color:#64748b;font-size:12px;margin-top:2px">{{ service.service_category.name }}</span>{% endif %}</span>
+                            </label>
+                            {% else %}<div style="padding:12px;color:#64748b;font-size:13px">No published services. You can still send a general provider enquiry.</div>{% endfor %}
+                        </div>
+                    </div>
+                    <div class="rb-selection-summary" id="serviceSelectionSummary">Choose one or several services. Leave all unchecked for a general enquiry.</div>
+                </div>
+
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryName">Your name *</label><input id="providerInquiryName" name="name" required maxlength="200" autocomplete="name"></div>
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryEmail">Email *</label><input id="providerInquiryEmail" type="email" name="email" required maxlength="254" autocomplete="email"></div>
+                <div class="rb-field" style="margin-bottom:20px"><label for="providerInquiryPhone">WhatsApp / Phone</label><input id="providerInquiryPhone" name="phone" maxlength="40" autocomplete="tel"></div>
+
+                <div style="margin-bottom:10px"><h3 style="margin:0;color:#111827;font-size:18px;font-weight:800">Service requirements</h3><p id="providerRequirementHelp" style="margin:4px 0 0;color:#64748b;font-size:13px">General fields are shown. Select a service to reveal more relevant fields.</p></div>
+                <div class="rb-requirement-grid">
+                    <div class="rb-field" data-family-field="travel"><label>Travel / service date</label><input name="travel_date" maxlength="120" placeholder="e.g. 12 October 2026"></div>
+                    <div class="rb-field" data-family-field="return"><label>Return date</label><input name="return_date" maxlength="120" placeholder="e.g. 15 October 2026"></div>
+                    <div class="rb-field" data-family-field="people"><label>Travellers / people</label><input type="number" min="1" max="999" name="travellers"></div>
+                    <div class="rb-field" data-family-field="duration"><label>Duration</label><input name="duration" maxlength="120" placeholder="e.g. full day / 3 hours"></div>
+                    <div class="rb-field" data-family-field="transport"><label>Pickup location</label><input name="pickup_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="transport"><label>Drop location</label><input name="drop_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Check-in</label><input name="check_in" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Check-out</label><input name="check_out" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Rooms</label><input type="number" min="1" max="100" name="rooms"></div>
+                    <div class="rb-field" data-family-field="stay"><label>Nights</label><input type="number" min="1" max="365" name="nights"></div>
+                    <div class="rb-field" data-family-field="guide"><label>Preferred language</label><input name="language" maxlength="120"></div>
+                </div>
+
+                <div class="rb-field" style="margin-top:20px"><label for="providerInquiryRequirements">Anything else we should know?</label><textarea id="providerInquiryRequirements" name="requirements" rows="5" maxlength="10000" placeholder="Tell us anything not covered above — special arrangements, accessibility needs, timing preferences, children, food preferences, equipment, route changes, or anything else."></textarea></div>
+
+                <div class="rb-enquiry-actions"><button type="button" class="rb-secondary-button" id="cancelProviderInquiry">Cancel</button><button type="submit" class="rb-primary-button">Send marketplace enquiry</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    const overlay=document.getElementById('providerInquiryOverlay');
+    const openBtn=document.getElementById('openProviderInquiry');
+    const closeBtn=document.getElementById('closeProviderInquiry');
+    const cancelBtn=document.getElementById('cancelProviderInquiry');
+    const multi=document.getElementById('serviceMultiSelect');
+    const toggle=document.getElementById('serviceMultiSelectToggle');
+    const label=document.getElementById('serviceMultiSelectLabel');
+    const summary=document.getElementById('serviceSelectionSummary');
+    const subtitle=document.getElementById('providerInquirySubtitle');
+    const help=document.getElementById('providerRequirementHelp');
+    const fields=[...document.querySelectorAll('[data-family-field]')];
+    const checks=[...document.querySelectorAll('#serviceMultiSelectMenu input[type="checkbox"]')];
+
+    function selected(){return checks.filter(c=>c.checked);}
+    function family(slug){
+        const s=(slug||'').toLowerCase();
+        if(/transport|taxi|driver|vehicle|transfer|rental/.test(s)) return ['transport','travel','return','people','duration'];
+        if(/homestay|hotel|resort|accommodation|lodge|stay/.test(s)) return ['stay','travel','return','people','duration'];
+        if(/guide|guiding/.test(s)) return ['guide','travel','return','people','duration'];
+        if(/camp|camping/.test(s)) return ['camp','travel','return','people','duration'];
+        if(/restaurant|food|dining|cafe/.test(s)) return ['travel','people','duration'];
+        if(/experience|village|tour|activity|adventure/.test(s)) return ['travel','return','people','duration'];
+        return ['travel','people','duration'];
+    }
+    function refresh(){
+        const chosen=selected();
+        if(!chosen.length){
+            label.textContent='General provider enquiry'; summary.textContent='Choose one or several services. Leave all unchecked for a general enquiry.'; subtitle.textContent='General provider enquiry';
+            fields.forEach(f=>f.style.display=['travel','people','duration'].includes(f.dataset.familyField)?'block':'none'); help.textContent='General fields are shown. Select a service to reveal more relevant fields.'; return;
+        }
+        const names=chosen.map(c=>c.dataset.serviceName);
+        label.textContent=names.length===1?names[0]:names.length+' services selected'; summary.textContent=names.join(' • '); subtitle.textContent=names.length===1?names[0]:names.length+' services selected';
+        const visible=new Set(['travel','people','duration']); chosen.forEach(c=>family(c.dataset.categoryFamily).forEach(x=>visible.add(x)));
+        fields.forEach(f=>f.style.display=visible.has(f.dataset.familyField)?'block':'none'); help.textContent='Fields below adapt to the services you selected. You can still add anything else in the requirements box.';
+    }
+    function open(){overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('providerInquiryName')?.focus(),50);}
+    function close(){overlay.classList.remove('is-open');overlay.setAttribute('aria-hidden','true');document.body.style.overflow='';multi.classList.remove('open');}
+    openBtn?.addEventListener('click',open); closeBtn?.addEventListener('click',close); cancelBtn?.addEventListener('click',close);
+    overlay?.addEventListener('click',e=>{if(e.target===overlay)close();});
+    toggle?.addEventListener('click',()=>multi.classList.toggle('open'));
+    document.addEventListener('click',e=>{if(!multi.contains(e.target))multi.classList.remove('open');});
+    checks.forEach(c=>c.addEventListener('change',refresh));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('is-open'))close();});
+    refresh();
+})();
+</script>
+
+{% include '_footer.html' %}
+</body>
+</html>

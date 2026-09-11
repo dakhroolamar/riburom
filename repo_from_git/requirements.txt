@@ -1,0 +1,13 @@
+Flask
+Flask-WTF
+Flask-Limiter
+Flask-Migrate
+Flask-SQLAlchemy
+gunicorn
+Pillow
+psycopg2-binary
+cloudinary
+python-dotenv
+redis
+
+qrcode[pil]

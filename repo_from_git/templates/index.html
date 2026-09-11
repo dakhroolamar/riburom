@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-site-verification" content="089Id0LC5YsQeLBPDnBq9LA7MSHMMwf3CfzHovsqdVs">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-3d.css') }}">
+    <title>{{ public.content.site_title }}</title>
+    <meta name="description" content="{{ public.content.meta_description }}">
+    <meta property="og:title" content="Ri Burom Tours & Travels">
+    <meta property="og:description" content="{{ public.content.og_description }}">
+    {% set og_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}{% if og_logo %}<meta property="og:image" content="{{ og_logo|imgsrc }}">{% endif %}
+    <meta property="og:type" content="website">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#166534">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(() => {}));
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=8" defer></script>
+    {% include '_public_theme.html' %}
+</head>
+<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
+    {% include '_nav.html' %}
+    {% include '_flash.html' %}
+    <main id="rbHomeSections" class="flex flex-col">
+    {% if public.home.visibility.hero %}
+    {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
+    <header id="rb-home-hero" class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center rb-hero-3d-wrapper" style="order:{{ home_order_index.hero }};{% if hero_image %} background-image: url('{{ hero_image|imgsrc }}');{% endif %}">
+        <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
+        <div class="rb-floating-elements" aria-hidden="true">
+            <div class="rb-floating-element"></div>
+            <div class="rb-floating-element"></div>
+            <div class="rb-floating-element"></div>
+            <div class="rb-floating-element"></div>
+            <div class="rb-floating-element"></div>
+        </div>
+        <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content-3d">
+            {% if hero_logo %}
+            <div class="rb-hero-video-stage" data-rb-hero-video-stage>
+                <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
+                {% if settings.hero_animation_video %}
+                <video class="rb-hero-animation-video" data-rb-hero-animation-video autoplay muted playsinline preload="metadata" poster="{{ hero_logo|imgsrc }}" aria-hidden="true">
+                    <source src="{{ settings.hero_animation_video|imgsrc }}">
+                </video>
+                {% endif %}
+            </div>
+            {% endif %}
+            <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
+            <h1 class="text-4xl md:text-6xl font-bold mb-5">{{ public.content.hero_title }}</h1>
+            <p class="text-lg md:text-2xl max-w-3xl mb-8 text-gray-100">{{ public.content.hero_subtitle }}</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="/all_tours" class="rb-button-3d rb-button-accent text-white font-bold py-3 px-8 rounded-full shadow-lg transition">{{ public.content.hero_primary_button }}</a>
+                <a href="#contact" class="rb-button-3d rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    {% if public.home.visibility.about %}
+    <section id="rb-home-about" data-reveal-3d="scale" style="order:{{ home_order_index.about }};" class="max-w-6xl mx-auto px-6 rb-section-space text-center rb-scroll-reveal-3d">
+        <p class="text-green-800 font-bold uppercase tracking-wider mb-3">{{ public.content.home_about_eyebrow }}</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-amber-900 mb-5">{{ public.content.home_about_title }}</h2>
+        <p class="text-lg text-gray-700 max-w-4xl mx-auto leading-relaxed">{{ public.content.home_about_text }}</p>
+    </section>
+    {% endif %}
+
+    {% if public.home.visibility.tours %}
+    <section id="rb-home-tours" data-reveal-3d style="order:{{ home_order_index.tours }};" class="max-w-7xl mx-auto px-6 rb-section-space rb-scroll-reveal-3d">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+            <div>
+                <p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ public.content.home_tours_eyebrow }}</p>
+                <h2 class="text-4xl font-bold text-green-800">{{ public.content.home_tours_title }}</h2>
+            </div>
+            <a href="/all_tours" class="rb-custom-link font-bold hover:opacity-80">{{ public.content.home_tours_all }}</a>
+        </div>
+
+        <!-- White Desert Style Horizontal Carousel for Featured Tours -->
+        {% set featured_packages = packages|selectattr('featured')|list %}
+        {% if featured_packages %}
+        <div class="rb-tours-carousel" role="region" aria-label="Featured Experiences">
+          <div class="rb-tours-track" tabindex="0" role="list">
+            {% for pkg in featured_packages[:6] %}
+            <article class="rb-tour-carousel-card" role="listitem" data-reveal-3d="scale">
+              <div class="rb-tour-carousel-media">
+                {% if pkg.price %}<div class="rb-tour-carousel-badge"><span class="rb-tour-badge-price">From {{ pkg.price }}</span></div>{% endif %}
+                {% if pkg.best_season %}<div class="rb-tour-carousel-badge"><span class="rb-tour-badge-season">{{ pkg.best_season }}</span></div>{% endif %}
+                <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
+                  <img src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
+                </a>
+              </div>
+              <div class="rb-tour-carousel-content">
+                {% if pkg.category %}<span class="rb-tour-carousel-category">{{ pkg.category }}</span>{% endif %}
+                <h3 class="rb-tour-carousel-title">{{ pkg.title }}</h3>
+                <p class="rb-tour-carousel-desc">{{ pkg.description[:180] }}{% if pkg.description|length > 180 %}...{% endif %}</p>
+                {% if pkg.location %}
+                <div class="rb-tour-carousel-coords">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  {{ pkg.location }}
+                </div>
+                {% endif %}
+                <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-tour-carousel-cta">
+                  View Experience
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                </a>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+          <button class="rb-tours-carousel-nav rb-tours-carousel-prev" aria-label="Previous tours" tabindex="-1">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button class="rb-tours-carousel-nav rb-tours-carousel-next" aria-label="Next tours" tabindex="-1">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+        <p class="rb-tours-scroll-hint" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          Scroll to explore more
+        </p>
+        {% endif %}
+
+        <!-- Grid fallback for non-JS / accessibility -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger-3d" style="display: none;">
+            {% for pkg in packages %}
+            <article data-reveal-3d class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 flex flex-col rb-tour-card-3d">
+                <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
+                    <div class="h-56 bg-gray-300 bg-cover bg-center rb-card-media" style="background-image: url('{{ pkg.image_file|imgsrc }}');"></div>
+                </a>
+                <div class="p-6 flex-grow rb-card-content">
+                    <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
+                        {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
+                        {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
+                    </div>
+                    <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
+                    <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
+                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
+                </div>
+                <div class="p-6 pt-0">
+                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button-3d rb-button block text-center text-white font-bold py-3 rounded transition">{{ public.content.home_tour_button }}</a>
+                </div>
+            </article>
+            {% else %}
+            <div class="md:col-span-3 text-center text-gray-500 text-xl italic py-10">{{ public.content.home_tours_empty }}</div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if public.home.visibility.why %}
+    <section id="rb-home-why" data-reveal-3d style="order:{{ home_order_index.why }};" class="bg-green-900 text-white rb-section-space rb-scroll-reveal-3d">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="max-w-3xl mb-10">
+                <p class="text-amber-300 font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">{{ public.content.home_why_title }}</h2>
+                <p class="text-green-100 text-lg">{{ public.content.home_why_text }}</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 rb-stagger-3d">
+                <div data-reveal-3d="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p class="text-green-100">{{ public.content.why1_text }}</p></div>
+                <div data-reveal-3d="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p class="text-green-100">{{ public.content.why2_text }}</p></div>
+                <div data-reveal-3d="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p class="text-green-100">{{ public.content.why3_text }}</p></div>
+                <div data-reveal-3d="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p class="text-green-100">{{ public.content.why4_text }}</p></div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and settings.blog_url %}
+    <section id="rb-home-blog" data-reveal-3d="right" style="order:{{ home_order_index.blog }};" class="bg-white rb-section-space rb-scroll-reveal-3d">
+        <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+            {% if settings.blog_image %}<div class="h-80 bg-gray-200 bg-cover bg-center rounded-xl shadow-lg" style="background-image:url('{{ settings.blog_image|imgsrc }}');"></div>{% endif %}
+            <div class="{% if not settings.blog_image %}md:col-span-2{% endif %}">
+                <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">{{ public.content.blog_eyebrow }}</p>
+                <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
+                <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
+                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button-3d rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }}</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if public.home.visibility.contact %}
+    <section id="rb-home-contact" data-reveal-3d="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space rb-scroll-reveal-3d">
+        <div id="contact" style="position:relative;top:-2px"></div>
+        <div class="max-w-4xl mx-auto px-6">
+<div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-green-800">{{ public.content.contact_title }}</h2>
+                <p class="text-gray-600 mt-2">{{ public.content.contact_text }}</p>
+                <div class="mt-6">
+                  <button type="button" class="rb-how-it-works-trigger" aria-haspopup="dialog">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    How It Works
+                  </button>
+                </div>
+              </div>
+            <form action="/send_message" method="POST" class="bg-white rounded-xl shadow-md p-8 rb-card-3d-wrapper">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input type="text" name="name" maxlength="120" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_email }}</label><input type="email" name="email" maxlength="254" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_phone }}</label><input type="text" name="phone" maxlength="40" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_travellers }}</label><input type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_dates }}</label><input type="text" name="travel_dates" maxlength="120" placeholder="{{ public.content.form_dates_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_tour }}</label><input type="text" name="tour_interest" maxlength="200" placeholder="{{ public.content.form_tour_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                </div>
+                <div class="mt-5 mb-6"><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_message }}</label><textarea name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
+                <button type="submit" class="rb-button-3d rb-button w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">{{ public.content.form_submit }}</button>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+    </main>
+
+    {% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
+    <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button-3d rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>
+    {% endif %}
+
+    <!-- How It Works Modal (White Desert Inspired) -->
+    <div id="rb-how-it-works-modal" class="rb-how-it-works-modal" role="dialog" aria-modal="true" aria-labelledby="rb-how-it-works-title">
+      <div class="rb-how-it-works-panel">
+        <button class="rb-how-it-works-close" aria-label="Close How It Works">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <div class="rb-how-it-works-header">
+          <h2 id="rb-how-it-works-title">How It Works</h2>
+          <p>Your journey to Meghalaya, simplified into six seamless steps</p>
+        </div>
+        <div class="rb-how-it-works-steps">
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">1</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Discover & Enquire</h3>
+              <p>Browse our curated experiences, pick your adventure, and send us an enquiry or <a href="/#contact">book a call</a> at your preferred time — no obligation. We'll talk through the experiences, your ideal dates, and review availability.</p>
+            </div>
+          </div>
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">2</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Confirm Your Dates</h3>
+              <p>Once you confirm, a deposit secures your spot. We'll guide you through the necessary forms — travel insurance and a medical check (within 30 days) — to ensure your safety and comfort.</p>
+            </div>
+          </div>
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">3</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Plan Your Journey</h3>
+              <p>Book flexible flights to Guwahati/Shillong. Arrive 1–2 days before your trip. We can arrange accommodation, private transfers, and curated experiences in Shillong or the surrounding hills.</p>
+            </div>
+          </div>
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">4</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Preparation & Packing</h3>
+              <p>As departure approaches, we'll guide you through what to pack. Purchase recommended gear through our Boutique or have our team prepare a full kit ready for your arrival.</p>
+            </div>
+          </div>
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">5</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Safety Briefing</h3>
+              <p>On arrival, our team will meet you for a detailed briefing — itinerary, weather updates, safety protocols. We'll check your kit, assist with anything missing, and ensure you're fully prepared.</p>
+            </div>
+          </div>
+          <div class="rb-how-it-works-step">
+            <div class="rb-how-it-works-step-number">6</div>
+            <div class="rb-how-it-works-step-content">
+              <h3>Depart for Adventure</h3>
+              <p>Our drivers escort you to your journey's starting point. From there, your handcrafted Meghalaya experience begins — landscapes, culture, and connections await.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
+    <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button-3d rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>
+    {% endif %}
+
+    {% include '_footer.html' %}
+</body>
+</html>

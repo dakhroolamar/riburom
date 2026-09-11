@@ -8,29 +8,39 @@
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
-  const THREE_URL = '/static/js/three.module.js';
+
+  function checkWebGLSupport() {
+    try {
+      const canvas = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const hasWebGL = checkWebGLSupport();
 
   let THREE = null;
   let scenes = new Map();
   let animationId = null;
 
-  async function loadThreeJS() {
+  function loadThreeJS() {
     if (window.THREE) {
-      THREE = window.THREE;
-      return THREE;
+      return Promise.resolve(window.THREE);
     }
     if (THREE) {
-      return THREE;
+      return Promise.resolve(THREE);
     }
-    try {
-      const module = await import(THREE_URL);
+    // Use dynamic import directly - simpler and more reliable than script tag
+    return import('/static/js/three.module.js').then(module => {
+      // The module namespace object IS the THREE namespace - use it directly
       THREE = module;
       window.THREE = module;
-      return THREE;
-    } catch (e) {
-      console.warn('[RI BUROM 3D] Failed to load Three.js module:', e);
+      return module;
+    }).catch(e => {
+      console.error('[RI BUROM 3D] Failed to load Three.js module:', e);
       throw e;
-    }
+    });
   }
 
   function createParticleGeometry(count, radius, positions) {
@@ -411,6 +421,12 @@
   function initAll3D() {
     if (prefersReducedMotion) {
       document.documentElement.classList.add('rb-3d-reduced');
+      return;
+    }
+
+    if (!hasWebGL) {
+      console.warn('[RI BUROM 3D] WebGL not supported, falling back');
+      document.documentElement.classList.add('rb-3d-error');
       return;
     }
 

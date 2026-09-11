@@ -1,0 +1,107 @@
+name: RI BUROM CMS Workspace Validation
+
+on:
+  push:
+    branches: [feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation, feature/marketplace-foundation, feature/marketplace-reconciliation, feature/marketplace-package-items]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: riburom_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d riburom_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      APP_ENV: development
+      SECRET_KEY: ci-only-secret
+      ADMIN_PASSWORD: ci-only-password
+      DATABASE_URL: sqlite:///ci.db
+      MARKETPLACE_TEST_DATABASE_URL: postgresql+psycopg2://ci:ci-password@127.0.0.1:5432/riburom_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify PostgreSQL 18 service
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+
+          url = os.environ['MARKETPLACE_TEST_DATABASE_URL']
+          engine = create_engine(url)
+          with engine.connect() as connection:
+              version = connection.execute(text('SELECT version()')).scalar_one()
+              print(version)
+              if 'PostgreSQL 18.' not in version:
+                  raise SystemExit(f'Expected PostgreSQL 18, got: {version}')
+          print('POSTGRESQL 18 READY')
+          PY
+      - name: Compile Python
+        run: python -m py_compile app.py models.py marketplace_models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py seo.py wsgi.py migrations/env.py migrations/versions/8d1f2c4a9b01_add_marketplace_foundation.py migrations/versions/3f7a9c2d1e64_add_package_items.py tests/test_notifications.py tests/test_seo.py tests/test_marketplace_models.py tests/test_marketplace_migration.py tests/test_marketplace_postgres_reconciliation.py tests/test_package_items.py tests/test_package_item_migration.py tests/test_package_item_postgres.py tests/test_package_compatibility.py
+      - name: Run complete test suite
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run marketplace model tests
+        run: python -m unittest discover -s tests -p 'test_marketplace_models.py' -v
+      - name: Run marketplace migration tests
+        run: python -m unittest discover -s tests -p 'test_marketplace_migration.py' -v
+      - name: Run PackageItem model tests
+        run: python -m unittest discover -s tests -p 'test_package_items.py' -v
+      - name: Run PackageItem migration tests
+        run: python -m unittest discover -s tests -p 'test_package_item_migration.py' -v
+      - name: Run Package compatibility tests
+        run: python -m unittest discover -s tests -p 'test_package_compatibility.py' -v
+      - name: Run PostgreSQL marketplace reconciliation tests
+        run: python -m unittest discover -s tests -p 'test_marketplace_postgres_reconciliation.py' -v
+      - name: Run PostgreSQL PackageItem migration tests
+        run: python -m unittest discover -s tests -p 'test_package_item_postgres.py' -v
+      - name: Run notification tests
+        run: python -m unittest discover -s tests -p 'test_notifications.py' -v
+      - name: Run SEO tests
+        run: python -m unittest discover -s tests -p 'test_seo.py' -v
+      - name: Import WSGI app and inspect routes
+        run: |
+          python - <<'PY'
+          import wsgi
+          rules = {rule.rule for rule in wsgi.app.url_map.iter_rules()}
+          required = {
+              '/workspace',
+              '/workspace/cms',
+              '/workspace/cms/media',
+              '/workspace/cms/structure',
+              '/workspace/cms/backgrounds',
+              '/workspace/cms/backgrounds/save',
+              '/api/public-section-backgrounds',
+              '/workspace/cms/save-content',
+              '/workspace/cms/save-sections',
+              '/workspace/cms/save-home-structure',
+              '/workspace/cms/save-typography',
+              '/workspace/administration',
+              '/workspace/developer',
+              '/robots.txt',
+              '/sitemap.xml',
+          }
+          missing = required - rules
+          if missing:
+              raise SystemExit(f'Missing required routes: {sorted(missing)}')
+          if wsgi.app.view_functions.get('send_message', lambda: None).__name__ != 'send_message':
+              raise SystemExit('Public enquiry view wrapper is not preserving send_message naming')
+          print('WSGI IMPORT OK')
+          print('WORKSPACE ROUTES OK')
+          print('SEO ROUTES OK')
+          print('ENQUIRY NOTIFICATION WRAPPER OK')
+          PY
