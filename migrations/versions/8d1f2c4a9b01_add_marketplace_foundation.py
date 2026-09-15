@@ -119,30 +119,12 @@ EXPECTED_FOREIGN_KEYS = {
     'providers': set(),
 }
 
-# These are the non-unique indexes owned by the Phase A schema. The slug and
-# composite uniqueness rules are handled separately so the migration can
-# reconcile the known pre-Alembic unique-index representation.
 EXPECTED_INDEXES = {
-    'provider_types': {
-        ('is_active',),
-        ('sort_order',),
-    },
-    'service_categories': {
-        ('is_active',),
-        ('sort_order',),
-    },
-    'providers': {
-        ('is_active',),
-    },
-    'provider_type_assignments': {
-        ('provider_id',),
-        ('provider_type_id',),
-    },
-    'services': {
-        ('provider_id',),
-        ('category_id',),
-        ('status',),
-    },
+    'provider_types': {('is_active',), ('sort_order',)},
+    'service_categories': {('is_active',), ('sort_order',)},
+    'providers': {('is_active',)},
+    'provider_type_assignments': {('provider_id',), ('provider_type_id',)},
+    'services': {('provider_id',), ('category_id',), ('status',)},
 }
 
 EXPECTED_UNIQUES = {
@@ -163,7 +145,6 @@ CANONICAL_CONSTRAINT_NAMES = {
 
 
 def _type_signature(column_type):
-    """Return a small dialect-independent signature for schema validation."""
     if isinstance(column_type, sa.Boolean):
         return 'boolean'
     if isinstance(column_type, sa.Integer):
@@ -179,25 +160,19 @@ def _type_signature(column_type):
 
 def _schema_snapshot(inspector, table):
     columns = {
-        column['name']: (
-            _type_signature(column['type']),
-            bool(column['nullable']),
-        )
+        column['name']: (_type_signature(column['type']), bool(column['nullable']))
         for column in inspector.get_columns(table)
     }
     primary_key = tuple(inspector.get_pk_constraint(table).get('constrained_columns') or ())
     foreign_keys = {
-        (
-            column,
-            fk['referred_table'],
-            fk['referred_columns'][0],
-        )
+        (column, fk['referred_table'], fk['referred_columns'][0])
         for fk in inspector.get_foreign_keys(table)
         for column in fk['constrained_columns']
     }
-    indexes = []
-    for index in inspector.get_indexes(table):
-        indexes.append((tuple(index['column_names']), bool(index.get('unique'))))
+    indexes = [
+        (tuple(index['column_names']), bool(index.get('unique')))
+        for index in inspector.get_indexes(table)
+    ]
     unique_constraints = {
         tuple(constraint['column_names'])
         for constraint in inspector.get_unique_constraints(table)
@@ -206,16 +181,28 @@ def _schema_snapshot(inspector, table):
 
 
 def _validate_known_pre_alembic_schema(inspector):
-    """Reject anything other than the known empty Phase A metadata shape."""
+    """Validate the known pre-Alembic schema while preserving later additions."""
     for table in MARKETPLACE_TABLES:
         columns, primary_key, foreign_keys, indexes, unique_constraints = _schema_snapshot(
-            inspector,
-            table,
+            inspector, table
         )
         expected_columns = {
             name: (type_name, nullable)
             for name, type_name, nullable in EXPECTED_COLUMNS[table]
         }
+
+        # image_url was added by a later migration, but may already exist in
+        # a database created from the newer SQLAlchemy metadata. It is safe to
+        # adopt and preserve it here; migration 6a4b7c9e2d10 is idempotent for
+        # this exact case.
+        if table in {'providers', 'services'} and 'image_url' in columns:
+            image_signature = columns['image_url']
+            if image_signature[0] != 'string:500' or image_signature[1] is not True:
+                raise RuntimeError(
+                    f'Unexpected schema for {table}.image_url: expected nullable String(500).'
+                )
+            expected_columns['image_url'] = ('string:500', True)
+
         if columns != expected_columns:
             raise RuntimeError(
                 f'Unexpected schema for {table}: columns/nullability do not match '
@@ -224,34 +211,17 @@ def _validate_known_pre_alembic_schema(inspector):
         if primary_key != ('id',):
             raise RuntimeError(f'Unexpected primary key for {table}: {primary_key!r}')
         if foreign_keys != EXPECTED_FOREIGN_KEYS[table]:
-            raise RuntimeError(
-                f'Unexpected foreign keys for {table}: {foreign_keys!r}'
-            )
+            raise RuntimeError(f'Unexpected foreign keys for {table}: {foreign_keys!r}')
 
-        non_unique_indexes = {
-            columns_tuple
-            for columns_tuple, unique in indexes
-            if not unique
-        }
-        unique_indexes = {
-            columns_tuple
-            for columns_tuple, unique in indexes
-            if unique
-        }
+        non_unique_indexes = {cols for cols, unique in indexes if not unique}
+        unique_indexes = {cols for cols, unique in indexes if unique}
         expected_indexes = EXPECTED_INDEXES[table]
-
-        # A duplicate ordinary slug index is a known, safe redundancy from the
-        # earlier unique=True,index=True SQLAlchemy declaration. It is removed
-        # during reconciliation rather than treated as an unknown schema.
-        allowed_duplicate_slug = {
-            ('slug',),
-        } if ('slug',) in EXPECTED_UNIQUES[table] else set()
+        allowed_duplicate_slug = {('slug',)} if ('slug',) in EXPECTED_UNIQUES[table] else set()
         unexpected_non_unique = non_unique_indexes - expected_indexes - allowed_duplicate_slug
         if unexpected_non_unique:
             raise RuntimeError(
                 f'Unexpected indexes for {table}: {sorted(unexpected_non_unique)!r}'
             )
-
         missing_indexes = expected_indexes - non_unique_indexes
         if missing_indexes:
             raise RuntimeError(
@@ -275,9 +245,7 @@ def _validate_known_pre_alembic_schema(inspector):
 def _assert_empty_tables(connection, inspector):
     for table in MARKETPLACE_TABLES:
         if connection.execute(sa.text(f'SELECT COUNT(*) FROM "{table}"')).scalar_one() != 0:
-            raise RuntimeError(
-                f'Cannot adopt pre-existing {table}: the table is not empty.'
-            )
+            raise RuntimeError(f'Cannot adopt pre-existing {table}: the table is not empty.')
 
 
 def _table_exists(inspector, table):
@@ -286,11 +254,7 @@ def _table_exists(inspector, table):
 
 def _reconcile_server_defaults(connection):
     if connection.dialect.name != 'postgresql':
-        # SQLite cannot alter an existing column default without rebuilding the
-        # table. Production is PostgreSQL; fresh SQLite test databases receive
-        # the defaults directly from the CREATE TABLE path.
         return
-
     statements = {
         'provider_types': (
             'ALTER TABLE provider_types ALTER COLUMN is_active SET DEFAULT TRUE',
@@ -315,10 +279,8 @@ def _reconcile_server_defaults(connection):
 
 
 def _reconcile_uniqueness(connection, inspector):
-    """Adopt known unique indexes as the canonical named constraints."""
     if connection.dialect.name != 'postgresql':
         return
-
     for table in MARKETPLACE_TABLES:
         unique_constraints = {
             tuple(constraint['column_names'])
@@ -338,8 +300,6 @@ def _reconcile_uniqueness(connection, inspector):
                 )
             )
 
-        # Remove the known duplicate ordinary slug index if it remains beside
-        # the canonical uniqueness representation.
         inspector = sa.inspect(connection)
         for index in inspector.get_indexes(table):
             if index.get('unique'):
@@ -348,18 +308,12 @@ def _reconcile_uniqueness(connection, inspector):
                 continue
             if ('slug',) not in EXPECTED_UNIQUES[table]:
                 continue
-            connection.execute(
-                sa.text(f'DROP INDEX IF EXISTS "{index["name"]}"')
-            )
+            connection.execute(sa.text(f'DROP INDEX IF EXISTS "{index["name"]}"'))
 
 
 def _seed_taxonomy(connection):
-    provider_type_count = connection.execute(
-        sa.text('SELECT COUNT(*) FROM provider_types')
-    ).scalar_one()
-    service_category_count = connection.execute(
-        sa.text('SELECT COUNT(*) FROM service_categories')
-    ).scalar_one()
+    provider_type_count = connection.execute(sa.text('SELECT COUNT(*) FROM provider_types')).scalar_one()
+    service_category_count = connection.execute(sa.text('SELECT COUNT(*) FROM service_categories')).scalar_one()
     if provider_type_count or service_category_count:
         raise RuntimeError(
             'Unexpected pre-existing marketplace taxonomy rows; refusing to overwrite them.'
@@ -378,14 +332,8 @@ def _seed_taxonomy(connection):
     op.bulk_insert(
         provider_type_table,
         [
-            {
-                'name': name,
-                'slug': slug,
-                'is_active': True,
-                'sort_order': index,
-                'created_at': now,
-                'updated_at': now,
-            }
+            {'name': name, 'slug': slug, 'is_active': True, 'sort_order': index,
+             'created_at': now, 'updated_at': now}
             for index, (name, slug) in enumerate(PROVIDER_TYPES, start=1)
         ],
     )
@@ -402,14 +350,8 @@ def _seed_taxonomy(connection):
     op.bulk_insert(
         service_category_table,
         [
-            {
-                'name': name,
-                'slug': slug,
-                'is_active': True,
-                'sort_order': index,
-                'created_at': now,
-                'updated_at': now,
-            }
+            {'name': name, 'slug': slug, 'is_active': True, 'sort_order': index,
+             'created_at': now, 'updated_at': now}
             for index, (name, slug) in enumerate(SERVICE_CATEGORIES, start=1)
         ],
     )
