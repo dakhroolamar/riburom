@@ -2,83 +2,23 @@
   {% if messages %}
     {% for category, msg in messages %}
       {% if category == 'success' %}
-        <div id="rbSuccessModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="rbSuccessTitle">
-          <div class="rb-success-card relative w-full max-w-md bg-white rounded-3xl shadow-2xl px-7 py-9 sm:px-9 text-center overflow-hidden">
+        <div id="rbSuccessModal" class="rb-success-modal" role="dialog" aria-modal="true" aria-labelledby="rbSuccessTitle">
+          <div class="rb-success-card">
             <div id="rbSuccessConfetti" class="rb-success-confetti" aria-hidden="true"></div>
 
-            <div class="rb-success-icon mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-800 text-4xl font-bold">
+            <div class="rb-success-icon" aria-hidden="true">
               <span class="rb-success-check">✓</span>
             </div>
 
-            <p class="text-green-800 font-bold uppercase tracking-[0.2em] text-xs mb-2">Enquiry received</p>
-            <h2 id="rbSuccessTitle" class="text-2xl sm:text-3xl font-bold text-green-900 mb-4">Thank you!</h2>
-            <p class="text-gray-600 leading-relaxed mb-7">{{ msg }}</p>
+            <p class="rb-success-eyebrow">Enquiry received</p>
+            <h2 id="rbSuccessTitle">Thank you!</h2>
+            <p class="rb-success-message">{{ msg }}</p>
 
-            <button type="button" id="rbSuccessClose" class="rb-button bg-green-700 hover:bg-green-800 text-white font-bold px-7 py-3 rounded-full shadow-lg">
+            <button type="button" id="rbSuccessClose" class="rb-button rb-success-close">
               Continue exploring
             </button>
           </div>
         </div>
-
-        <style>
-          #rbSuccessModal { animation: rb-success-fade-in .28s ease-out both; }
-          .rb-success-card { animation: rb-success-pop .55s cubic-bezier(.22,.7,.25,1) both; }
-          .rb-success-icon { animation: rb-success-icon-pop .65s cubic-bezier(.22,.7,.25,1) .08s both; }
-          .rb-success-check { animation: rb-success-check .45s ease-out .38s both; opacity:0; }
-          .rb-success-confetti { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
-          .rb-success-confetti span { position:absolute; left:50%; top:38%; width:7px; height:12px; border-radius:2px; opacity:0; animation:rb-success-confetti-fly .9s cubic-bezier(.18,.75,.25,1) forwards; animation-delay:var(--d); transform:translate(-50%,-50%) rotate(0deg); }
-          @keyframes rb-success-fade-in { from{opacity:0} to{opacity:1} }
-          @keyframes rb-success-pop { 0%{opacity:0;transform:translateY(22px) scale(.94)} 70%{transform:translateY(-3px) scale(1.01)} 100%{opacity:1;transform:none} }
-          @keyframes rb-success-icon-pop { 0%{transform:scale(.35);opacity:0} 65%{transform:scale(1.12);opacity:1} 100%{transform:scale(1);opacity:1} }
-          @keyframes rb-success-check { from{opacity:0;transform:scale(.5)} to{opacity:1;transform:scale(1)} }
-          @keyframes rb-success-confetti-fly {
-            0%{opacity:1;transform:translate(-50%,-50%) rotate(0deg)}
-            100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r));}
-          }
-          @media (prefers-reduced-motion:reduce) {
-            #rbSuccessModal,.rb-success-card,.rb-success-icon,.rb-success-check,.rb-success-confetti span { animation:none !important; }
-            .rb-success-check { opacity:1; }
-          }
-        </style>
-
-        <script>
-        (function () {
-          const modal = document.getElementById('rbSuccessModal');
-          const closeButton = document.getElementById('rbSuccessClose');
-          const confetti = document.getElementById('rbSuccessConfetti');
-          if (!modal || !closeButton) return;
-
-          document.body.classList.add('overflow-hidden');
-
-          if (confetti && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            const pieces = 30;
-            for (let i = 0; i < pieces; i += 1) {
-              const piece = document.createElement('span');
-              const angle = (Math.PI * 2 * i) / pieces;
-              const distance = 90 + Math.random() * 150;
-              piece.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
-              piece.style.setProperty('--y', `${Math.sin(angle) * distance}px`);
-              piece.style.setProperty('--r', `${Math.round(Math.random() * 720 - 360)}deg`);
-              piece.style.setProperty('--d', `${Math.round(Math.random() * 180)}ms`);
-              piece.style.background = ['#14532d', '#d97706', '#f3c969', '#3b82f6'][i % 4];
-              confetti.appendChild(piece);
-            }
-          }
-
-          const close = () => {
-            modal.remove();
-            document.body.classList.remove('overflow-hidden');
-          };
-
-          closeButton.addEventListener('click', close);
-          modal.addEventListener('click', (event) => {
-            if (event.target === modal) close();
-          });
-          document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') close();
-          });
-        })();
-        </script>
       {% else %}
         <div class="max-w-4xl mx-auto px-6 pt-4 space-y-2">
           <div class="p-4 rounded-lg font-semibold text-center bg-red-100 text-red-800 border border-red-300">
