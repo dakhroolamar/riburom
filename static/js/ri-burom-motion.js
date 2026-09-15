@@ -6,13 +6,71 @@
   function ensureMotionStyles() {
     if (document.querySelector('link[data-rb-motion-css]')) return;
     const critical = document.createElement('style');
-    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}';
+    critical.textContent = '#rb-page-loader{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:#0b3b23;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s linear}.rb-loader-core{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff}.rb-loader-mark{width:90px;height:90px;object-fit:contain}.rb-loader-line{width:110px;height:2px;background:rgba(255,255,255,.18);overflow:hidden;border-radius:999px}.rb-loader-line:after{content:"";display:block;width:42%;height:100%;background:#f3c969;animation:rb-loader-line 1.15s ease-in-out infinite}@keyframes rb-loader-line{0%{transform:translateX(-120%)}100%{transform:translateX(270%)}}' +
+      '.rb-success-modal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:rgba(0,0,0,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:1;visibility:visible;animation:rb-success-fade-in .22s ease-out both}' +
+      '.rb-success-card{position:relative;width:100%;max-width:430px;background:#fff;border-radius:24px;box-shadow:0 25px 70px rgba(0,0,0,.3);padding:36px 28px;text-align:center;overflow:hidden;animation:rb-success-pop .5s cubic-bezier(.22,.7,.25,1) both}' +
+      '.rb-success-icon{position:relative;z-index:2;width:82px;height:82px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#dcfce7;color:#166534;font-size:42px;font-weight:800;animation:rb-success-icon-pop .6s cubic-bezier(.22,.7,.25,1) .08s both}' +
+      '.rb-success-check{display:block;opacity:0;animation:rb-success-check .4s ease-out .36s both}' +
+      '.rb-success-eyebrow{position:relative;z-index:2;margin:0 0 8px;color:#166534;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}' +
+      '.rb-success-card h2{position:relative;z-index:2;margin:0 0 14px;color:#14532d;font-size:30px;line-height:1.15;font-weight:800}' +
+      '.rb-success-message{position:relative;z-index:2;margin:0 auto 26px;max-width:350px;color:#4b5563;font-size:16px;line-height:1.6}' +
+      '.rb-success-close{position:relative;z-index:3;border:0;cursor:pointer;color:#fff;background:#15803d;font-weight:800;padding:12px 28px;border-radius:999px;box-shadow:0 8px 20px rgba(21,128,61,.22)}' +
+      '.rb-success-close:hover{background:#166534}' +
+      '.rb-success-confetti{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}' +
+      '.rb-success-confetti span{position:absolute;left:50%;top:40%;width:7px;height:12px;border-radius:2px;opacity:0;will-change:transform,opacity;animation:rb-success-confetti-fly .85s cubic-bezier(.18,.75,.25,1) forwards;animation-delay:var(--d)}' +
+      '@keyframes rb-success-fade-in{from{opacity:0}to{opacity:1}}' +
+      '@keyframes rb-success-pop{0%{opacity:0;transform:translateY(18px) scale(.95)}70%{transform:translateY(-2px) scale(1.01)}100%{opacity:1;transform:none}}' +
+      '@keyframes rb-success-icon-pop{0%{transform:scale(.35);opacity:0}65%{transform:scale(1.1);opacity:1}100%{transform:scale(1);opacity:1}}' +
+      '@keyframes rb-success-check{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}' +
+      '@keyframes rb-success-confetti-fly{0%{opacity:1;transform:translate(-50%,-50%) rotate(0deg)}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r))}}' +
+      '@media (prefers-reduced-motion:reduce){.rb-success-modal,.rb-success-card,.rb-success-icon,.rb-success-check,.rb-success-confetti span{animation:none!important}.rb-success-check{opacity:1}}';
     document.head.appendChild(critical);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = '/static/css/ri-burom-motion.css?v=9';
     link.dataset.rbMotionCss = '1';
     document.head.appendChild(link);
+  }
+
+  function initSuccessModal() {
+    const modal = document.getElementById('rbSuccessModal');
+    const closeButton = document.getElementById('rbSuccessClose');
+    const confetti = document.getElementById('rbSuccessConfetti');
+    if (!modal || !closeButton) return;
+
+    document.body.classList.add('rb-success-open');
+
+    if (confetti && !reduceMotion) {
+      const pieces = 34;
+      for (let i = 0; i < pieces; i += 1) {
+        const piece = document.createElement('span');
+        const angle = (Math.PI * 2 * i) / pieces;
+        const distance = 110 + Math.random() * 170;
+        piece.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
+        piece.style.setProperty('--y', `${Math.sin(angle) * distance}px`);
+        piece.style.setProperty('--r', `${Math.round(Math.random() * 720 - 360)}deg`);
+        piece.style.setProperty('--d', `${Math.round(Math.random() * 140)}ms`);
+        piece.style.background = ['#14532d', '#d97706', '#f3c969', '#3b82f6'][i % 4];
+        confetti.appendChild(piece);
+      }
+    }
+
+    const close = () => {
+      modal.remove();
+      document.body.classList.remove('rb-success-open');
+    };
+
+    closeButton.addEventListener('click', close, { once: true });
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) close();
+    });
+    const escapeHandler = (event) => {
+      if (event.key === 'Escape') {
+        close();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
   }
 
   function getBrandImage() {
@@ -53,9 +111,7 @@
       video.muted = false;
       video.removeAttribute('muted');
       const playback = video.play();
-      if (playback && typeof playback.catch === 'function') {
-        playback.catch(() => {});
-      }
+      if (playback && typeof playback.catch === 'function') playback.catch(() => {});
       button.hidden = true;
     });
     hero.appendChild(button);
@@ -70,10 +126,6 @@
 
     const soundButton = makeSoundControl(hero, video);
     hero.classList.add('rb-hero-video-enabled');
-
-    // Move the video out of the logo stage and into the hero itself so it can
-    // cover the complete hero viewport while the permanent logo stays in the
-    // content layer as the durable fallback/final state.
     hero.appendChild(video);
     video.classList.add('rb-hero-animation-video--background');
 
@@ -112,43 +164,28 @@
     video.addEventListener('error', fallback, { once: true });
     video.addEventListener('abort', fallback, { once: true });
 
-    // Try audible autoplay first. Browsers that disallow audible autoplay will
-    // reject play(); in that case we immediately fall back to muted autoplay
-    // and expose a small, explicit sound control for user-initiated playback.
     video.muted = false;
     video.removeAttribute('muted');
     let playback;
-    try {
-      playback = video.play();
-    } catch (_) {
-      playback = null;
-    }
+    try { playback = video.play(); } catch (_) { playback = null; }
     if (playback && typeof playback.catch === 'function') {
       playback.catch(() => {
         video.muted = true;
         video.setAttribute('muted', '');
         soundButton.hidden = false;
         const mutedPlayback = video.play();
-        if (mutedPlayback && typeof mutedPlayback.catch === 'function') {
-          mutedPlayback.catch(fallback);
-        }
+        if (mutedPlayback && typeof mutedPlayback.catch === 'function') mutedPlayback.catch(fallback);
       });
     }
 
-    // A normal user interaction on the hero also provides a valid browser
-    // gesture for enabling audio, without requiring the visitor to find the
-    // small control first.
     hero.addEventListener('pointerdown', () => {
       if (!video.muted || video.paused || video.ended) return;
       video.muted = false;
       video.removeAttribute('muted');
       const userPlayback = video.play();
-      if (userPlayback && typeof userPlayback.catch === 'function') {
-        userPlayback.catch(() => { video.muted = true; });
-      } else {
-        soundButton.hidden = true;
-      }
-    }, { passive: true, once: false });
+      if (userPlayback && typeof userPlayback.catch === 'function') userPlayback.catch(() => { video.muted = true; });
+      else soundButton.hidden = true;
+    }, { passive: true });
   }
 
   function fixHeroCta() {
@@ -217,6 +254,7 @@
   function bootstrap() {
     ensureMotionStyles();
     showLoader();
+    initSuccessModal();
     initHeroAnimationVideo();
     fixHeroCta();
     scrollReveal();
