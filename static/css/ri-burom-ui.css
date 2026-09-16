@@ -53,7 +53,7 @@
   --rb-primary:#166534;
   --rb-secondary:#92400e;
   --rb-accent:#d8aa4d;
-  --rb-font-cultural:Georgia,'Times New Roman',serif;
+  --rb-font-cultural:var(--rb-heading-font,Georgia,'Times New Roman',serif);
   --rb-font-body:var(--rb-body-font,Arial,sans-serif);
   --rb-paper:#f7f4e9;
   --rb-paper-deep:#ede4cf;

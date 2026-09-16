@@ -5,6 +5,7 @@
   if (!root || root.dataset.initialized) return;
   root.dataset.initialized = 'true';
   const svg = root.querySelector('.rb-waterfall');
+  if (!svg) return;
   const paths = [...svg.querySelectorAll('path')];
   const gsap = window.gsap;
   const ScrollTrigger = window.ScrollTrigger;
@@ -36,13 +37,17 @@
   });
   // CMS visibility/order, late media and resize can change the journey height.
   let pending;
-  const observer = new ResizeObserver(() => {
+  const refresh = () => {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => ScrollTrigger.refresh());
-  });
-  observer.observe(root);
+  };
+  const observer = 'ResizeObserver' in window ? new ResizeObserver(refresh) : null;
+  if (observer) observer.observe(root);
+  else window.addEventListener('resize', refresh, {passive: true});
   window.addEventListener('pagehide', event => {
     if (event.persisted) return; // Keep the animation context for back/forward cache.
-    observer.disconnect(); cancelAnimationFrame(pending); mm.revert();
+    if (observer) observer.disconnect();
+    else window.removeEventListener('resize', refresh);
+    cancelAnimationFrame(pending); mm.revert();
   });
 })();

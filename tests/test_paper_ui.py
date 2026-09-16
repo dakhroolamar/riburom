@@ -16,6 +16,11 @@ class PaperUiContractTests(unittest.TestCase):
                         'action="/send_message"', 'name="tour_interest"'):
             self.assertIn(binding, source)
 
+    def test_paper_typography_respects_cms_font_tokens(self):
+        source = (ROOT / 'static/css/ri-burom-ui.css').read_text(encoding='utf-8')
+        self.assertIn("--rb-font-cultural:var(--rb-heading-font", source)
+        self.assertIn("--rb-font-body:var(--rb-body-font", source)
+
     def test_tour_art_is_separate_from_dynamic_title(self):
         source = (ROOT / 'templates/tour_detail.html').read_text(encoding='utf-8')
         self.assertIn('<h1 class="rb-hero-title">{{ pkg.title }}</h1>', source)
@@ -34,7 +39,7 @@ class PaperUiContractTests(unittest.TestCase):
             self.assertIn('3.12.5', (ROOT / f'static/vendor/gsap-3.12.5/{name}.min.js').read_text(encoding='utf-8')[:300])
         source = (ROOT / 'static/js/ri-burom-waterfall.js').read_text(encoding='utf-8')
         for feature in ('prefers-reduced-motion', 'gsap.registerPlugin(ScrollTrigger)',
-                        'ResizeObserver', 'strokeDashoffset', 'dataset.initialized'):
+                        'ResizeObserver', "if (!svg) return", 'strokeDashoffset', 'dataset.initialized'):
             self.assertIn(feature, source)
 
     def test_marketplace_form_and_shared_footer_remain(self):
