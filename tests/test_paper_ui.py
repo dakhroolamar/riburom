@@ -39,8 +39,12 @@ class PaperUiContractTests(unittest.TestCase):
             self.assertIn('3.12.5', (ROOT / f'static/vendor/gsap-3.12.5/{name}.min.js').read_text(encoding='utf-8')[:300])
         source = (ROOT / 'static/js/ri-burom-waterfall.js').read_text(encoding='utf-8')
         for feature in ('prefers-reduced-motion', 'gsap.registerPlugin(ScrollTrigger)',
-                        'ResizeObserver', "if (!svg) return", 'strokeDashoffset', 'dataset.initialized'):
+                        'ResizeObserver', "if (!svg) return", 'strokeDashoffset', 'dataset.initialized',
+                        'pointermove', 'rb-water-cursor', 'nearestRoutePoint'):
             self.assertIn(feature, source)
+        css = (ROOT / 'static/css/ri-burom-ui.css').read_text(encoding='utf-8')
+        for feature in ('rbWaterCurrent', 'rbWaterGlint', 'rbWaterRipple', '.rb-water-current'):
+            self.assertIn(feature, css)
 
     def test_marketplace_form_and_shared_footer_remain(self):
         provider = (ROOT / 'templates/marketplace_provider.html').read_text(encoding='utf-8')

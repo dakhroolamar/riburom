@@ -616,10 +616,44 @@ body.rb-public-site .rb-hero-title{font-size:clamp(2.45rem,5.5vw,5.5rem);line-he
 
 /* The homepage stream has its own narrow column, independent of CMS order. */
 #rbHomeSections.rb-paper-journey{position:relative;isolation:isolate;padding-left:clamp(28px,5vw,80px)}
-.rb-waterfall{position:absolute;inset:0 auto 0 0;width:clamp(28px,5vw,80px);height:100%;z-index:4;pointer-events:none;overflow:visible}
-.rb-waterfall path{fill:none;stroke:var(--rb-water);stroke-width:5;stroke-linecap:round}
-.rb-waterfall .rb-water-highlight{stroke:#c3e5e8;stroke-width:1.5}
-.rb-waterfall circle{fill:var(--rb-water);opacity:.35}
+.rb-waterfall{
+  position:absolute;inset:0 auto 0 0;width:clamp(28px,5vw,80px);height:100%;z-index:4;
+  pointer-events:none;overflow:visible;--rb-water-near:0;
+}
+.rb-waterfall path{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rb-waterfall .rb-water-reveal{stroke:#fff;stroke-width:12}
+.rb-waterfall .rb-water-base{
+  stroke:color-mix(in srgb,var(--rb-water) 78%,#2c7c96);stroke-width:5.5;
+  filter:drop-shadow(0 1px 1px rgba(44,124,150,.12));
+}
+.rb-waterfall .rb-water-current{
+  stroke:#9fdde8;stroke-width:2.6;stroke-dasharray:14 22;opacity:.72;
+  animation:rbWaterCurrent 1.35s linear infinite;
+  transition:opacity .2s ease,filter .2s ease;
+}
+.rb-waterfall .rb-water-glint{
+  stroke:#f4ffff;stroke-width:1.15;stroke-dasharray:2 42;opacity:.78;
+  animation:rbWaterGlint .82s linear infinite;
+}
+.rb-waterfall.is-cursor-near .rb-water-current{
+  opacity:.98;filter:drop-shadow(0 0 4px rgba(121,211,229,.8));
+}
+.rb-waterfall .rb-water-waypoint{fill:var(--rb-water);opacity:.35}
+.rb-waterfall .rb-water-cursor{
+  fill:rgba(159,221,232,.16);stroke:#e9fdff;stroke-width:1.2;opacity:0;
+  transform-box:fill-box;transform-origin:center;
+  filter:drop-shadow(0 0 5px rgba(79,168,199,.45));
+}
+.rb-waterfall .rb-water-cursor.is-active{
+  opacity:1;animation:rbWaterRipple 1.15s ease-out infinite;
+}
+@keyframes rbWaterCurrent{to{stroke-dashoffset:-72}}
+@keyframes rbWaterGlint{to{stroke-dashoffset:-88}}
+@keyframes rbWaterRipple{
+  0%{transform:scale(.72);opacity:.9}
+  72%{transform:scale(1.45);opacity:.28}
+  100%{transform:scale(1.7);opacity:0}
+}
 #rb-home-hero.rb-paper-hero{min-height:0!important;padding:clamp(2rem,4vw,4rem) 1.2rem 0;overflow:hidden;background-color:var(--rb-hero-bg);background-image:none!important}
 #rb-home-hero.rb-paper-hero .rb-hero-content{padding:1.75rem 1rem 3rem;width:min(100%,64rem);background:var(--rb-hero-bg);margin:0 auto}
 #rb-home-hero.rb-paper-hero .rb-hero-permanent-logo{max-height:100px!important;max-width:160px!important}
@@ -679,4 +713,11 @@ body.rb-public-site .rb-hero-title{font-size:clamp(2.45rem,5.5vw,5.5rem);line-he
  .rb-footer-contact-item a{overflow-wrap:anywhere}
  .rb-floating-cta{font-size:.8rem;padding:.65rem .9rem;bottom:1rem;right:1rem}
 }
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}.rb-waterfall path{stroke-dashoffset:0!important}.rb-waterfall circle{animation:none!important}.rb-paper-photo,.rb-story-art{transform:none}.rb-hero-content>*{animation:none!important;opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto!important}
+ .rb-waterfall .rb-water-reveal{stroke-dasharray:none!important;stroke-dashoffset:0!important}
+ .rb-waterfall :is(.rb-water-current,.rb-water-glint,.rb-water-cursor){animation:none!important}
+ .rb-waterfall .rb-water-cursor{display:none!important}
+ .rb-paper-photo,.rb-story-art{transform:none}
+ .rb-hero-content>*{animation:none!important;opacity:1!important;transform:none!important}
+}

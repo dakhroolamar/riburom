@@ -18,9 +18,20 @@
     {% include '_flash.html' %}
     <main id="rbHomeSections" class="rb-paper-journey flex flex-col" data-rb-waterfall>
     <svg class="rb-waterfall" viewBox="0 0 80 1600" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        <path d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
-        <path class="rb-water-highlight" d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
-        <circle cx="32" cy="340" r="3"/><circle cx="55" cy="790" r="3"/><circle cx="25" cy="1210" r="3"/>
+        <defs>
+            <mask id="rb-water-reveal-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="80" height="1600">
+                <path class="rb-water-reveal" d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
+            </mask>
+        </defs>
+        <g mask="url(#rb-water-reveal-mask)">
+            <path class="rb-water-base" d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
+            <path class="rb-water-current" d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
+            <path class="rb-water-glint" d="M30 0 C10 100 65 130 45 240 S10 410 35 530 S70 700 40 840 S10 1060 40 1220 S65 1450 35 1600"/>
+        </g>
+        <circle class="rb-water-waypoint" cx="32" cy="340" r="3"/>
+        <circle class="rb-water-waypoint" cx="55" cy="790" r="3"/>
+        <circle class="rb-water-waypoint" cx="25" cy="1210" r="3"/>
+        <circle class="rb-water-cursor" data-rb-water-cursor cx="30" cy="0" r="9"/>
     </svg>
     {% if public.home.visibility.hero %}
     {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
