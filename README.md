@@ -213,7 +213,10 @@ These scripts are not part of routine deployment.
 
 ```text
 app.py                         Core Flask application and legacy/public routes
-wsgi.py                        Production registration/WSGI entrypoint
+application_modules.py         Shared composition root for feature registration
+wsgi.py                        Production WSGI entrypoint
+config_concurrency.py          Optimistic locking for JSON-backed CMS settings
+media_lifecycle.py             Reference-safe marketplace media cleanup
 models.py                      Core application models
 marketplace_models.py          Marketplace domain models
 cms_*.py                       Workspace/CMS modules
