@@ -66,47 +66,59 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   await page.waitForTimeout(800);
   assert.equal(await page.evaluate(() => gsap.version), '3.12.5');
   assert.ok(await page.evaluate(() => ScrollTrigger.getAll().length > 0));
-  const revealPath = page.locator('.rb-water-reveal');
-  const before = await revealPath.evaluate(el => getComputedStyle(el).strokeDashoffset);
+  const journey = page.locator('[data-rb-waterfall]');
+  const before = Number(await journey.getAttribute('data-water-progress') || 0);
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
   await page.waitForTimeout(1400);
-  const after = await revealPath.evaluate(el => getComputedStyle(el).strokeDashoffset);
-  assert.notEqual(before, after);
+  const after = Number(await journey.getAttribute('data-water-progress') || 0);
+  assert.ok(after > before, `water progress did not advance: ${before} -> ${after}`);
 
-  // The inner current must keep flowing independently of scroll progress.
-  const currentPath = page.locator('.rb-water-current');
-  const flowBefore = await currentPath.evaluate(el => getComputedStyle(el).strokeDashoffset);
+  // The viewport canvas must continue rendering independently of scroll progress.
+  const frameBefore = Number(await journey.getAttribute('data-water-frame') || 0);
   await page.waitForTimeout(450);
-  const flowAfter = await currentPath.evaluate(el => getComputedStyle(el).strokeDashoffset);
-  assert.notEqual(flowBefore, flowAfter);
+  const frameAfter = Number(await journey.getAttribute('data-water-frame') || 0);
+  assert.ok(frameAfter > frameBefore, `water canvas stopped: ${frameBefore} -> ${frameAfter}`);
 
-  // Fine-pointer interaction should snap the ripple to a visible stream point.
-  await page.evaluate(() => scrollTo(0, 0));
-  await page.waitForTimeout(300);
-  const interactionPoint = await page.evaluate(() => {
-    const route = document.querySelector('.rb-water-base');
-    const navBottom = document.querySelector('nav').getBoundingClientRect().bottom;
+  // The route genuinely crosses the page rather than living in one side gutter.
+  const routeSpread = await page.evaluate(() => {
+    const route = document.querySelector('.rb-water-route');
     const ctm = route.getScreenCTM();
     const length = route.getTotalLength();
-    for (let i = 0; i <= 80; i += 1) {
-      const point = route.getPointAtLength(length * i / 80);
-      const screen = new DOMPoint(point.x, point.y).matrixTransform(ctm);
-      if (screen.y > navBottom + 40 && screen.y < innerHeight - 40) return {x:screen.x,y:screen.y};
+    const xs = [];
+    for (let i = 0; i <= 40; i += 1) {
+      const p = route.getPointAtLength(length * i / 40);
+      xs.push(ctm.a * p.x + ctm.c * p.y + ctm.e);
+    }
+    return Math.max(...xs) - Math.min(...xs);
+  });
+  assert.ok(routeSpread > 800, `water route spread too narrow: ${routeSpread}`);
+
+  // Fine-pointer interaction adds a local ripple near a visible point.
+  await page.evaluate(() => scrollTo(0, Math.round(document.documentElement.scrollHeight * .28)));
+  await page.waitForTimeout(350);
+  const interactionPoint = await page.evaluate(() => {
+    const route = document.querySelector('.rb-water-route');
+    const ctm = route.getScreenCTM();
+    const length = route.getTotalLength();
+    for (let i = 0; i <= 120; i += 1) {
+      const p = route.getPointAtLength(length * i / 120);
+      const x = ctm.a * p.x + ctm.c * p.y + ctm.e;
+      const y = ctm.b * p.x + ctm.d * p.y + ctm.f;
+      if (y > 120 && y < innerHeight - 80) return {x,y};
     }
     return null;
   });
   assert.ok(interactionPoint);
   await page.mouse.move(interactionPoint.x, interactionPoint.y);
   await page.waitForTimeout(180);
-  assert.equal(await page.locator('[data-rb-water-cursor]').evaluate(el => el.classList.contains('is-active')), true);
+  assert.equal(await journey.getAttribute('data-water-interactive'), 'true');
 
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForFunction(() => {
-    const path = document.querySelector('.rb-water-reveal');
-    return path && getComputedStyle(path).strokeDashoffset === '0px';
+    const root = document.querySelector('[data-rb-waterfall]');
+    return root?.dataset.waterProgress === '1.000' && !root.classList.contains('rb-water-live');
   });
-  assert.equal(await page.locator('.rb-water-reveal').evaluate(el => getComputedStyle(el).strokeDashoffset), '0px');
-  assert.equal(await page.locator('[data-rb-water-cursor]').evaluate(el => getComputedStyle(el).display), 'none');
+  assert.equal(await page.locator('[data-rb-water-canvas]').evaluate(el => getComputedStyle(el).display), 'none');
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(output,'results.json'), JSON.stringify(results,null,2));
   await browser.close();
