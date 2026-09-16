@@ -102,7 +102,10 @@ class NotificationOutboxIntegrationTests(unittest.TestCase):
                 db.session.commit()
                 row_id = row.id
 
-                with patch.object(notifications, '_brevo_send', return_value=True):
+                with (
+                    patch.object(notifications, '_brevo_missing_config', return_value=[]),
+                    patch.object(notifications, '_brevo_send', return_value=True),
+                ):
                     summary = notifications.process_outbox_ids([row_id])
 
                 delivered = db.session.get(NotificationOutbox, row_id)
