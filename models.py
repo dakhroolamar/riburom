@@ -244,6 +244,38 @@ class TeamMember(db.Model):
     photo_file = db.Column(db.String(500))
 
 
+class NotificationOutbox(db.Model):
+    """Durable outbound notification record.
+
+    The source relationship is intentionally polymorphic (source_type/source_id)
+    because both legacy contact messages and marketplace enquiries use the same
+    delivery pipeline.
+    """
+    __tablename__ = 'notification_outbox'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'source_type', 'source_id', 'event_type', 'channel',
+            name='uq_notification_outbox_source_event_channel',
+        ),
+        db.Index('ix_notification_outbox_status_created', 'status', 'created_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_type = db.Column(db.String(80), nullable=False)
+    source_id = db.Column(db.String(80), nullable=False)
+    event_type = db.Column(db.String(80), nullable=False, default='new_enquiry')
+    channel = db.Column(db.String(30), nullable=False)
+    recipient = db.Column(db.String(320), nullable=False)
+    subject = db.Column(db.String(300), nullable=True)
+    body = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(30), nullable=False, default='PENDING')
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    last_error = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    sent_at = db.Column(db.DateTime, nullable=True)
+
+
 class Message(db.Model):
     __tablename__ = 'messages'
 
