@@ -101,6 +101,7 @@ class PackageCompatibilityTests(unittest.TestCase):
         package = self.Package.query.filter_by(title='Created Compatibility Package').first()
         self.assertIsNotNone(package)
         package_id = package.id
+        original_slug = package.slug
 
         edit_response = self.client.post(f'/edit_package/{package_id}', data={
             'title': 'Edited Compatibility Package',
@@ -114,6 +115,7 @@ class PackageCompatibilityTests(unittest.TestCase):
         edited = self.db.session.get(self.Package, package_id)
         self.assertEqual(edited.title, 'Edited Compatibility Package')
         self.assertEqual(edited.description, 'Edited through the existing CMS route.')
+        self.assertEqual(edited.slug, original_slug)
 
         delete_response = self.client.post(f'/delete_package/{package_id}', follow_redirects=False)
         self.assertEqual(delete_response.status_code, 302)

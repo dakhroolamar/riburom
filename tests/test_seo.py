@@ -48,7 +48,7 @@ class SeoFoundationTests(unittest.TestCase):
         self.assertIn('Allow: /', body)
         for path in ('/admin', '/admin/login', '/workspace', '/workspace/', '/api/'):
             self.assertIn(f'Disallow: {path}', body)
-        self.assertIn('Sitemap: https://riburom.onrender.com/sitemap.xml', body)
+        self.assertIn('Sitemap: https://riburomtours.com/sitemap.xml', body)
 
     def test_sitemap_is_valid_and_public_only(self):
         response = self.client.get('/sitemap.xml')
@@ -56,10 +56,11 @@ class SeoFoundationTests(unittest.TestCase):
         root = ElementTree.fromstring(response.data)
         namespace = {'sm': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
         urls = [node.text for node in root.findall('sm:url/sm:loc', namespace)]
-        self.assertIn('https://riburom.onrender.com/', urls)
-        self.assertIn('https://riburom.onrender.com/about', urls)
-        self.assertIn('https://riburom.onrender.com/all_tours', urls)
-        self.assertIn('https://riburom.onrender.com/tours/seo-test-experience', urls)
+        self.assertIn('https://riburomtours.com/', urls)
+        self.assertIn('https://riburomtours.com/about', urls)
+        self.assertIn('https://riburomtours.com/all_tours', urls)
+        self.assertIn('https://riburomtours.com/marketplace', urls)
+        self.assertIn('https://riburomtours.com/tours/seo-test-experience', urls)
         self.assertFalse(any('/admin' in url or '/workspace' in url or '/api/' in url for url in urls))
 
     def test_public_pages_have_canonical_and_social_metadata(self):
@@ -80,20 +81,20 @@ class SeoFoundationTests(unittest.TestCase):
         self.assertIn('<title>RI BUROM Tours &amp; Travels | Meghalaya Tours &amp; Experiences</title>', body)
         self.assertIn('name="description"', body)
         self.assertIn('Meghalaya-rooted tours and travel experiences', body)
-        self.assertIn('https://riburom.onrender.com/', body)
+        self.assertIn('https://riburomtours.com/', body)
 
     def test_tour_page_has_unique_metadata_and_canonical(self):
         body = self.client.get('/tours/seo-test-experience').get_data(as_text=True)
         self.assertEqual(body.lower().count('<title>'), 1)
         self.assertIn('<title>SEO Test Experience | RI BUROM Meghalaya Experiences</title>', body)
-        self.assertIn('https://riburom.onrender.com/tours/seo-test-experience', body)
+        self.assertIn('https://riburomtours.com/tours/seo-test-experience', body)
         self.assertIn('SEO Test Experience', body)
         self.assertIn('TouristTrip', body)
 
     def test_private_routes_are_not_in_sitemap(self):
         xml = self.client.get('/sitemap.xml').get_data(as_text=True)
         for path in ('/admin', '/admin/login', '/workspace', '/workspace/administration', '/workspace/developer', '/api/'):
-            self.assertNotIn(f'https://riburom.onrender.com{path}', xml)
+            self.assertNotIn(f'https://riburomtours.com{path}', xml)
 
 
 if __name__ == '__main__':

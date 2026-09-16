@@ -985,7 +985,9 @@ def edit_package(id):
         new_image = save_image(request.files.get('photo')); new_pdf = save_pdf(request.files.get('pdf'))
     except ValueError as e:
         flash(str(e), 'error'); return redirect(url_for('edit_package_form', id=id))
-    pkg.title = title; pkg.slug = unique_slug(title, current_id=id); pkg.description = description
+    # Preserve the established public URL when an editor changes the title.
+    # A package slug is assigned once at creation time.
+    pkg.title = title; pkg.description = description
     for field in ('location','duration','price','category','best_season','difficulty','itinerary','included','excluded'):
         setattr(pkg, field, (request.form.get(field) or '').strip() or None)
     pkg.published = bool(request.form.get('published')); pkg.featured = bool(request.form.get('featured'))

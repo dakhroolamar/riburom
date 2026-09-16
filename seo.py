@@ -1,21 +1,31 @@
 """Technical SEO helpers and public metadata for RI BUROM."""
 
 import json
+import os
 import re
 from html import escape
 
 from flask import Response, request, url_for
 
+from marketplace_models import Provider
 from models import Package
 from storage import imgsrc
 
-SEO_BASE_URL = "https://riburom.onrender.com"
+
+SEO_BASE_URL = (
+    os.environ.get('PUBLIC_BASE_URL')
+    or 'https://riburomtours.com'
+).strip().rstrip('/')
 HOME_TITLE = "RI BUROM Tours & Travels | Meghalaya Tours & Experiences"
 HOME_DESCRIPTION = (
     "RI BUROM Tours & Travels creates Meghalaya-rooted tours and travel experiences "
     "connecting travellers with nature, culture, local communities, and the places that make Meghalaya unique."
 )
-PUBLIC_ENDPOINTS = {"home", "about", "all_tours", "tour_detail"}
+PUBLIC_PROVIDER_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
+PUBLIC_ENDPOINTS = {
+    "home", "about", "all_tours", "tour_detail",
+    "marketplace_public_index", "marketplace_public_provider",
+}
 
 
 def absolute_url(path_or_url):
@@ -24,7 +34,7 @@ def absolute_url(path_or_url):
         return value
     if not value.startswith("/"):
         value = "/" + value
-    return SEO_BASE_URL.rstrip("/") + value
+    return SEO_BASE_URL + value
 
 
 def _clean_description(value, fallback=HOME_DESCRIPTION, limit=160):
@@ -59,10 +69,12 @@ def _page_metadata(endpoint):
     from app import get_public_config, get_site_settings
 
     settings = get_site_settings()
+    public = get_public_config(settings)
+    content = public.get("content", {})
     logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
     metadata = {
-        "title": HOME_TITLE,
-        "description": HOME_DESCRIPTION,
+        "title": content.get("site_title") or HOME_TITLE,
+        "description": _clean_description(content.get("meta_description"), HOME_DESCRIPTION),
         "canonical": SEO_BASE_URL + "/",
         "og_type": "website",
         "og_image": absolute_url(imgsrc(logo)),
@@ -70,17 +82,15 @@ def _page_metadata(endpoint):
     }
 
     if endpoint == "about":
-        public = get_public_config(settings)
         metadata.update(
-            title=(public.get("content", {}).get("about_page_title") or "About RI BUROM | Meghalaya Tours & Experiences"),
-            description=_clean_description(public.get("content", {}).get("about_page_intro")),
+            title=(content.get("about_page_title") or "About RI BUROM | Meghalaya Tours & Experiences"),
+            description=_clean_description(content.get("about_page_intro")),
             canonical=SEO_BASE_URL + "/about",
         )
     elif endpoint == "all_tours":
-        public = get_public_config(settings)
         metadata.update(
-            title=(public.get("content", {}).get("tours_page_title") or "Meghalaya Tours & Experiences | RI BUROM"),
-            description=_clean_description(public.get("content", {}).get("tours_page_intro")),
+            title=(content.get("tours_page_title") or "Meghalaya Tours & Experiences | RI BUROM"),
+            description=_clean_description(content.get("tours_page_intro")),
             canonical=SEO_BASE_URL + "/all_tours",
         )
     elif endpoint == "tour_detail":
@@ -107,6 +117,50 @@ def _page_metadata(endpoint):
             )
             if pkg.location:
                 metadata["schema"]["location"] = {"@type": "Place", "name": pkg.location.strip()}
+    elif endpoint == "marketplace_public_index":
+        canonical = SEO_BASE_URL + "/marketplace"
+        metadata.update(
+            title="Meghalaya Tourism Marketplace | RI BUROM",
+            description=_clean_description(
+                "Discover local tourism providers and services across Meghalaya and send a structured enquiry through RI BUROM."
+            ),
+            canonical=canonical,
+            schema={
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": "RI BUROM Meghalaya Tourism Marketplace",
+                "url": canonical,
+                "isPartOf": _business_schema(settings),
+            },
+        )
+    elif endpoint == "marketplace_public_provider":
+        slug = request.view_args.get("slug") if request.view_args else None
+        provider = Provider.query.filter(
+            Provider.slug == slug,
+            Provider.is_active.is_(True),
+            Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+        ).first()
+        if provider:
+            description = _clean_description(
+                provider.description,
+                f"Explore services from {provider.name} through the RI BUROM Meghalaya tourism marketplace.",
+            )
+            canonical = SEO_BASE_URL + url_for("marketplace_public_provider", slug=provider.slug)
+            metadata.update(
+                title=f"{provider.name} | RI BUROM Marketplace",
+                description=description,
+                canonical=canonical,
+                og_image=absolute_url(imgsrc(provider.image_url)),
+                schema={
+                    "@context": "https://schema.org",
+                    "@type": "Organization",
+                    "name": provider.name,
+                    "description": description,
+                    "url": canonical,
+                },
+            )
+            if provider.image_url:
+                metadata["schema"]["image"] = absolute_url(imgsrc(provider.image_url))
     return metadata
 
 
@@ -148,10 +202,20 @@ def _sitemap_response():
     from xml.etree.ElementTree import Element, SubElement, tostring
 
     urlset = Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
-    public_urls = [SEO_BASE_URL + "/", SEO_BASE_URL + "/about", SEO_BASE_URL + "/all_tours"]
+    public_urls = [
+        SEO_BASE_URL + "/", SEO_BASE_URL + "/about",
+        SEO_BASE_URL + "/all_tours", SEO_BASE_URL + "/marketplace",
+    ]
     public_urls.extend(
         SEO_BASE_URL + url_for("tour_detail", slug=pkg.slug)
         for pkg in Package.query.filter_by(published=True).order_by(Package.id.asc()).all()
+    )
+    public_urls.extend(
+        SEO_BASE_URL + url_for("marketplace_public_provider", slug=provider.slug)
+        for provider in Provider.query.filter(
+            Provider.is_active.is_(True),
+            Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+        ).order_by(Provider.id.asc()).all()
     )
     for loc in dict.fromkeys(public_urls):
         item = SubElement(urlset, "url")
@@ -160,7 +224,6 @@ def _sitemap_response():
 
 
 def register_seo(flask_app):
-    """Register technical SEO behavior without changing public page handlers."""
     if getattr(flask_app, "_ri_burom_seo_registered", False):
         return
     flask_app._ri_burom_seo_registered = True
