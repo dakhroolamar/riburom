@@ -132,14 +132,14 @@
             <form action="/send_message" method="POST" class="bg-white rounded-xl shadow-md p-8">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input type="text" name="name" maxlength="120" class="w-full border border-gray-300 p-3 rounded" required></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_email }}</label><input type="email" name="email" maxlength="254" class="w-full border border-gray-300 p-3 rounded" required></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_phone }}</label><input type="text" name="phone" maxlength="40" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_travellers }}</label><input type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_dates }}</label><input type="text" name="travel_dates" maxlength="120" placeholder="{{ public.content.form_dates_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
-                    <div><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_tour }}</label><input type="text" name="tour_interest" maxlength="200" placeholder="{{ public.content.form_tour_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label for="contact-name" class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input id="contact-name" type="text" name="name" maxlength="120" autocomplete="name" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label for="contact-email" class="block text-gray-700 font-bold mb-2">{{ public.content.form_email }}</label><input id="contact-email" type="email" name="email" maxlength="254" autocomplete="email" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label for="contact-phone" class="block text-gray-700 font-bold mb-2">{{ public.content.form_phone }}</label><input id="contact-phone" type="text" name="phone" maxlength="40" autocomplete="tel" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label for="contact-travellers" class="block text-gray-700 font-bold mb-2">{{ public.content.form_travellers }}</label><input id="contact-travellers" type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label for="contact-dates" class="block text-gray-700 font-bold mb-2">{{ public.content.form_dates }}</label><input id="contact-dates" type="text" name="travel_dates" maxlength="120" placeholder="{{ public.content.form_dates_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label for="contact-tour" class="block text-gray-700 font-bold mb-2">{{ public.content.form_tour }}</label><input id="contact-tour" type="text" name="tour_interest" maxlength="200" placeholder="{{ public.content.form_tour_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
                 </div>
-                <div class="mt-5 mb-6"><label class="block text-gray-700 font-bold mb-2">{{ public.content.form_message }}</label><textarea name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
+                <div class="mt-5 mb-6"><label for="contact-message" class="block text-gray-700 font-bold mb-2">{{ public.content.form_message }}</label><textarea id="contact-message" name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
                 <button type="submit" class="rb-button w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">{{ public.content.form_submit }}</button>
             </form>
         </div>

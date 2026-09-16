@@ -123,7 +123,7 @@
 </main>
 
 <div id="providerInquiryOverlay" class="rb-enquiry-overlay" aria-hidden="true">
-    <div class="rb-enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="providerInquiryTitle">
+    <div class="rb-enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="providerInquiryTitle" tabindex="-1">
         <div class="rb-enquiry-head">
             <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-weight:800;color:#bbf7d0;margin-bottom:3px">Marketplace enquiry</div><h2 id="providerInquiryTitle">Enquire with this provider</h2><div id="providerInquirySubtitle" style="color:#dcfce7;margin-top:4px">General provider enquiry</div></div>
             <button type="button" class="rb-enquiry-close" id="closeProviderInquiry" aria-label="Close enquiry">&times;</button>
@@ -134,9 +134,9 @@
                 <input type="hidden" name="provider_id" value="{{ provider.id }}">
 
                 <div class="rb-field" style="margin-bottom:20px">
-                    <label>What services are you interested in?</label>
+                    <span id="serviceMultiSelectPrompt" class="block text-sm font-bold text-slate-700 mb-2">What services are you interested in?</span>
                     <div class="rb-multiselect" id="serviceMultiSelect">
-                        <button type="button" class="rb-multiselect-toggle" id="serviceMultiSelectToggle"><span id="serviceMultiSelectLabel">General provider enquiry</span><span aria-hidden="true">▾</span></button>
+                        <button type="button" class="rb-multiselect-toggle" id="serviceMultiSelectToggle" aria-labelledby="serviceMultiSelectPrompt serviceMultiSelectLabel" aria-controls="serviceMultiSelectMenu" aria-expanded="false"><span id="serviceMultiSelectLabel">General provider enquiry</span><span aria-hidden="true">▾</span></button>
                         <div class="rb-multiselect-menu" id="serviceMultiSelectMenu">
                             {% for service in services %}
                             <label class="rb-service-option">
@@ -155,17 +155,17 @@
 
                 <div style="margin-bottom:10px"><h3 style="margin:0;color:#111827;font-size:18px;font-weight:800">Service requirements</h3><p id="providerRequirementHelp" style="margin:4px 0 0;color:#64748b;font-size:13px">General fields are shown. Select a service to reveal more relevant fields.</p></div>
                 <div class="rb-requirement-grid">
-                    <div class="rb-field" data-family-field="travel"><label>Travel / service date</label><input name="travel_date" maxlength="120" placeholder="e.g. 12 October 2026"></div>
-                    <div class="rb-field" data-family-field="return"><label>Return date</label><input name="return_date" maxlength="120" placeholder="e.g. 15 October 2026"></div>
-                    <div class="rb-field" data-family-field="people"><label>Travellers / people</label><input type="number" min="1" max="999" name="travellers"></div>
-                    <div class="rb-field" data-family-field="duration"><label>Duration</label><input name="duration" maxlength="120" placeholder="e.g. full day / 3 hours"></div>
-                    <div class="rb-field" data-family-field="transport"><label>Pickup location</label><input name="pickup_location" maxlength="300"></div>
-                    <div class="rb-field" data-family-field="transport"><label>Drop location</label><input name="drop_location" maxlength="300"></div>
-                    <div class="rb-field" data-family-field="stay"><label>Check-in</label><input name="check_in" maxlength="120"></div>
-                    <div class="rb-field" data-family-field="stay"><label>Check-out</label><input name="check_out" maxlength="120"></div>
-                    <div class="rb-field" data-family-field="stay"><label>Rooms</label><input type="number" min="1" max="100" name="rooms"></div>
-                    <div class="rb-field" data-family-field="stay"><label>Nights</label><input type="number" min="1" max="365" name="nights"></div>
-                    <div class="rb-field" data-family-field="guide"><label>Preferred language</label><input name="language" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="travel"><label for="provider-travel-date">Travel / service date</label><input id="provider-travel-date" name="travel_date" maxlength="120" placeholder="e.g. 12 October 2026"></div>
+                    <div class="rb-field" data-family-field="return"><label for="provider-return-date">Return date</label><input id="provider-return-date" name="return_date" maxlength="120" placeholder="e.g. 15 October 2026"></div>
+                    <div class="rb-field" data-family-field="people"><label for="provider-travellers">Travellers / people</label><input id="provider-travellers" type="number" min="1" max="999" name="travellers"></div>
+                    <div class="rb-field" data-family-field="duration"><label for="provider-duration">Duration</label><input id="provider-duration" name="duration" maxlength="120" placeholder="e.g. full day / 3 hours"></div>
+                    <div class="rb-field" data-family-field="transport"><label for="provider-pickup">Pickup location</label><input id="provider-pickup" name="pickup_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="transport"><label for="provider-drop">Drop location</label><input id="provider-drop" name="drop_location" maxlength="300"></div>
+                    <div class="rb-field" data-family-field="stay"><label for="provider-check-in">Check-in</label><input id="provider-check-in" name="check_in" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label for="provider-check-out">Check-out</label><input id="provider-check-out" name="check_out" maxlength="120"></div>
+                    <div class="rb-field" data-family-field="stay"><label for="provider-rooms">Rooms</label><input id="provider-rooms" type="number" min="1" max="100" name="rooms"></div>
+                    <div class="rb-field" data-family-field="stay"><label for="provider-nights">Nights</label><input id="provider-nights" type="number" min="1" max="365" name="nights"></div>
+                    <div class="rb-field" data-family-field="guide"><label for="provider-language">Preferred language</label><input id="provider-language" name="language" maxlength="120"></div>
                 </div>
 
                 <div class="rb-field" style="margin-top:20px"><label for="providerInquiryRequirements">Anything else we should know?</label><textarea id="providerInquiryRequirements" name="requirements" rows="5" maxlength="10000" placeholder="Tell us anything not covered above — special arrangements, accessibility needs, timing preferences, children, food preferences, equipment, route changes, or anything else."></textarea></div>
@@ -190,7 +190,12 @@
     const help=document.getElementById('providerRequirementHelp');
     const fields=[...document.querySelectorAll('[data-family-field]')];
     const checks=[...document.querySelectorAll('#serviceMultiSelectMenu input[type="checkbox"]')];
+    const dialog=overlay?.querySelector('[role="dialog"]');
+    let lastFocused=null;
 
+    function focusable(){
+        return dialog ? [...dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null) : [];
+    }
     function selected(){return checks.filter(c=>c.checked);}
     function family(slug){
         const s=(slug||'').toLowerCase();
@@ -213,14 +218,22 @@
         const visible=new Set(['travel','people','duration']); chosen.forEach(c=>family(c.dataset.categoryFamily).forEach(x=>visible.add(x)));
         fields.forEach(f=>f.style.display=visible.has(f.dataset.familyField)?'block':'none'); help.textContent='Fields below adapt to the services you selected. You can still add anything else in the requirements box.';
     }
-    function open(){overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('providerInquiryName')?.focus(),50);}
-    function close(){overlay.classList.remove('is-open');overlay.setAttribute('aria-hidden','true');document.body.style.overflow='';multi.classList.remove('open');}
+    function open(){lastFocused=document.activeElement;overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('providerInquiryName')?.focus(),50);}
+    function close(){overlay.classList.remove('is-open');overlay.setAttribute('aria-hidden','true');document.body.style.overflow='';multi.classList.remove('open');toggle?.setAttribute('aria-expanded','false');if(lastFocused&&typeof lastFocused.focus==='function')lastFocused.focus();}
     openBtn?.addEventListener('click',open); closeBtn?.addEventListener('click',close); cancelBtn?.addEventListener('click',close);
     overlay?.addEventListener('click',e=>{if(e.target===overlay)close();});
-    toggle?.addEventListener('click',()=>multi.classList.toggle('open'));
+    toggle?.addEventListener('click',()=>{const isOpen=multi.classList.toggle('open');toggle.setAttribute('aria-expanded',String(isOpen));});
     document.addEventListener('click',e=>{if(!multi.contains(e.target))multi.classList.remove('open');});
     checks.forEach(c=>c.addEventListener('change',refresh));
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('is-open'))close();});
+    document.addEventListener('keydown',e=>{
+        if(!overlay.classList.contains('is-open')) return;
+        if(e.key==='Escape'){close();return;}
+        if(e.key!=='Tab') return;
+        const items=focusable(); if(!items.length){e.preventDefault();dialog?.focus();return;}
+        const first=items[0], last=items[items.length-1];
+        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+        else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    });
     refresh();
 })();
 </script>

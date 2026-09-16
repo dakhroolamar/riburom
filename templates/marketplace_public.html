@@ -153,7 +153,7 @@
 
 <div id="marketplace-service-modal" class="marketplace-detail-modal fixed inset-0 z-50 hidden p-4 sm:p-6 overflow-y-auto" aria-hidden="true">
     <div class="min-h-full flex items-center justify-center">
-        <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="marketplace-service-modal-title" tabindex="-1">
             <div class="flex justify-between items-center gap-4 px-5 sm:px-7 py-4 border-b">
                 <span class="text-xs font-bold uppercase tracking-[0.14em] text-green-800">Service details</span>
                 <button type="button" data-marketplace-modal-close aria-label="Close" class="text-2xl text-gray-500">&times;</button>
@@ -179,6 +179,7 @@
     const normalize=v=>(v||'').toLowerCase().replace(/\s+/g,' ').trim();
     let mode='providers';
     let selectedProviderHref='';
+    let modalLastFocused=null;
 
     function refresh(){
         const term=normalize(search.value); const cat=normalize(category.value); let visible=0;
@@ -202,13 +203,22 @@
         refresh();
     }
 
-    function closeModal(){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('overflow-hidden'); }
+    function modalFocusable(){
+        return [...modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);
+    }
+    function closeModal(){
+        modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('overflow-hidden');
+        if(modalLastFocused&&typeof modalLastFocused.focus==='function') modalLastFocused.focus();
+    }
 
     function openService(id){
         const source=document.getElementById(`service-detail-${id}`); if(!source)return;
+        modalLastFocused=document.activeElement;
         const providerLink=source.querySelector('a'); selectedProviderHref=providerLink ? providerLink.getAttribute('href') : '';
         modalContent.innerHTML=source.innerHTML;
+        const title=modalContent.querySelector('h2'); if(title) title.id='marketplace-service-modal-title';
         modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); document.body.classList.add('overflow-hidden');
+        setTimeout(()=>modal.querySelector('[data-marketplace-modal-close]')?.focus(),0);
         modalContent.querySelectorAll('[data-gallery-thumb]').forEach(btn=>btn.addEventListener('click',()=>{
             const main=modalContent.querySelector(`[data-gallery-main="${id}"]`); if(!main)return;
             main.src=btn.dataset.galleryUrl;
@@ -226,7 +236,15 @@
     document.querySelectorAll('[data-service-open]').forEach(btn=>btn.addEventListener('click',()=>openService(btn.dataset.serviceOpen)));
     document.querySelectorAll('[data-marketplace-modal-close]').forEach(btn=>btn.addEventListener('click',closeModal));
     modal.addEventListener('click',event=>{if(event.target===modal)closeModal();});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.classList.contains('hidden'))closeModal();});
+    document.addEventListener('keydown',event=>{
+        if(modal.classList.contains('hidden')) return;
+        if(event.key==='Escape'){closeModal();return;}
+        if(event.key!=='Tab') return;
+        const items=modalFocusable(); if(!items.length)return;
+        const first=items[0], last=items[items.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    });
     refresh();
 })();
 </script>
