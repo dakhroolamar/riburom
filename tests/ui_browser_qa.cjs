@@ -107,11 +107,16 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
     const route = document.querySelector('.rb-water-route');
     const ctm = route.getScreenCTM();
     const length = route.getTotalLength();
-    for (let i = 0; i <= 120; i += 1) {
-      const p = route.getPointAtLength(length * i / 120);
+    const shields = [...document.querySelectorAll('[data-rb-water-shield]')].map(el => {
+      const r = el.getBoundingClientRect();
+      return {left:r.left - 20,right:r.right + 20,top:r.top - 20,bottom:r.bottom + 20};
+    });
+    for (let i = 0; i <= 180; i += 1) {
+      const p = route.getPointAtLength(length * i / 180);
       const x = ctm.a * p.x + ctm.c * p.y + ctm.e;
       const y = ctm.b * p.x + ctm.d * p.y + ctm.f;
-      if (y > 120 && y < innerHeight - 80) return {x,y};
+      const shielded = shields.some(r => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom);
+      if (y > 120 && y < innerHeight - 80 && !shielded) return {x,y};
     }
     return null;
   });
