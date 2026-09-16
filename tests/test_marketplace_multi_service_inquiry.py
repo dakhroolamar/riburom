@@ -102,7 +102,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
 
     def test_multiple_services_are_persisted_and_notified(self):
         provider, service_one, service_two = self._seed()
-        with patch('marketplace_inquiries.notify_new_enquiry') as notify:
+        with patch('marketplace_inquiries.dispatch_notification_outbox') as dispatch:
             response = self.client.post(
                 '/marketplace/inquiries',
                 data=self._payload(provider, service_ids=[str(service_one.id), str(service_two.id)]),
@@ -120,6 +120,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         self.assertIn(b'Your enquiry has been received', response.data)
         self.assertIn(b'Guided Walk + 1 more', response.data)
         self.assertIn(b'Continue browsing', response.data)
+        dispatch.assert_called_once()
 
 
 if __name__ == '__main__':

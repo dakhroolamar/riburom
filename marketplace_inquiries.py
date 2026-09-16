@@ -6,7 +6,7 @@ import re
 from flask import flash, redirect, render_template, request, url_for
 
 from marketplace_models import MarketplaceInquiry, Provider, Service
-from models import db
+from models import SiteSettings, db
 from notifications import dispatch_notification_outbox, enqueue_new_enquiry
 
 
@@ -68,7 +68,7 @@ def register_marketplace_inquiries(flask_app):
         return
     flask_app._ri_burom_marketplace_inquiries_registered = True
 
-    from app import get_site_settings, limiter
+    from app import limiter
 
     @flask_app.route('/marketplace/inquiries', methods=['POST'])
     @limiter.limit('5 per minute')
@@ -224,7 +224,7 @@ def register_marketplace_inquiries(flask_app):
             f'Inquiry ID: {inquiry.id}',
         ]
 
-        settings = get_site_settings()
+        settings = db.session.get(SiteSettings, 1)
         outbox_ids = enqueue_new_enquiry(
             {
                 'name': name,
@@ -232,7 +232,7 @@ def register_marketplace_inquiries(flask_app):
                 'phone': phone,
                 'tour_interest': f'Marketplace — {provider.name} — {", ".join(service_lines)}',
                 'message': '\n'.join(notification_lines),
-                'notification_email': settings.footer_email,
+                'notification_email': settings.footer_email if settings else '',
                 'notification_phone': provider.phone,
             },
             source_type='marketplace_inquiry',

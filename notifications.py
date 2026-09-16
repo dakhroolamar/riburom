@@ -268,13 +268,16 @@ def process_outbox_ids(outbox_ids):
     return summary
 
 
-def process_pending_notifications(limit=OUTBOX_RETRY_BATCH):
+def process_pending_notifications(limit=OUTBOX_RETRY_BATCH, exclude_ids=None):
+    query = NotificationOutbox.query.filter(
+        NotificationOutbox.status.in_(['PENDING', 'FAILED']),
+        NotificationOutbox.attempts < OUTBOX_MAX_ATTEMPTS,
+    )
+    excluded = [int(value) for value in (exclude_ids or []) if value is not None]
+    if excluded:
+        query = query.filter(NotificationOutbox.id.notin_(excluded))
     rows = (
-        NotificationOutbox.query
-        .filter(
-            NotificationOutbox.status.in_(['PENDING', 'FAILED']),
-            NotificationOutbox.attempts < OUTBOX_MAX_ATTEMPTS,
-        )
+        query
         .order_by(NotificationOutbox.created_at.asc(), NotificationOutbox.id.asc())
         .limit(max(1, min(int(limit), 100)))
         .all()
@@ -288,7 +291,7 @@ def _dispatch_worker(flask_app, outbox_ids):
         # Opportunistically retry a bounded backlog. This is not a replacement
         # for a scheduled worker, but it guarantees failed rows remain durable
         # and gives them another chance on later enquiry traffic.
-        backlog = process_pending_notifications()
+        backlog = process_pending_notifications(exclude_ids=outbox_ids)
         print(
             '[RI BUROM notifications] '
             f"requested_sent={summary['sent']} requested_failed={summary['failed']} "
