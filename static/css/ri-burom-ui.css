@@ -547,11 +547,11 @@ body.rb-public-site{
 }
 
 @media(max-width:900px){
-  .rb-nav-grid{display:flex;justify-content:space-between}
-  .rb-nav-grid.rb-logo-center{justify-content:space-between}
-  .rb-nav-grid.rb-logo-right{justify-content:space-between}
-  .rb-nav-links{display:none}
-  .rb-nav-menu-button{display:inline-flex}
+  body.rb-public-site .rb-nav-grid{display:flex;justify-content:space-between}
+  body.rb-public-site .rb-nav-grid.rb-logo-center{justify-content:space-between}
+  body.rb-public-site .rb-nav-grid.rb-logo-right{justify-content:space-between}
+  body.rb-public-site .rb-nav-links{display:none}
+  body.rb-public-site .rb-nav-menu-button{display:inline-flex}
   .rb-footer-grid{grid-template-columns:1.3fr .8fr 1fr}
   .rb-footer-qr{grid-column:1/-1;justify-self:start}
 }
