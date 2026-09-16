@@ -64,7 +64,7 @@ class SeoFoundationTests(unittest.TestCase):
         self.assertFalse(any('/admin' in url or '/workspace' in url or '/api/' in url for url in urls))
 
     def test_public_pages_have_canonical_and_social_metadata(self):
-        for path in ('/', '/about', '/all_tours'):
+        for path in ('/', '/about', '/all_tours', '/marketplace'):
             response = self.client.get(path)
             body = response.get_data(as_text=True)
             self.assertEqual(response.status_code, 200)
@@ -78,9 +78,9 @@ class SeoFoundationTests(unittest.TestCase):
 
     def test_homepage_has_expected_seo_metadata(self):
         body = self.client.get('/').get_data(as_text=True)
-        self.assertIn('<title>RI BUROM Tours &amp; Travels | Meghalaya Tours &amp; Experiences</title>', body)
+        self.assertIn('<title>Ri Burom Tours &amp; Travels | Meghalaya Experiences</title>', body)
         self.assertIn('name="description"', body)
-        self.assertIn('Meghalaya-rooted tours and travel experiences', body)
+        self.assertIn('Meghalaya-rooted journeys', body)
         self.assertIn('https://riburomtours.com/', body)
 
     def test_tour_page_has_unique_metadata_and_canonical(self):
