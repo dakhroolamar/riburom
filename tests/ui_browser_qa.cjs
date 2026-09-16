@@ -72,6 +72,10 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   const after = await page.locator('.rb-waterfall path').first().evaluate(el => getComputedStyle(el).strokeDashoffset);
   assert.notEqual(before, after);
   await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(() => {
+    const path = document.querySelector('.rb-waterfall path');
+    return path && getComputedStyle(path).strokeDashoffset === '0px';
+  });
   assert.equal(await page.locator('.rb-waterfall path').first().evaluate(el => getComputedStyle(el).strokeDashoffset), '0px');
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(output,'results.json'), JSON.stringify(results,null,2));
