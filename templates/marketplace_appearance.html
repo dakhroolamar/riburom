@@ -13,8 +13,9 @@
         .grid{display:grid;gap:14px}.grid-2{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.field input,.field select{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:9px;padding:10px;background:#fff;color:#111827}.field input[type=color]{padding:4px;height:42px}.field input[type=checkbox]{width:auto}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;padding:10px 14px;font-weight:800;text-decoration:none;cursor:pointer}.btn-green{background:#166534;color:#fff}.btn-gray{background:#e2e8f0;color:#0f172a}.info{padding:13px 15px;border-radius:10px;border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;margin-bottom:18px}.preview{border-radius:14px;padding:18px;background:var(--preview-bg);color:var(--preview-body);border:1px solid var(--preview-border)}.preview h2{margin:0 0 6px;color:var(--preview-heading);font-weight:var(--preview-heading-weight);font-style:var(--preview-heading-style)}.preview p{margin:0;color:var(--preview-body);font-weight:var(--preview-body-weight);font-style:var(--preview-body-style)}.modal-demo{margin-top:14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px}.modal-demo label{display:block;margin-bottom:6px;color:var(--preview-body);font-weight:700}.modal-demo input{width:100%;box-sizing:border-box;border:1px solid var(--preview-input-border);border-radius:9px;padding:11px;color:var(--preview-input-text);background:#fff;font-family:inherit}.modal-demo small{display:block;margin-top:6px;color:var(--preview-help)}
         @media(max-width:800px){.grid-2,.grid-3{grid-template-columns:1fr}.shell{padding:15px}}
     </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-workspace.css') }}">
 </head>
-<body>
+<body class="rb-workspace">
 <div class="shell">
 {% include '_flash.html' %}
 <div class="top">
