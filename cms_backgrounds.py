@@ -7,7 +7,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, url
 
 from app import add_audit, get_current_user, get_public_config, get_site_settings
 from models import db
-from storage import delete_media, save_image
+from storage import delete_media, imgsrc, save_image
 
 SECTION_BACKGROUND_LABELS = {
     'hero': 'Home — Hero', 'home_about': 'Home — About', 'home_tours': 'Home — Experiences',
@@ -47,7 +47,11 @@ def register_section_backgrounds(flask_app):
         cfg = get_public_config(settings)
         sections = cfg.get('theme', {}).get('sections') or {}
         return jsonify({
-            'backgrounds': _get_backgrounds(settings),
+            'backgrounds': {
+                key: imgsrc(value)
+                for key, value in _get_backgrounds(settings).items()
+                if value
+            },
             'styles': {
                 key: {
                     'overlay_color': value.get('overlay_color', '#000000'),

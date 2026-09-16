@@ -37,3 +37,12 @@
         <p>{{ site_settings.footer_copyright }}</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    if (!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+    }, { once: true });
+})();
+</script>

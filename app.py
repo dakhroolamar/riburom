@@ -834,6 +834,14 @@ def send_message():
     return redirect('/#contact')
 
 
+@app.route('/sw.js')
+def service_worker():
+    response = send_from_directory('static', 'sw.js')
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
 @app.route('/robots.txt')
 def robots_txt():
     return send_from_directory('static', 'robots.txt') if os.path.exists(os.path.join(BASE_DIR, 'static', 'robots.txt')) else ("User-agent: *\nAllow: /\n", 200, {'Content-Type': 'text/plain'})

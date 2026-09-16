@@ -13,11 +13,6 @@
     <meta property="og:type" content="website">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#166534">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(() => {}));
-        }
-    </script>
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=8" defer></script>
     {% include '_public_theme.html' %}
 </head>
