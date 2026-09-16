@@ -470,17 +470,16 @@ def _run_legacy_migrations():
             db.session.commit()
 
 def _create_initial_owner_if_missing():
-    """Create the configured bootstrap Owner only when the username is absent.
+    """Create the configured bootstrap Owner only for an empty user store.
 
-    Existing accounts are deliberately left untouched. In particular, deploys
-    must never reactivate, re-promote, rename, or change the email/password of
-    an account that an administrator has already managed.
+    Once any user exists, deploys must never manufacture a new privileged
+    account merely because the original bootstrap username was renamed,
+    deactivated, demoted, or otherwise managed by an administrator.
     """
     if not initial_password_hash or not inspect(db.engine).has_table('users'):
         return False
 
-    owner = User.query.filter_by(username=initial_owner_username).first()
-    if owner is not None:
+    if User.query.first() is not None:
         return False
 
     try:
@@ -1609,4 +1608,8 @@ def server_error(e):
 
 
 if __name__ == '__main__':
+    # Preserve the convenient first-run SQLite bootstrap for explicit local
+    # development without reintroducing persistent-state mutations on import.
+    if IS_DEVELOPMENT:
+        run_deploy_bootstrap()
     app.run(debug=IS_DEVELOPMENT)
