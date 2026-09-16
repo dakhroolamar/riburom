@@ -1,8 +1,10 @@
 """Service gallery management routes and workspace UI injection."""
 
 from flask import abort, flash, redirect, render_template, request, url_for
+from sqlalchemy.orm import selectinload
 
 from app import add_audit, get_current_user
+from media_lifecycle import delete_marketplace_media_if_unreferenced
 from marketplace_models import Service, ServiceImage
 from models import db
 from storage import delete_media, save_image
@@ -69,16 +71,22 @@ def register_marketplace_service_media(flask_app, manage_required):
 
         image_url = image.image_url
         was_primary = service.image_url == image_url
+        replacement = None
+        if was_primary:
+            replacement = next(
+                (candidate for candidate in service.images if candidate.id != image.id),
+                None,
+            )
+
         db.session.delete(image)
         db.session.flush()
 
         if was_primary:
-            replacement = service.images[0] if service.images else None
             service.image_url = replacement.image_url if replacement else None
 
         add_audit('deleted', 'service_image', image.id, f'{service.name}: {image_url}')
         db.session.commit()
-        delete_media(image_url)
+        delete_marketplace_media_if_unreferenced(image_url)
 
         flash('Service image removed.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -95,7 +103,16 @@ def register_marketplace_service_media(flask_app, manage_required):
             return response
 
         try:
-            services = Service.query.order_by(Service.name.asc(), Service.id.asc()).all()
+            services = (
+                Service.query
+                .options(
+                    selectinload(Service.images),
+                    selectinload(Service.provider),
+                    selectinload(Service.service_category),
+                )
+                .order_by(Service.name.asc(), Service.id.asc())
+                .all()
+            )
             fragment = render_template('marketplace_service_gallery_fragment.html', services=services)
             body = response.get_data(as_text=True)
             marker = '</body>'

@@ -6,6 +6,7 @@ import unicodedata
 from flask import abort, flash, redirect, request, url_for
 
 from app import add_audit
+from media_lifecycle import delete_marketplace_media_if_unreferenced
 from marketplace_models import (
     PROVIDER_STATUSES,
     SERVICE_STATUSES,
@@ -243,7 +244,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
                 delete_media(new_image_url)
             raise
         if new_image_url and old_image_url and old_image_url != new_image_url:
-            delete_media(old_image_url)
+            delete_marketplace_media_if_unreferenced(old_image_url)
 
         flash(f'Provider "{provider.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -265,7 +266,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.delete(provider)
         add_audit('deleted', 'provider', id, name)
         db.session.commit()
-        delete_media(old_image_url)
+        delete_marketplace_media_if_unreferenced(old_image_url)
 
         flash(f'Provider "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -531,7 +532,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
                 delete_media(new_image_url)
             raise
         if new_image_url and old_image_url and old_image_url != new_image_url:
-            delete_media(old_image_url)
+            delete_marketplace_media_if_unreferenced(old_image_url)
 
         flash(f'Service "{service.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -553,7 +554,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         add_audit('deleted', 'service', id, name)
         db.session.commit()
         for media_url in media_urls:
-            delete_media(media_url)
+            delete_marketplace_media_if_unreferenced(media_url)
 
         flash(f'Service "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))
