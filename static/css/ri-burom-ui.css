@@ -313,3 +313,261 @@ body.rb-public-site{
 @media(prefers-reduced-motion:reduce){
   .rb-card{transition:none}
 }
+
+
+/* Shared public navigation */
+.rb-site-nav{
+  position:sticky;
+  top:0;
+  z-index:50;
+  padding:0;
+  background:color-mix(in srgb,var(--rb-header-bg,#fff) 94%,transparent) !important;
+}
+.rb-nav-bar{
+  min-height:72px;
+  width:min(calc(100% - 2rem),80rem);
+  margin-inline:auto;
+}
+.rb-nav-grid{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:1rem;
+}
+.rb-nav-grid .rb-brand{grid-column:1;justify-self:start}
+.rb-nav-grid.rb-logo-center .rb-brand{grid-column:2;justify-self:center}
+.rb-nav-grid.rb-logo-right .rb-brand{grid-column:3;justify-self:end}
+.rb-nav-grid .rb-nav-links{grid-column:3;justify-self:end}
+.rb-nav-grid.rb-logo-right .rb-nav-links{grid-column:1;justify-self:start}
+.rb-nav-grid.rb-logo-center .rb-nav-links{grid-column:3;justify-self:end}
+
+.rb-brand{
+  display:inline-flex;
+  align-items:center;
+  min-width:0;
+  padding-block:.55rem;
+  text-decoration:none;
+}
+.rb-nav-links{
+  display:flex;
+  align-items:center;
+  gap:.2rem;
+}
+.rb-nav-link{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  min-height:42px;
+  padding:.55rem .72rem;
+  color:var(--rb-link-color,var(--rb-primary));
+  border-radius:.65rem;
+  font-size:.91rem;
+  font-weight:750;
+  text-decoration:none;
+  transition:background-color .18s ease,color .18s ease;
+}
+.rb-nav-link:hover{
+  background:color-mix(in srgb,var(--rb-primary) 7%,transparent);
+}
+.rb-nav-link::after{
+  content:"";
+  position:absolute;
+  left:.72rem;
+  right:.72rem;
+  bottom:.35rem;
+  height:1.5px;
+  border-radius:999px;
+  background:var(--rb-primary);
+  transform:scaleX(0);
+  transform-origin:center;
+  transition:transform .2s ease;
+}
+.rb-nav-link:hover::after{transform:scaleX(1)}
+.rb-nav-login{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  margin-left:.35rem;
+  padding:.55rem .9rem;
+  border-radius:.7rem;
+  background:var(--rb-primary);
+  color:#fff;
+  font-size:.9rem;
+  font-weight:800;
+  text-decoration:none;
+}
+.rb-nav-menu-button{
+  display:none;
+  align-items:center;
+  gap:.55rem;
+  min-height:42px;
+  padding:.55rem .75rem;
+  border:1px solid color-mix(in srgb,var(--rb-primary) 24%,transparent);
+  border-radius:.7rem;
+  background:#fff;
+  color:var(--rb-primary);
+  font-weight:800;
+}
+.rb-nav-menu-icon{
+  width:18px;
+  height:12px;
+  position:relative;
+}
+.rb-nav-menu-icon::before,
+.rb-nav-menu-icon::after,
+.rb-nav-menu-icon span{
+  content:"";
+  position:absolute;
+  left:0;
+  width:18px;
+  height:1.5px;
+  border-radius:999px;
+  background:currentColor;
+  transition:transform .2s ease,opacity .2s ease;
+}
+.rb-nav-menu-icon::before{top:0}
+.rb-nav-menu-icon span{top:5px}
+.rb-nav-menu-icon::after{top:10px}
+.rb-mobile-menu{
+  display:none;
+  width:min(calc(100% - 2rem),80rem);
+  margin:0 auto .75rem;
+  padding:.45rem;
+  border:1px solid var(--rb-stone-200);
+  border-radius:var(--rb-radius-lg);
+  background:#fff;
+  box-shadow:var(--rb-shadow-md);
+}
+.rb-mobile-menu.is-open{display:block}
+.rb-mobile-menu a{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  padding:.65rem .8rem;
+  border-radius:.65rem;
+  color:var(--rb-stone-800);
+  font-weight:750;
+  text-decoration:none;
+}
+.rb-mobile-menu a:hover{background:var(--rb-stone-50)}
+.rb-mobile-menu .rb-nav-login{
+  justify-content:center;
+  margin:.35rem 0 0;
+  color:#fff;
+}
+
+/* Shared public footer */
+.rb-footer{
+  position:relative;
+  overflow:hidden;
+}
+.rb-footer-grid{
+  width:min(calc(100% - 2rem),80rem);
+  margin-inline:auto;
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(0,.8fr) minmax(0,1.1fr) auto;
+  gap:clamp(2rem,4vw,4rem);
+  align-items:start;
+}
+.rb-footer-brand img{
+  max-width:180px;
+  max-height:64px;
+  margin-bottom:1rem;
+  object-fit:contain;
+  filter:brightness(0) invert(1);
+}
+.rb-footer-brand p{
+  max-width:23rem;
+  margin:0;
+  color:var(--rb-footer-body,#fef3c7);
+  line-height:1.7;
+}
+.rb-footer-title{
+  margin:0 0 1rem;
+  color:var(--rb-footer-heading,#fff) !important;
+  font-size:.78rem !important;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.rb-footer-links{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:.65rem;
+}
+.rb-footer-links a{
+  color:var(--rb-footer-body,#fef3c7);
+  text-decoration:none;
+}
+.rb-footer-links a:hover{color:#fff}
+.rb-footer-contact{
+  display:grid;
+  gap:.9rem;
+}
+.rb-footer-contact-item{
+  display:grid;
+  grid-template-columns:4.6rem 1fr;
+  gap:.75rem;
+  color:var(--rb-footer-body,#fef3c7);
+  line-height:1.5;
+}
+.rb-footer-contact-item strong{
+  color:rgba(255,255,255,.68);
+  font-size:.7rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.rb-footer-contact-item a{color:inherit;text-decoration:none}
+.rb-footer-qr{
+  min-width:170px;
+  padding:1rem;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--rb-radius-lg);
+  background:rgba(255,255,255,.06);
+  text-align:center;
+}
+.rb-footer-qr img{
+  width:132px;
+  height:132px;
+  margin:.7rem auto 0;
+  padding:.4rem;
+  border-radius:.65rem;
+  background:#fff;
+}
+.rb-footer-bottom{
+  width:min(calc(100% - 2rem),80rem);
+  margin:2.2rem auto 0;
+  padding-top:1.25rem;
+  border-top:1px solid rgba(255,255,255,.14);
+  color:color-mix(in srgb,var(--rb-footer-body,#fef3c7) 78%,transparent);
+  font-size:.82rem;
+}
+
+@media(max-width:900px){
+  .rb-nav-grid{display:flex;justify-content:space-between}
+  .rb-nav-grid.rb-logo-center{justify-content:space-between}
+  .rb-nav-grid.rb-logo-right{justify-content:space-between}
+  .rb-nav-links{display:none}
+  .rb-nav-menu-button{display:inline-flex}
+  .rb-footer-grid{grid-template-columns:1.3fr .8fr 1fr}
+  .rb-footer-qr{grid-column:1/-1;justify-self:start}
+}
+
+@media(max-width:640px){
+  .rb-nav-bar{width:min(calc(100% - 1.25rem),80rem);min-height:68px}
+  .rb-brand img{max-height:46px !important}
+  .rb-nav-menu-button{font-size:.82rem}
+  .rb-mobile-menu{width:min(calc(100% - 1.25rem),80rem)}
+  .rb-footer-grid{
+    width:min(calc(100% - 1.5rem),80rem);
+    grid-template-columns:1fr 1fr;
+    gap:2rem 1.25rem;
+  }
+  .rb-footer-brand{grid-column:1/-1}
+  .rb-footer-contact{grid-column:1/-1}
+  .rb-footer-qr{grid-column:1/-1;min-width:0;width:100%;max-width:240px}
+  .rb-footer-bottom{width:min(calc(100% - 1.5rem),80rem);margin-top:1.75rem}
+}
