@@ -7,6 +7,15 @@ class UiDesignSystemTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         theme = (root / 'templates' / '_public_theme.html').read_text(encoding='utf-8')
         self.assertIn("css/ri-burom-ui.css", theme)
+        self.assertIn("css/ri-burom-motion.css", theme)
+        self.assertIn("data-rb-motion-css", theme)
+
+    def test_nav_no_longer_embeds_duplicate_motion_styles(self):
+        root = Path(__file__).resolve().parents[1]
+        nav = (root / 'templates' / '_nav.html').read_text(encoding='utf-8')
+        self.assertFalse(nav.lstrip().startswith('<style>'))
+        self.assertIn('rb-loader-core', nav)
+        self.assertNotIn('rb-loader-done', nav)
 
     def test_design_system_exposes_core_tokens_and_components(self):
         root = Path(__file__).resolve().parents[1]
