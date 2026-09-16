@@ -65,10 +65,14 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
                 if service_id in inquiry.selected_service_ids
             ]
             total = len(matched)
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            page = min(page, total_pages)
             start = (page - 1) * per_page
             inquiries = matched[start:start + per_page]
         else:
             total = inquiry_query.count()
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            page = min(page, total_pages)
             inquiries = (
                 ordered_query
                 .offset((page - 1) * per_page)
@@ -83,10 +87,6 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
         )
         count_map = dict(count_rows)
         counts = {item_status: count_map.get(item_status, 0) for item_status in _STATUS_ORDER}
-        total_pages = max(1, (total + per_page - 1) // per_page)
-        if page > total_pages:
-            page = total_pages
-
         return render_template(
             'marketplace_inquiries.html',
             inquiries=inquiries,
