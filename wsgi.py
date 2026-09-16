@@ -3,7 +3,13 @@
 from flask import redirect, url_for
 
 from app import app
-from cms_routes import register_workspace, marketplace_view_required, marketplace_manage_required
+from cms_routes import (
+    register_workspace,
+    marketplace_view_required,
+    marketplace_manage_required,
+    marketplace_inquiry_view_required,
+    marketplace_inquiry_manage_required,
+)
 from cms_typography import register_typography
 from cms_backgrounds import register_section_backgrounds
 from marketplace_admin import register_marketplace_admin
@@ -21,7 +27,11 @@ register_section_backgrounds(app)
 register_marketplace_admin(app, marketplace_view_required, marketplace_manage_required)
 register_marketplace_service_media(app, marketplace_manage_required)
 register_marketplace_inquiries(app)
-register_marketplace_inquiry_admin(app, marketplace_view_required, marketplace_manage_required)
+register_marketplace_inquiry_admin(
+    app,
+    marketplace_inquiry_view_required,
+    marketplace_inquiry_manage_required,
+)
 register_marketplace_appearance(app)
 register_notifications(app)
 register_seo(app)

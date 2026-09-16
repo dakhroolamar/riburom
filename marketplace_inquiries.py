@@ -79,7 +79,7 @@ def register_marketplace_inquiries(flask_app):
             provider_id = int(provider_id_raw)
         except (TypeError, ValueError):
             flash('Please select a valid marketplace provider.', 'error')
-            return redirect(request.referrer or url_for('marketplace_public_index'))
+            return redirect(url_for('marketplace_public_index'))
 
         provider = Provider.query.filter(
             Provider.id == provider_id,
@@ -88,7 +88,7 @@ def register_marketplace_inquiries(flask_app):
         ).first()
         if provider is None:
             flash('That marketplace provider is no longer available.', 'error')
-            return redirect(request.referrer or url_for('marketplace_public_index'))
+            return redirect(url_for('marketplace_public_index'))
 
         selected_raw = request.form.getlist('service_ids')
         selected_ids = []

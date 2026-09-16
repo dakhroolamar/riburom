@@ -22,7 +22,9 @@ ROLE_PERMISSIONS = {
     'owner': {
         'view_dashboard', 'manage_users', 'manage_tours', 'manage_media',
         'manage_about', 'manage_team', 'view_messages', 'manage_messages',
-        'view_audit_log', 'manage_structure', 'view_customer_analytics', 'view_marketplace', 'manage_marketplace',
+        'view_audit_log', 'manage_structure', 'view_customer_analytics',
+        'view_marketplace', 'manage_marketplace',
+        'view_marketplace_inquiries', 'manage_marketplace_inquiries',
     },
     'content_manager': {
         'view_dashboard', 'manage_tours', 'manage_media', 'manage_about',
@@ -30,6 +32,7 @@ ROLE_PERMISSIONS = {
     },
     'enquiries': {
         'view_dashboard', 'view_messages', 'manage_messages',
+        'view_marketplace_inquiries', 'manage_marketplace_inquiries',
     },
 }
 ROLE_LABELS = {

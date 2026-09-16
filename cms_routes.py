@@ -125,6 +125,10 @@ cms_structure_required = _access_required('manage_structure')
 cms_access_required = _access_required('manage_about', 'manage_media', 'manage_structure')
 marketplace_view_required = _access_required('view_marketplace', 'manage_marketplace')
 marketplace_manage_required = _access_required('manage_marketplace')
+marketplace_inquiry_view_required = _access_required(
+    'view_marketplace_inquiries', 'manage_marketplace_inquiries'
+)
+marketplace_inquiry_manage_required = _access_required('manage_marketplace_inquiries')
 
 
 def _get_context(area):
