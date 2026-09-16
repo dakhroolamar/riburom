@@ -55,6 +55,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.client = self.app.test_client()
         with self.client.session_transaction() as session:
             session['user_id'] = self.owner.id
+            session['session_version'] = self.owner.session_version
 
     @staticmethod
     def _valid_mp4(seed=b'video'):

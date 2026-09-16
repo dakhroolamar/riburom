@@ -44,9 +44,11 @@ class PackageCompatibilityTests(unittest.TestCase):
             pass
 
     def setUp(self):
+        user = self.db.session.get(self.User, self.user_id)
         with self.client.session_transaction() as session:
             session.clear()
             session['user_id'] = self.user_id
+            session['session_version'] = user.session_version
 
     def tearDown(self):
         self.db.session.rollback()

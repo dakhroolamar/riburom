@@ -82,6 +82,7 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session.clear()
             session['user_id'] = user.id
+            session['session_version'] = user.session_version
 
     def _manager(self):
         user = self._create_user('marketplace-manager', ['manage_marketplace'])
