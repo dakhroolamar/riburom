@@ -114,19 +114,13 @@ def _service_target(id):
     return service
 
 
-def _save_marketplace_image(file_storage, current_url=None):
+def _save_marketplace_image(file_storage):
     if not file_storage or not file_storage.filename:
-        return current_url
-
+        return None
     try:
-        new_url = save_image(file_storage)
+        return save_image(file_storage)
     except ValueError as exc:
         raise ValueError(str(exc)) from exc
-
-    if current_url and new_url != current_url:
-        delete_media(current_url)
-
-    return new_url
 
 def register_marketplace_admin(flask_app, view_required, manage_required):
     if getattr(flask_app, '_ri_burom_marketplace_admin_registered', False):
@@ -147,12 +141,6 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         description = (request.form.get('description') or '').strip() or None
         status = (request.form.get('status') or 'DRAFT').strip().upper()
 
-        try:
-            image_url = _save_marketplace_image(request.files.get('image'))
-        except ValueError as exc:
-            flash(str(exc), 'error')
-            return redirect(url_for('workspace_marketplace'))
-
         if email and (len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)):
             flash('Please provide a valid provider email address.', 'error')
             return redirect(url_for('workspace_marketplace'))
@@ -163,6 +151,12 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
 
         if status not in PROVIDER_STATUSES:
             flash('Invalid provider status.', 'error')
+            return redirect(url_for('workspace_marketplace'))
+
+        try:
+            image_url = _save_marketplace_image(request.files.get('image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
             return redirect(url_for('workspace_marketplace'))
 
         provider = Provider(
@@ -200,15 +194,6 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         description = (request.form.get('description') or '').strip() or None
         status = (request.form.get('status') or 'DRAFT').strip().upper()
 
-        try:
-            image_url = _save_marketplace_image(
-                request.files.get('image'),
-                provider.image_url,
-            )
-        except ValueError as exc:
-            flash(str(exc), 'error')
-            return redirect(url_for('workspace_marketplace'))
-
         if email and (len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email)):
             flash('Please provide a valid provider email address.', 'error')
             return redirect(url_for('workspace_marketplace'))
@@ -221,6 +206,13 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             flash('Invalid provider status.', 'error')
             return redirect(url_for('workspace_marketplace'))
 
+        old_image_url = provider.image_url
+        try:
+            new_image_url = _save_marketplace_image(request.files.get('image'))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('workspace_marketplace'))
+
         provider.name = name
         provider.slug = _unique_slug(
             Provider,
@@ -228,7 +220,8 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             current_id=provider.id,
         )
         provider.description = description
-        provider.image_url = image_url
+        if new_image_url:
+            provider.image_url = new_image_url
         provider.email = email
         provider.phone = phone
         provider.status = status
@@ -236,7 +229,15 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
 
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('updated', 'provider', provider.id, provider.name)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if new_image_url:
+                delete_media(new_image_url)
+            raise
+        if new_image_url and old_image_url and old_image_url != new_image_url:
+            delete_media(old_image_url)
 
         flash(f'Provider "{provider.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -251,12 +252,14 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             return redirect(url_for('workspace_marketplace'))
 
         name = provider.name
+        old_image_url = provider.image_url
         db.session.query(ProviderTypeAssignment).filter_by(
             provider_id=provider.id
         ).delete(synchronize_session=False)
         db.session.delete(provider)
         add_audit('deleted', 'provider', id, name)
         db.session.commit()
+        delete_media(old_image_url)
 
         flash(f'Provider "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -485,11 +488,9 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             flash('Invalid service status.', 'error')
             return redirect(url_for('workspace_marketplace'))
 
+        old_image_url = service.image_url
         try:
-            image_url = _save_marketplace_image(
-                request.files.get('image'),
-                service.image_url,
-            )
+            new_image_url = _save_marketplace_image(request.files.get('image'))
         except ValueError as exc:
             flash(str(exc), 'error')
             return redirect(url_for('workspace_marketplace'))
@@ -505,11 +506,20 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         )
         service.description = (request.form.get('description') or '').strip() or None
         service.status = status
-        service.image_url = image_url
+        if new_image_url:
+            service.image_url = new_image_url
         service.is_active = bool(request.form.get('is_active'))
 
         add_audit('updated', 'service', service.id, f'{provider.name}: {service.name}')
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if new_image_url:
+                delete_media(new_image_url)
+            raise
+        if new_image_url and old_image_url and old_image_url != new_image_url:
+            delete_media(old_image_url)
 
         flash(f'Service "{service.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -525,10 +535,13 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             return redirect(url_for('workspace_marketplace'))
 
         name = service.name
+        media_urls = {value for value in [service.image_url, *[image.image_url for image in service.images]] if value}
         db.session.delete(service)
         db.session.flush()
         add_audit('deleted', 'service', id, name)
         db.session.commit()
+        for media_url in media_urls:
+            delete_media(media_url)
 
         flash(f'Service "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))
