@@ -138,7 +138,9 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   }
   assert.ok(interactionPoint, 'no visible unshielded stream point found for pointer QA');
   await page.mouse.move(interactionPoint.x, interactionPoint.y);
-  await page.waitForTimeout(180);
+  await page.waitForFunction(() =>
+    document.querySelector('[data-rb-waterfall]')?.dataset.waterInteractive === 'true'
+  );
   assert.equal(await journey.getAttribute('data-water-interactive'), 'true');
 
   await page.emulateMedia({reducedMotion:'reduce'});
