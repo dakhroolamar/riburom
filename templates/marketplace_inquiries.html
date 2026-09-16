@@ -54,7 +54,7 @@
 </section>
 
 <section class="panel">
-    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div><strong>{{ inquiries|length }}</strong> matching enquiry{% if inquiries|length != 1 %}s{% endif %}</div><span class="muted">Newest first</span></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><div><strong>{{ total }}</strong> matching enquiry{% if total != 1 %}s{% endif %}</div><span class="muted">Newest first · Page {{ page }} of {{ total_pages }}</span></div>
     {% if inquiries %}
     <div class="table-wrap">
         <table class="table">
@@ -86,6 +86,12 @@
     </div>
     {% else %}
     <div class="empty"><strong>No marketplace enquiries found.</strong><div>Try clearing the filters or wait for a new request.</div></div>
+    {% endif %}
+    {% if total_pages > 1 %}
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+        {% if page > 1 %}<a class="btn btn-gray" href="{{ url_for('workspace_marketplace_inquiries', page=page-1, status=current_status, provider_id=current_provider_id, service_id=current_service_id, q=current_query) }}">Previous</a>{% endif %}
+        {% if page < total_pages %}<a class="btn btn-gray" href="{{ url_for('workspace_marketplace_inquiries', page=page+1, status=current_status, provider_id=current_provider_id, service_id=current_service_id, q=current_query) }}">Next</a>{% endif %}
+    </div>
     {% endif %}
 </section>
 </div>

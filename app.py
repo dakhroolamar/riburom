@@ -14,8 +14,10 @@ from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, send_from_directory, abort, has_request_context, Response, g,
+    stream_with_context,
 )
 from sqlalchemy import inspect, func, desc, text
+from sqlalchemy.orm import selectinload
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -34,7 +36,7 @@ from storage import (
     save_image, save_pdf, save_generated_png, delete_media, allowed_file, imgsrc,
     STORAGE_BACKEND, ALLOWED_IMAGE_EXTENSIONS,
 )
-from marketplace_models import Provider, Service
+from marketplace_models import Provider, ProviderTypeAssignment, Service
 
 app = Flask(__name__)
 TRUST_PROXY_HEADERS = (
@@ -701,18 +703,29 @@ def csv_safe(value):
 @permission_required('view_customer_analytics')
 def export_customer_inquiries():
     import csv
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Date', 'Name', 'Email', 'Phone', 'Travel Dates', 'Travellers', 'Tour / Experience', 'Message', 'Read'])
-    for msg in Message.query.order_by(Message.created_at.desc()).all():
-        writer.writerow([
-            msg.created_at.strftime('%Y-%m-%d %H:%M:%S') if msg.created_at else '',
-            csv_safe(msg.name), csv_safe(msg.email), csv_safe(msg.phone), csv_safe(msg.travel_dates),
-            csv_safe(msg.travellers), csv_safe(msg.tour_interest), csv_safe(msg.message),
-            'Yes' if msg.is_read else 'No',
-        ])
+
+    def generate_rows():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Date', 'Name', 'Email', 'Phone', 'Travel Dates', 'Travellers', 'Tour / Experience', 'Message', 'Read'])
+        yield '\ufeff' + output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        query = Message.query.order_by(Message.created_at.desc()).yield_per(250)
+        for msg in query:
+            writer.writerow([
+                msg.created_at.strftime('%Y-%m-%d %H:%M:%S') if msg.created_at else '',
+                csv_safe(msg.name), csv_safe(msg.email), csv_safe(msg.phone), csv_safe(msg.travel_dates),
+                csv_safe(msg.travellers), csv_safe(msg.tour_interest), csv_safe(msg.message),
+                'Yes' if msg.is_read else 'No',
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
     return Response(
-        '\ufeff' + output.getvalue(),
+        stream_with_context(generate_rows()),
         mimetype='text/csv',
         headers={'Content-Disposition': 'attachment; filename="ri-burom-customer-inquiries.csv"'},
     )
@@ -723,7 +736,13 @@ PUBLIC_SERVICE_STATUSES = {'PUBLISHED', 'ACTIVE'}
 
 
 def _public_provider_query():
-    return Provider.query.filter(
+    return Provider.query.options(
+        selectinload(Provider.services).selectinload(Service.images),
+        selectinload(Provider.services).selectinload(Service.service_category),
+        selectinload(Provider.provider_type_assignments).selectinload(
+            ProviderTypeAssignment.provider_type
+        ),
+    ).filter(
         Provider.is_active.is_(True),
         Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
     )

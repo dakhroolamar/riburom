@@ -1,7 +1,7 @@
 """Workspace inbox for independent RI BUROM marketplace enquiries."""
 
 from flask import abort, flash, redirect, render_template, request, url_for
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app import add_audit
 from marketplace_models import INQUIRY_STATUSES, MarketplaceInquiry, Provider, Service
@@ -48,21 +48,44 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
                 MarketplaceInquiry.requirements.ilike(pattern),
             ))
 
-        inquiries = inquiry_query.order_by(
+        page = max(request.args.get('page', default=1, type=int) or 1, 1)
+        per_page = 50
+        ordered_query = inquiry_query.order_by(
             MarketplaceInquiry.created_at.desc(),
             MarketplaceInquiry.id.desc(),
-        ).all()
+        )
+
         if service_id:
-            inquiries = [
+            # selected_services_json is retained for backward compatibility.
+            # Filtering this legacy denormalized field still needs application
+            # filtering, but only this less-common filter takes that path.
+            matched = [
                 inquiry
-                for inquiry in inquiries
+                for inquiry in ordered_query.all()
                 if service_id in inquiry.selected_service_ids
             ]
+            total = len(matched)
+            start = (page - 1) * per_page
+            inquiries = matched[start:start + per_page]
+        else:
+            total = inquiry_query.count()
+            inquiries = (
+                ordered_query
+                .offset((page - 1) * per_page)
+                .limit(per_page)
+                .all()
+            )
 
-        counts = {
-            item_status: MarketplaceInquiry.query.filter_by(status=item_status).count()
-            for item_status in _STATUS_ORDER
-        }
+        count_rows = (
+            db.session.query(MarketplaceInquiry.status, func.count(MarketplaceInquiry.id))
+            .group_by(MarketplaceInquiry.status)
+            .all()
+        )
+        count_map = dict(count_rows)
+        counts = {item_status: count_map.get(item_status, 0) for item_status in _STATUS_ORDER}
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
 
         return render_template(
             'marketplace_inquiries.html',
@@ -75,6 +98,9 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
             current_provider_id=provider_id,
             current_service_id=service_id,
             current_query=query,
+            total=total,
+            page=page,
+            total_pages=total_pages,
         )
 
     @flask_app.route('/workspace/marketplace/inquiries/<int:id>')
