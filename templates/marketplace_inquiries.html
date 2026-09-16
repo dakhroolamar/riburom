@@ -64,7 +64,16 @@
             <tr>
                 <td><strong>#{{ inquiry.id }}</strong><div class="muted">{{ inquiry.email }}</div></td>
                 <td>{{ inquiry.provider_name }}</td>
-                <td>{{ inquiry.service_name }}<div class="muted">{{ inquiry.category_name }}</div></td>
+                <td>
+                    {% if inquiry.selected_services %}
+                        {% for service in inquiry.selected_services %}
+                            <div>{{ service.name }}</div>
+                        {% endfor %}
+                    {% else %}
+                        {{ inquiry.service_name }}
+                    {% endif %}
+                    <div class="muted">{{ inquiry.category_name }}</div>
+                </td>
                 <td>{{ inquiry.name }}{% if inquiry.phone %}<div class="muted">{{ inquiry.phone }}</div>{% endif %}</td>
                 <td>{% if inquiry.travel_date %}{{ inquiry.travel_date }}{% elif inquiry.check_in %}{{ inquiry.check_in }}{% else %}—{% endif %}{% if inquiry.travellers %}<div class="muted">{{ inquiry.travellers }} traveller{% if inquiry.travellers != 1 %}s{% endif %}</div>{% endif %}</td>
                 <td><span class="pill status-{{ inquiry.status }}">{{ inquiry.status.replace('_',' ') }}</span></td>

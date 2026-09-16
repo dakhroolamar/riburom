@@ -35,8 +35,6 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
             inquiry_query = inquiry_query.filter(MarketplaceInquiry.status == status)
         if provider_id:
             inquiry_query = inquiry_query.filter(MarketplaceInquiry.provider_id == provider_id)
-        if service_id:
-            inquiry_query = inquiry_query.filter(MarketplaceInquiry.service_id == service_id)
         if query:
             pattern = f'%{query}%'
             inquiry_query = inquiry_query.filter(or_(
@@ -45,6 +43,7 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
                 MarketplaceInquiry.phone.ilike(pattern),
                 MarketplaceInquiry.provider_name.ilike(pattern),
                 MarketplaceInquiry.service_name.ilike(pattern),
+                MarketplaceInquiry.selected_services_json.ilike(pattern),
                 MarketplaceInquiry.category_name.ilike(pattern),
                 MarketplaceInquiry.requirements.ilike(pattern),
             ))
@@ -53,6 +52,12 @@ def register_marketplace_inquiry_admin(flask_app, view_required, manage_required
             MarketplaceInquiry.created_at.desc(),
             MarketplaceInquiry.id.desc(),
         ).all()
+        if service_id:
+            inquiries = [
+                inquiry
+                for inquiry in inquiries
+                if service_id in inquiry.selected_service_ids
+            ]
 
         counts = {
             item_status: MarketplaceInquiry.query.filter_by(status=item_status).count()

@@ -13,6 +13,7 @@ ServiceImage provides a reusable gallery for marketplace Services while
 preserving the existing single image_url field for backwards compatibility.
 """
 from datetime import datetime
+import json
 
 from sqlalchemy.orm import validates
 
@@ -202,6 +203,26 @@ class MarketplaceInquiry(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     provider = db.relationship('Provider', backref=db.backref('marketplace_inquiries', lazy=True))
     service = db.relationship('Service', backref=db.backref('marketplace_inquiries', lazy=True))
+
+    @property
+    def selected_services(self):
+        try:
+            payload = json.loads(self.selected_services_json or '[]')
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+        if not isinstance(payload, list):
+            return []
+        return [
+            item for item in payload
+            if isinstance(item, dict) and isinstance(item.get('id'), int)
+        ]
+
+    @property
+    def selected_service_ids(self):
+        ids = [item['id'] for item in self.selected_services]
+        if self.service_id is not None and self.service_id not in ids:
+            ids.insert(0, self.service_id)
+        return ids
 
     @validates('status')
     def validate_status(self, key, value):

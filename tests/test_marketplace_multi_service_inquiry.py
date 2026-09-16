@@ -112,6 +112,11 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         selected = json.loads(inquiry.selected_services_json)
         self.assertEqual([item['id'] for item in selected], [service_one.id, service_two.id])
         self.assertEqual(inquiry.service_id, service_one.id)
+        self.assertEqual(inquiry.selected_service_ids, [service_one.id, service_two.id])
+        self.assertEqual(
+            [item['name'] for item in inquiry.selected_services],
+            ['Guided Walk', 'Local Driver'],
+        )
         outbox = self.NotificationOutbox.query.one()
         self.assertEqual(outbox.source_type, 'marketplace_inquiry')
         self.assertEqual(outbox.source_id, str(inquiry.id))
