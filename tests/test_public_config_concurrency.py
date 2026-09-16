@@ -37,10 +37,18 @@ class PublicConfigConcurrencyTests(unittest.TestCase):
             pass
 
     def setUp(self):
+        settings = self.db.session.get(self.SiteSettings, 1)
+        self._original_public_config_json = settings.public_config_json
         with self.client.session_transaction() as session:
             session.clear()
             session['user_id'] = self.owner.id
             session['session_version'] = self.owner.session_version
+
+    def tearDown(self):
+        self.db.session.rollback()
+        settings = self.db.session.get(self.SiteSettings, 1)
+        settings.public_config_json = self._original_public_config_json
+        self.db.session.commit()
 
     def test_cms_form_contains_public_config_token(self):
         response = self.client.get('/workspace/cms')
