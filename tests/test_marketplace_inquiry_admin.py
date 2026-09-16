@@ -11,13 +11,16 @@ class MarketplaceInquiryAdminTests(unittest.TestCase):
         import wsgi
         from app import app, db
         from marketplace_models import INQUIRY_STATUSES
+        from models import User
 
         cls.app = app
         cls.db = db
+        cls.User = User
         cls.statuses = INQUIRY_STATUSES
         cls.context = app.app_context()
         cls.context.push()
         db.create_all()
+        cls.client = app.test_client()
 
     @classmethod
     def tearDownClass(cls):
@@ -44,6 +47,36 @@ class MarketplaceInquiryAdminTests(unittest.TestCase):
 
         for field in ('provider_name', 'service_name', 'category_name', 'name', 'email', 'requirements', 'status', 'created_at', 'updated_at'):
             self.assertIsNotNone(getattr(MarketplaceInquiry, field))
+
+    def test_enquiries_role_has_marketplace_pii_permissions(self):
+        from models import ROLE_PERMISSIONS
+
+        self.assertIn('view_marketplace_inquiries', ROLE_PERMISSIONS['enquiries'])
+        self.assertIn('manage_marketplace_inquiries', ROLE_PERMISSIONS['enquiries'])
+        self.assertNotIn('view_marketplace_inquiries', ROLE_PERMISSIONS['content_manager'])
+
+    def test_catalogue_only_permission_cannot_view_traveller_inquiries(self):
+        user = self.User(
+            username='catalogue-only-test',
+            full_name='Catalogue Only',
+            email='catalogue-only@example.com',
+            password_hash='unused',
+            role='custom',
+            permissions_json='["view_marketplace"]',
+            is_active=True,
+        )
+        self.db.session.add(user)
+        self.db.session.commit()
+        try:
+            with self.client.session_transaction() as session:
+                session.clear()
+                session['user_id'] = user.id
+                session['session_version'] = user.session_version
+            response = self.client.get('/workspace/marketplace/inquiries')
+            self.assertEqual(response.status_code, 403)
+        finally:
+            self.db.session.delete(user)
+            self.db.session.commit()
 
 
 if __name__ == '__main__':
