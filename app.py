@@ -945,7 +945,7 @@ def sitemap_xml():
 @limiter.limit('5 per minute', methods=['POST'])
 def admin_login():
     if get_current_user():
-        return redirect(url_for('admin'))
+        return redirect('/workspace')
     if request.method == 'POST':
         username = (request.form.get('username') or '').strip().lower()
         password = request.form.get('password', '')
@@ -959,7 +959,7 @@ def admin_login():
             db.session.commit()
             flash(f'Welcome, {user.full_name}.', 'success')
             next_url = request.args.get('next')
-            return redirect(next_url if valid_local_redirect(next_url) else url_for('admin'))
+            return redirect(next_url if valid_local_redirect(next_url) else '/workspace')
         flash('Incorrect username or password.', 'error')
     return render_template('admin_login.html')
 
@@ -995,7 +995,7 @@ def account():
         db.session.commit()
         session['session_version'] = user.session_version
         flash('Password changed successfully.', 'success')
-        return redirect(url_for('admin'))
+        return redirect('/workspace')
     return render_template('account.html', user=user)
 
 
@@ -1005,18 +1005,8 @@ def account():
 @app.route('/admin')
 @login_required
 def admin():
-    packages = Package.query.order_by(Package.sort_order.asc(), Package.id.desc()).all()
-    about_row = db.session.get(AboutContent, 1)
-    settings = get_site_settings()
-    team = TeamMember.query.order_by(TeamMember.sort_order.asc(), TeamMember.id.asc()).all()
-    about_sections = AboutSection.query.order_by(AboutSection.sort_order.asc(), AboutSection.id.asc()).all()
-    user = get_current_user()
-    messages = Message.query.order_by(Message.id.desc()).all() if user.has_permission('view_messages') else []
-    unread_count = Message.query.filter_by(is_read=False).count() if user.has_permission('view_messages') else 0
-    users = User.query.order_by(User.username.asc()).all() if user.role == 'owner' else []
-    user_count = User.query.count() if user.role == 'owner' else 0
-    audits = AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all() if user.has_permission('view_audit_log') else []
-    return render_template('admin.html', user_count=user_count, packages=packages, about=about_row, team=team, about_sections=about_sections, settings=settings, messages=messages, unread_count=unread_count, users=users, audits=audits, storage_backend=STORAGE_BACKEND, permission_labels=PERMISSION_LABELS, permission_keys=PERMISSION_KEYS)
+    """Compatibility endpoint for pre-workspace bookmarks and redirects."""
+    return redirect('/workspace')
 
 
 @app.route('/add_package', methods=['POST'])
@@ -1024,12 +1014,12 @@ def admin():
 def add_package():
     title = request.form.get('title', '').strip(); description = request.form.get('description', '').strip()
     if not title or not description:
-        flash('Tour name and description are required.', 'error'); return redirect('/admin')
+        flash('Tour name and description are required.', 'error'); return redirect('/workspace')
     try:
         image_file = save_image(request.files.get('photo')) or 'default.jpg'
         pdf_file = save_pdf(request.files.get('pdf')) or ''
     except ValueError as e:
-        flash(str(e), 'error'); return redirect('/admin')
+        flash(str(e), 'error'); return redirect('/workspace')
     try: sort_order = int(request.form.get('sort_order') or 0)
     except ValueError: sort_order = 0
     pkg = Package(title=title, slug=unique_slug(title), description=description,
@@ -1047,7 +1037,7 @@ def add_package():
     db.session.add(pkg); db.session.flush()
     add_audit('created', 'package', pkg.id, pkg.title)
     db.session.commit()
-    flash(f'"{title}" added.', 'success'); return redirect('/admin')
+    flash(f'"{title}" added.', 'success'); return redirect('/workspace')
 
 
 @app.route('/edit_package/<int:id>', methods=['GET'])
@@ -1086,7 +1076,7 @@ def edit_package(id):
     db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title); db.session.commit()
     if (new_image or request.form.get('remove_image')) and old_image != pkg.image_file: delete_media(old_image)
     if (new_pdf or request.form.get('remove_pdf')) and old_pdf != pkg.pdf_file: delete_media(old_pdf)
-    flash(f'"{title}" updated.', 'success'); return redirect('/admin')
+    flash(f'"{title}" updated.', 'success'); return redirect('/workspace')
 
 
 @app.route('/delete_package/<int:id>', methods=['POST'])
@@ -1096,7 +1086,7 @@ def delete_package(id):
     if pkg is not None:
         old_image, old_pdf, title = pkg.image_file, pkg.pdf_file, pkg.title
         db.session.delete(pkg); add_audit('deleted', 'package', id, title); db.session.commit(); delete_media(old_image); delete_media(old_pdf)
-    flash('Package deleted.', 'success'); return redirect('/admin')
+    flash('Package deleted.', 'success'); return redirect('/workspace')
 
 
 @app.route('/update_about_structure', methods=['POST'])
@@ -1108,7 +1098,7 @@ def update_about_structure():
         labels_state = json.loads(request.form.get('section_labels') or '{}')
     except (TypeError, ValueError, json.JSONDecodeError):
         flash('Invalid About Us page structure data.', 'error')
-        return redirect('/admin#about-structure')
+        return redirect('/workspace/cms/structure')
 
     sections = {row.key: row for row in AboutSection.query.all()}
     valid_keys = set(sections)
@@ -1129,7 +1119,7 @@ def update_about_structure():
     add_audit('updated', 'about_structure', 1, ', '.join(ordered_keys))
     db.session.commit()
     flash('About Us page structure updated.', 'success')
-    return redirect('/admin#about-structure')
+    return redirect('/workspace/cms/structure')
 
 
 @app.route('/update_team_order', methods=['POST'])
@@ -1139,7 +1129,7 @@ def update_team_order():
         ordered_ids = json.loads(request.form.get('team_order') or '[]')
     except (TypeError, ValueError, json.JSONDecodeError):
         flash('Invalid team order data.', 'error')
-        return redirect('/admin#team')
+        return redirect('/workspace')
 
     members = {member.id: member for member in TeamMember.query.all()}
     valid_ids = set(members)
@@ -1154,19 +1144,19 @@ def update_team_order():
     add_audit('updated', 'team_order', 1, ', '.join(map(str, ordered_ids)))
     db.session.commit()
     flash('Team profile order updated.', 'success')
-    return redirect('/admin#team')
+    return redirect('/workspace')
 
 
 @app.route('/update_mission', methods=['POST'])
 @permission_required('manage_about')
 def update_mission():
     mission = request.form.get('mission', '').strip()
-    if len(mission) > 10000: flash('Mission statement is too long.', 'error'); return redirect('/admin')
+    if len(mission) > 10000: flash('Mission statement is too long.', 'error'); return redirect('/workspace')
     about_row = db.session.get(AboutContent, 1)
     if about_row is None: about_row = AboutContent(id=1, mission=mission); db.session.add(about_row)
     else: about_row.mission = mission
     add_audit('updated', 'about', 1, 'mission'); db.session.commit()
-    flash('Mission statement updated.', 'success'); return redirect('/admin')
+    flash('Mission statement updated.', 'success'); return redirect('/workspace')
 
 
 @app.route('/update_about_content', methods=['POST'])
@@ -1175,7 +1165,7 @@ def update_about_content():
     mission = (request.form.get('mission') or '').strip()
     if len(mission) > 10000:
         flash('Mission statement is too long.', 'error')
-        return redirect('/admin#about')
+        return redirect('/workspace/cms/media')
 
     about_row = db.session.get(AboutContent, 1)
     if about_row is None:
@@ -1206,7 +1196,7 @@ def update_about_content():
         value = (request.form.get(field) or '').strip()
         if len(value) > max_lengths[field]:
             flash(f'{field.replace("_", " ").title()} is too long.', 'error')
-            return redirect('/admin#about')
+            return redirect('/workspace/cms/media')
         setattr(settings, field, value)
 
     settings.about_extra1_enabled = bool(request.form.get('about_extra1_enabled'))
@@ -1217,7 +1207,7 @@ def update_about_content():
         new_pdf = save_pdf(request.files.get('logo_meaning_pdf'))
     except ValueError as exc:
         flash(str(exc), 'error')
-        return redirect('/admin#about')
+        return redirect('/workspace/cms/media')
     old_pdf = settings.logo_meaning_pdf
     if new_pdf:
         settings.logo_meaning_pdf = new_pdf
@@ -1229,7 +1219,7 @@ def update_about_content():
     if (new_pdf or request.form.get('remove_logo_meaning_pdf')) and old_pdf != settings.logo_meaning_pdf:
         delete_media(old_pdf)
     flash('About Us content updated.', 'success')
-    return redirect('/admin#about')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/update_branding', methods=['POST'])
@@ -1247,7 +1237,7 @@ def update_branding():
         hero_logo = save_image(request.files.get('hero_logo'))
     except ValueError as exc:
         flash(str(exc), 'error')
-        return redirect('/admin#branding')
+        return redirect('/workspace/cms/media')
 
     if wordmark:
         settings.header_wordmark = wordmark
@@ -1269,7 +1259,7 @@ def update_branding():
             delete_media(old_value)
 
     flash('Logo images updated.', 'success')
-    return redirect('/admin#branding')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/update_logo_sizes', methods=['POST'])
@@ -1283,7 +1273,7 @@ def update_logo_sizes():
     add_audit('updated', 'branding_sizes', 1, 'logo display sizes')
     db.session.commit()
     flash('Logo sizes updated.', 'success')
-    return redirect('/admin#branding')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/reset_logo_sizes', methods=['POST'])
@@ -1298,7 +1288,7 @@ def reset_logo_sizes():
     add_audit('reset', 'branding_sizes', 1, 'logo display sizes and header position')
     db.session.commit()
     flash('Logo sizes reset to the default values.', 'success')
-    return redirect('/admin#branding')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/update_header_layout', methods=['POST'])
@@ -1316,7 +1306,7 @@ def update_header_layout():
     add_audit('updated', 'header_layout', 1, f'position={position}')
     db.session.commit()
     flash('Header and logo layout saved.', 'success')
-    return redirect('/admin#branding')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/update_typography', methods=['POST'])
@@ -1340,7 +1330,7 @@ def update_typography():
     add_audit('updated', 'typography', 1, f'body_font={body_font}; heading_font={heading_font}')
     db.session.commit()
     flash('Typography settings saved.', 'success')
-    return redirect('/admin#typography')
+    return redirect('/workspace/cms')
 
 
 @app.route('/admin/update_public_site', methods=['POST'])
@@ -1371,7 +1361,7 @@ def update_public_site():
         value = (request.form.get(field) or '').strip()
         if len(value) > 20000:
             flash(f'{field.replace("_", " ").title()} is too long.', 'error')
-            return redirect('/admin#website')
+            return redirect('/workspace/cms')
         content[field] = value
 
     theme['primary_color'] = _safe_hex(request.form.get('primary_color'), theme['primary_color'])
@@ -1406,7 +1396,7 @@ def update_public_site():
     add_audit('updated', 'public_site', 1, 'global public content, theme, and homepage structure')
     db.session.commit()
     flash('Public website settings saved.', 'success')
-    return redirect('/admin#website')
+    return redirect('/workspace/cms')
 
 
 @app.route('/update_blog', methods=['POST'])
@@ -1416,7 +1406,7 @@ def update_blog():
     url = (request.form.get('blog_url') or '').strip()
     if url and not valid_external_url(url):
         flash('Blog URL must be a valid http/https link.', 'error')
-        return redirect('/admin#blog')
+        return redirect('/workspace/cms/media')
     settings.blog_enabled = bool(request.form.get('blog_enabled'))
     settings.blog_show_home = bool(request.form.get('blog_show_home'))
     settings.blog_url = url
@@ -1429,7 +1419,7 @@ def update_blog():
         new_image = save_image(request.files.get('blog_image'))
     except ValueError as exc:
         flash(str(exc), 'error')
-        return redirect('/admin#blog')
+        return redirect('/workspace/cms/media')
     if new_image:
         settings.blog_image = new_image
     elif request.form.get('remove_blog_image'):
@@ -1440,7 +1430,7 @@ def update_blog():
     if (new_image or request.form.get('remove_blog_image')) and old_image != settings.blog_image:
         delete_media(old_image)
     flash('Blog feature updated.', 'success')
-    return redirect('/admin#blog')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/update_footer', methods=['POST'])
@@ -1456,13 +1446,13 @@ def update_footer():
         value = (request.form.get(field) or '').strip()
         if len(value) > limit:
             flash(f'{field.replace("_", " ").title()} is too long.', 'error')
-            return redirect('/admin#footer')
+            return redirect('/workspace/cms/media')
         setattr(settings, field, value)
 
     instagram_url = (request.form.get('instagram_url') or '').strip()
     if instagram_url and not valid_external_url(instagram_url):
         flash('Instagram URL must be a valid http/https link.', 'error')
-        return redirect('/admin#footer')
+        return redirect('/workspace/cms/media')
 
     old_url = settings.instagram_url
     old_qr = settings.instagram_qr
@@ -1476,14 +1466,14 @@ def update_footer():
             settings.instagram_qr = None
     except Exception as exc:
         flash(f'Could not generate the Instagram QR code: {exc}', 'error')
-        return redirect('/admin#footer')
+        return redirect('/workspace/cms/media')
 
     add_audit('updated', 'footer', 1, 'footer and Instagram settings')
     db.session.commit()
     if old_qr and old_qr != settings.instagram_qr:
         delete_media(old_qr)
     flash('Footer and Instagram settings updated.', 'success')
-    return redirect('/admin#footer')
+    return redirect('/workspace/cms/media')
 
 
 @app.route('/add_team_member', methods=['POST'])
@@ -1492,13 +1482,13 @@ def add_team_member():
     name = request.form.get('name', '').strip(); position = request.form.get('position', '').strip(); role_type = request.form.get('role_type', 'team_member').strip(); description = request.form.get('description', '').strip()
     valid_roles = {'founder','co_founder','designer','team_member','custom'}
     if role_type not in valid_roles: role_type = 'team_member'
-    if not name or not position: flash('Name and position are required.', 'error'); return redirect('/admin')
+    if not name or not position: flash('Name and position are required.', 'error'); return redirect('/workspace')
     try: photo_file = save_image(request.files.get('photo')) or 'default.jpg'
-    except ValueError as e: flash(str(e), 'error'); return redirect('/admin')
+    except ValueError as e: flash(str(e), 'error'); return redirect('/workspace')
     max_order = db.session.query(db.func.max(TeamMember.sort_order)).scalar() or 0
     member = TeamMember(name=name, position=position, role_type=role_type, sort_order=max_order + 1, description=description, photo_file=photo_file)
     db.session.add(member); db.session.flush(); add_audit('created', 'team_member', member.id, f'{name} ({role_type})'); db.session.commit()
-    flash(f'{name} added to the team.', 'success'); return redirect('/admin')
+    flash(f'{name} added to the team.', 'success'); return redirect('/workspace')
 
 
 @app.route('/edit_team_member/<int:id>', methods=['GET'])
@@ -1526,7 +1516,7 @@ def edit_team_member(id):
     elif request.form.get('remove_photo'): member.photo_file = None
     db.session.flush(); add_audit('updated', 'team_member', member.id, name); db.session.commit()
     if (new_photo or request.form.get('remove_photo')) and old_photo != member.photo_file: delete_media(old_photo)
-    flash(f'{name} updated.', 'success'); return redirect('/admin')
+    flash(f'{name} updated.', 'success'); return redirect('/workspace')
 
 
 @app.route('/delete_team_member/<int:id>', methods=['POST'])
@@ -1536,7 +1526,7 @@ def delete_team_member(id):
     if member is not None:
         old_photo, name = member.photo_file, member.name
         db.session.delete(member); add_audit('deleted', 'team_member', id, name); db.session.commit(); delete_media(old_photo)
-    flash('Team member removed.', 'success'); return redirect('/admin')
+    flash('Team member removed.', 'success'); return redirect('/workspace')
 
 
 @app.route('/mark_message_read/<int:id>', methods=['POST'])
@@ -1545,7 +1535,7 @@ def mark_message_read(id):
     msg = db.session.get(Message, id)
     if msg is not None:
         msg.is_read = True; add_audit('marked_read', 'message', id); db.session.commit()
-    return redirect('/admin#inbox')
+    return redirect('/workspace')
 
 
 @app.route('/delete_message/<int:id>', methods=['POST'])
@@ -1554,24 +1544,24 @@ def delete_message(id):
     msg = db.session.get(Message, id)
     if msg is not None:
         db.session.delete(msg); add_audit('deleted', 'message', id); db.session.commit()
-    flash('Message deleted.', 'success'); return redirect('/admin#inbox')
+    flash('Message deleted.', 'success'); return redirect('/workspace')
 
 
 @app.route('/upload_photo', methods=['POST'])
 @permission_required('manage_media')
 def upload_photo():
     file = request.files.get('photo')
-    if not file or not file.filename: flash('No photo selected.', 'error'); return redirect('/admin')
-    if not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS): flash('Please upload a jpg, png, or webp image.', 'error'); return redirect('/admin')
+    if not file or not file.filename: flash('No photo selected.', 'error'); return redirect('/workspace')
+    if not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS): flash('Please upload a jpg, png, or webp image.', 'error'); return redirect('/workspace')
     old_hero = None
     try: hero_image = save_image(file)
-    except ValueError as e: flash(str(e), 'error'); return redirect('/admin')
+    except ValueError as e: flash(str(e), 'error'); return redirect('/workspace')
     about_row = db.session.get(AboutContent, 1)
     if about_row is None: about_row = AboutContent(id=1); db.session.add(about_row)
     else: old_hero = about_row.hero_image
     about_row.hero_image = hero_image; add_audit('updated', 'hero_image', 1); db.session.commit()
     if old_hero and old_hero != hero_image: delete_media(old_hero)
-    flash('Homepage background updated.', 'success'); return redirect('/admin')
+    flash('Homepage background updated.', 'success'); return redirect('/workspace')
 
 
 # ------------------------------------------------------------
@@ -1611,10 +1601,10 @@ def create_user():
     permissions = _requested_permissions()
 
     error = _validate_user_fields(username, full_name, email, role)
-    if error: flash(error, 'error'); return redirect('/admin#users')
-    if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/admin#users')
-    if User.query.filter_by(username=username).first(): flash('That username is already in use.', 'error'); return redirect('/admin#users')
-    if email and User.query.filter_by(email=email).first(): flash('That email is already in use.', 'error'); return redirect('/admin#users')
+    if error: flash(error, 'error'); return redirect('/workspace/administration')
+    if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/workspace/administration')
+    if User.query.filter_by(username=username).first(): flash('That username is already in use.', 'error'); return redirect('/workspace/administration')
+    if email and User.query.filter_by(email=email).first(): flash('That email is already in use.', 'error'); return redirect('/workspace/administration')
 
     # Owners always have full access. For every other role, the Owner's
     # checkbox selection becomes the user's exact permission set.
@@ -1633,7 +1623,7 @@ def create_user():
     db.session.add(user); db.session.flush()
     add_audit('created', 'user', user.id, f'{username} ({role}) permissions={", ".join(permissions) or "none"}')
     db.session.commit()
-    flash(f'User {username} created.', 'success'); return redirect('/admin#users')
+    flash(f'User {username} created.', 'success'); return redirect('/workspace/administration')
 
 
 @app.route('/admin/users/<int:id>/update', methods=['POST'])
@@ -1649,17 +1639,17 @@ def update_user(id):
     permissions = _requested_permissions()
 
     error = _validate_user_fields(username, full_name, email, role)
-    if error: flash(error, 'error'); return redirect('/admin#users')
-    if User.query.filter(User.username == username, User.id != id).first(): flash('That username is already in use.', 'error'); return redirect('/admin#users')
-    if email and User.query.filter(User.email == email, User.id != id).first(): flash('That email is already in use.', 'error'); return redirect('/admin#users')
-    if user.id == current.id and not user.is_active: flash('You cannot deactivate yourself.', 'error'); return redirect('/admin#users')
-    if user.id == current.id and role != 'owner': flash('The current Owner cannot remove their own Owner role.', 'error'); return redirect('/admin#users')
+    if error: flash(error, 'error'); return redirect('/workspace/administration')
+    if User.query.filter(User.username == username, User.id != id).first(): flash('That username is already in use.', 'error'); return redirect('/workspace/administration')
+    if email and User.query.filter(User.email == email, User.id != id).first(): flash('That email is already in use.', 'error'); return redirect('/workspace/administration')
+    if user.id == current.id and not user.is_active: flash('You cannot deactivate yourself.', 'error'); return redirect('/workspace/administration')
+    if user.id == current.id and role != 'owner': flash('The current Owner cannot remove their own Owner role.', 'error'); return redirect('/workspace/administration')
 
     active_owners = User.query.filter_by(role='owner', is_active=True).count()
     if user.role == 'owner' and role != 'owner' and active_owners <= 1:
-        flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
+        flash('At least one active Owner must remain.', 'error'); return redirect('/workspace/administration')
     if user.role == 'owner' and role == 'owner' and not bool(request.form.get('is_active')) and active_owners <= 1:
-        flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
+        flash('At least one active Owner must remain.', 'error'); return redirect('/workspace/administration')
 
     if role == 'owner':
         permissions = list(PERMISSION_KEYS)
@@ -1677,7 +1667,7 @@ def update_user(id):
 
     add_audit('updated', 'user', user.id, f'{username} ({role}) permissions={", ".join(permissions) or "none"}')
     db.session.commit()
-    flash(f'User {username} updated.', 'success'); return redirect('/admin#users')
+    flash(f'User {username} updated.', 'success'); return redirect('/workspace/administration')
 
 
 @app.route('/admin/users/<int:id>/reset-password', methods=['POST'])
@@ -1686,11 +1676,11 @@ def reset_user_password(id):
     user = db.session.get(User, id)
     if user is None: abort(404)
     password = request.form.get('new_password') or ''
-    if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/admin#users')
+    if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/workspace/administration')
     user.password_hash = generate_password_hash(password)
     user.session_version += 1
     add_audit('password_reset_by_owner', 'user', user.id); db.session.commit()
-    flash(f'Password reset for {user.username}.', 'success'); return redirect('/admin#users')
+    flash(f'Password reset for {user.username}.', 'success'); return redirect('/workspace/administration')
 
 
 @app.route('/admin/users/<int:id>/delete', methods=['POST'])
@@ -1698,14 +1688,14 @@ def reset_user_password(id):
 def delete_user(id):
     current = get_current_user(); user = db.session.get(User, id)
     if user is None: abort(404)
-    if user.id == current.id: flash('You cannot delete your own account.', 'error'); return redirect('/admin#users')
-    if user.role == 'owner' and User.query.filter_by(role='owner', is_active=True).count() <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
+    if user.id == current.id: flash('You cannot delete your own account.', 'error'); return redirect('/workspace/administration')
+    if user.role == 'owner' and User.query.filter_by(role='owner', is_active=True).count() <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/workspace/administration')
     username = user.username
     user.is_active = False
     user.session_version += 1
     add_audit('deactivated', 'user', id, username)
     db.session.commit()
-    flash(f'User {username} deactivated.', 'success'); return redirect('/admin#users')
+    flash(f'User {username} deactivated.', 'success'); return redirect('/workspace/administration')
 
 
 # ------------------------------------------------------------
@@ -1747,7 +1737,7 @@ def not_found(e):
 @app.errorhandler(413)
 def too_large(e):
     flash('That file is too large (16MB max).', 'error')
-    return redirect(url_for('admin') if request.path.startswith(('/admin', '/workspace')) else url_for('home'))
+    return redirect('/workspace' if request.path.startswith(('/admin', '/workspace')) else url_for('home'))
 
 
 @app.errorhandler(500)
@@ -1773,8 +1763,11 @@ def server_error(e):
 
 
 if __name__ == '__main__':
-    # Preserve the convenient first-run SQLite bootstrap for explicit local
-    # development without reintroducing persistent-state mutations on import.
+    # Match the production composition root when running the application
+    # directly during local development.
+    from application_modules import register_application_modules
+
+    register_application_modules(app)
     if IS_DEVELOPMENT:
         run_deploy_bootstrap()
     app.run(debug=IS_DEVELOPMENT)
