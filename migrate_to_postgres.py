@@ -18,6 +18,25 @@ import sys
 from datetime import datetime
 
 
+LEGACY_MUTATION_ACK = "RI_BUROM_ALLOW_LEGACY_DB_MUTATION"
+PRODUCTION_MUTATION_ACK = "RI_BUROM_ALLOW_PRODUCTION_LEGACY_DB_MUTATION"
+
+
+def require_explicit_legacy_mutation_opt_in():
+    """Require deliberate acknowledgement before copying records into a target DB."""
+    if os.environ.get(LEGACY_MUTATION_ACK) != "YES":
+        sys.exit(
+            f"{LEGACY_MUTATION_ACK}=YES is required before this maintenance script can modify a database."
+        )
+
+    app_env = (os.environ.get("APP_ENV") or os.environ.get("ENVIRONMENT") or "").strip().lower()
+    if app_env in {"production", "prod"} and os.environ.get(PRODUCTION_MUTATION_ACK) != "YES_I_HAVE_A_BACKUP":
+        sys.exit(
+            f"Production use additionally requires "
+            f"{PRODUCTION_MUTATION_ACK}=YES_I_HAVE_A_BACKUP."
+        )
+
+
 def rows_as_dicts(conn, table):
     conn.row_factory = sqlite3.Row
     return [dict(row) for row in conn.execute(f'SELECT * FROM {table}').fetchall()]
@@ -56,6 +75,7 @@ def make_unique_slug(title, used):
 
 
 def main():
+    require_explicit_legacy_mutation_opt_in()
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     sqlite_path = os.path.join(BASE_DIR, 'riburom.db')
     target_url = os.environ.get('DATABASE_URL')

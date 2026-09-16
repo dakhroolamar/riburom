@@ -24,6 +24,25 @@ KNOWN_LEGACY_STATES = frozenset(
 )
 
 
+LEGACY_MUTATION_ACK = "RI_BUROM_ALLOW_LEGACY_DB_MUTATION"
+PRODUCTION_MUTATION_ACK = "RI_BUROM_ALLOW_PRODUCTION_LEGACY_DB_MUTATION"
+
+
+def require_explicit_legacy_mutation_opt_in() -> None:
+    """Refuse to rewrite migration bookkeeping without explicit operator intent."""
+    if os.environ.get(LEGACY_MUTATION_ACK) != "YES":
+        raise SystemExit(
+            f"{LEGACY_MUTATION_ACK}=YES is required before this maintenance script can modify a database."
+        )
+
+    app_env = (os.environ.get("APP_ENV") or os.environ.get("ENVIRONMENT") or "").strip().lower()
+    if app_env in {"production", "prod"} and os.environ.get(PRODUCTION_MUTATION_ACK) != "YES_I_HAVE_A_BACKUP":
+        raise SystemExit(
+            f"Production use additionally requires "
+            f"{PRODUCTION_MUTATION_ACK}=YES_I_HAVE_A_BACKUP."
+        )
+
+
 def repair_legacy_migration_state(connection) -> bool:
     """Normalize the exact known dirty version-table states.
 
@@ -64,6 +83,7 @@ def repair_legacy_migration_state(connection) -> bool:
 
 
 def main() -> None:
+    require_explicit_legacy_mutation_opt_in()
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("DATABASE_URL is required")
