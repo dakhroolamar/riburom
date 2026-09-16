@@ -8,9 +8,11 @@ from sqlalchemy import text
 from models import db
 from marketplace_models import PackageItem
 import marketplace_models  # noqa: F401 - register Phase A metadata
+from tests.postgres_test_safety import assert_disposable_postgres_url
 
 
 DATABASE_URL = os.environ.get('MARKETPLACE_TEST_DATABASE_URL')
+assert_disposable_postgres_url(DATABASE_URL)
 PHASE_B_REVISION = '3f7a9c2d1e64'
 
 
