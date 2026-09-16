@@ -1,0 +1,67 @@
+name: RI BUROM Visual UI QA
+
+on:
+  push:
+    branches: [ui/visual-refresh]
+  workflow_dispatch:
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: testing
+      TESTING: '1'
+      SECRET_KEY: ui-qa-only-secret
+      DATABASE_URL: sqlite://
+      PYTHON_DOTENV_DISABLED: '1'
+      RATELIMIT_STORAGE_URI: memory://
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.3'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start isolated UI preview
+        run: |
+          python -m tests.ui_preview > /tmp/riburom-ui-preview.log 2>&1 &
+          echo $! > /tmp/riburom-ui-preview.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:5055/ > /dev/null; then
+              echo "UI preview ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "UI preview failed to start"
+          cat /tmp/riburom-ui-preview.log
+          exit 1
+
+      - name: Run responsive browser QA
+        run: node tests/ui_browser_qa.cjs
+
+      - name: Show preview log on failure
+        if: failure()
+        run: cat /tmp/riburom-ui-preview.log || true
+
+      - name: Upload UI QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riburom-paper-ui-qa
+          path: /tmp/riburom-paper-qa
+          if-no-files-found: warn
+          retention-days: 7
