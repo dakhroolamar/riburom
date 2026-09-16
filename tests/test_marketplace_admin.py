@@ -152,11 +152,13 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
         self.assertIn(b'Marketplace', response.data)
         self.assertIn(b'Test Guide', response.data)
         self.assertIn(b'Local Guide Service', response.data)
+        self.assertNotIn(b'id="marketplace-gallery-manager"', response.data)
 
     def test_manage_marketplace_permission_can_render_page(self):
         self._manager()
         response = self.client.get('/workspace/marketplace')
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="marketplace-gallery-manager"', response.data)
 
     def test_provider_create_update_assignment_and_delete(self):
         self._manager()

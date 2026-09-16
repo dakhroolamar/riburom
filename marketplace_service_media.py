@@ -1,9 +1,8 @@
 """Service gallery management routes and workspace UI injection."""
 
-from flask import abort, flash, redirect, render_template, request, url_for
-from sqlalchemy.orm import selectinload
+from flask import abort, flash, redirect, request, url_for
 
-from app import add_audit, get_current_user
+from app import add_audit
 from media_lifecycle import delete_marketplace_media_if_unreferenced
 from marketplace_models import Service, ServiceImage
 from models import db
@@ -91,34 +90,3 @@ def register_marketplace_service_media(flask_app, manage_required):
         flash('Service image removed.', 'success')
         return redirect(url_for('workspace_marketplace'))
 
-    @flask_app.after_request
-    def inject_service_gallery_manager(response):
-        if request.path != '/workspace/marketplace' or response.status_code != 200:
-            return response
-        user = get_current_user()
-        if user is None or not user.has_permission('manage_marketplace'):
-            return response
-        content_type = response.headers.get('Content-Type', '')
-        if 'text/html' not in content_type:
-            return response
-
-        try:
-            services = (
-                Service.query
-                .options(
-                    selectinload(Service.images),
-                    selectinload(Service.provider),
-                    selectinload(Service.service_category),
-                )
-                .order_by(Service.name.asc(), Service.id.asc())
-                .all()
-            )
-            fragment = render_template('marketplace_service_gallery_fragment.html', services=services)
-            body = response.get_data(as_text=True)
-            marker = '</body>'
-            if marker in body and 'id="marketplace-gallery-manager"' not in body:
-                response.set_data(body.replace(marker, fragment + marker, 1))
-        except Exception:
-            return response
-
-        return response

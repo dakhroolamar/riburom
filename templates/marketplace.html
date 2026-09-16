@@ -314,5 +314,8 @@
 </section>
 
 </div>
+{% if current_user and current_user.has_permission('manage_marketplace') %}
+{% include 'marketplace_service_gallery_fragment.html' %}
+{% endif %}
 </body>
 </html>
