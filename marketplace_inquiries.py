@@ -2,8 +2,9 @@
 
 import json
 import re
+import secrets
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, session, url_for
 
 from marketplace_models import MarketplaceInquiry, Provider, Service
 from models import SiteSettings, db
@@ -241,9 +242,34 @@ def register_marketplace_inquiries(flask_app):
         db.session.commit()
         dispatch_notification_outbox(outbox_ids)
 
+        receipt_token = secrets.token_urlsafe(24)
+        session['marketplace_inquiry_receipt'] = {
+            'token': receipt_token,
+            'inquiry_id': inquiry.id,
+        }
+        return redirect(
+            url_for('marketplace_inquiry_success', token=receipt_token),
+            code=303,
+        )
+
+    @flask_app.route('/marketplace/inquiries/success/<token>', methods=['GET'])
+    def marketplace_inquiry_success(token):
+        receipt = session.get('marketplace_inquiry_receipt') or {}
+        if not secrets.compare_digest(str(receipt.get('token') or ''), str(token or '')):
+            abort(404)
+
+        inquiry_id = receipt.get('inquiry_id')
+        inquiry = db.session.get(MarketplaceInquiry, inquiry_id) if inquiry_id else None
+        if inquiry is None:
+            abort(404)
+
+        provider = db.session.get(Provider, inquiry.provider_id) if inquiry.provider_id else None
+        if provider is None:
+            return redirect(url_for('marketplace_public_index'))
+
         return render_template(
             'marketplace_inquiry_success.html',
             inquiry=inquiry,
             provider=provider,
-            service=primary_service,
+            service=inquiry.service,
         )

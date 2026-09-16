@@ -89,7 +89,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
     def test_general_provider_enquiry_is_accepted(self):
         provider, _, _ = self._seed()
         with patch('marketplace_inquiries.dispatch_notification_outbox') as dispatch:
-            response = self.client.post('/marketplace/inquiries', data=self._payload(provider))
+            response = self.client.post('/marketplace/inquiries', data=self._payload(provider), follow_redirects=True)
         self.assertEqual(response.status_code, 200)
         inquiry = self.MarketplaceInquiry.query.one()
         self.assertIsNone(inquiry.service_id)
@@ -106,6 +106,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
             response = self.client.post(
                 '/marketplace/inquiries',
                 data=self._payload(provider, service_ids=[str(service_one.id), str(service_two.id)]),
+                follow_redirects=True,
             )
         self.assertEqual(response.status_code, 200)
         inquiry = self.MarketplaceInquiry.query.one()

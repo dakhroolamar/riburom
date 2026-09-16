@@ -93,7 +93,7 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
         }
 
         with patch('marketplace_inquiries.dispatch_notification_outbox') as dispatch:
-            response = self.client.post('/marketplace/inquiries', data=payload)
+            response = self.client.post('/marketplace/inquiries', data=payload, follow_redirects=True)
 
         self.assertEqual(response.status_code, 200)
         dispatch.assert_called_once()
