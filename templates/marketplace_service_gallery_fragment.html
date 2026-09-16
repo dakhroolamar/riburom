@@ -1,17 +1,17 @@
 <div id="marketplace-gallery-manager" style="position:fixed;right:20px;bottom:20px;z-index:1200;font-family:Inter,ui-sans-serif,system-ui,sans-serif">
-    <button type="button" id="marketplace-gallery-open" style="border:0;border-radius:999px;background:#166534;color:#fff;padding:12px 18px;font-weight:800;box-shadow:0 12px 30px rgba(15,23,42,.20);cursor:pointer;">
+    <button type="button" id="marketplace-gallery-open" aria-controls="marketplace-gallery-panel" aria-expanded="false" style="border:0;border-radius:999px;background:#166534;color:#fff;padding:12px 18px;font-weight:800;box-shadow:0 12px 30px rgba(15,23,42,.20);cursor:pointer;">
         Manage service galleries
     </button>
 
-    <div id="marketplace-gallery-panel" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.60);padding:20px;overflow:auto">
+    <div id="marketplace-gallery-panel" role="dialog" aria-modal="true" aria-labelledby="marketplace-gallery-title" aria-hidden="true" tabindex="-1" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.60);padding:20px;overflow:auto">
         <div style="max-width:1100px;margin:30px auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:24px">
             <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:20px">
                 <div>
                     <div style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#166534">Marketplace media</div>
-                    <h2 style="margin:4px 0 4px;font-size:28px;color:#111827">Service image galleries</h2>
+                    <h2 id="marketplace-gallery-title" style="margin:4px 0 4px;font-size:28px;color:#111827">Service image galleries</h2>
                     <p style="margin:0;color:#6b7280;font-size:14px">Upload multiple images for a service. The public marketplace only displays these images after the traveller selects that service.</p>
                 </div>
-                <button type="button" id="marketplace-gallery-close" style="border:0;background:#f3f4f6;border-radius:10px;padding:8px 12px;font-size:22px;color:#6b7280;cursor:pointer">&times;</button>
+                <button type="button" id="marketplace-gallery-close" aria-label="Close service gallery manager" style="border:0;background:#f3f4f6;border-radius:10px;padding:8px 12px;font-size:22px;color:#6b7280;cursor:pointer">&times;</button>
             </div>
 
             <div style="display:grid;gap:14px">
@@ -42,8 +42,8 @@
                     <form action="{{ url_for('marketplace_service_images_upload', id=service.id) }}" method="POST" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div style="flex:1;min-width:260px">
-                            <label style="display:block;font-size:12px;font-weight:800;color:#374151;margin-bottom:6px">Add images</label>
-                            <input type="file" name="images" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff">
+                            <label for="service-gallery-input-{{ service.id }}" style="display:block;font-size:12px;font-weight:800;color:#374151;margin-bottom:6px">Add images</label>
+                            <input id="service-gallery-input-{{ service.id }}" type="file" name="images" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff">
                         </div>
                         <button type="submit" style="border:0;border-radius:9px;background:#166534;color:#fff;padding:10px 15px;font-weight:800;cursor:pointer">Upload gallery</button>
                     </form>
@@ -62,11 +62,35 @@
     const close=document.getElementById('marketplace-gallery-close');
     const panel=document.getElementById('marketplace-gallery-panel');
     if(!open||!close||!panel)return;
-    const show=()=>{panel.style.display='block';document.body.style.overflow='hidden';};
-    const hide=()=>{panel.style.display='none';document.body.style.overflow='';};
+    let lastFocused=null;
+    const focusable=()=>[...panel.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);
+    const show=()=>{
+        lastFocused=document.activeElement;
+        panel.style.display='block';
+        panel.setAttribute('aria-hidden','false');
+        open.setAttribute('aria-expanded','true');
+        document.body.style.overflow='hidden';
+        close.focus();
+    };
+    const hide=()=>{
+        panel.style.display='none';
+        panel.setAttribute('aria-hidden','true');
+        open.setAttribute('aria-expanded','false');
+        document.body.style.overflow='';
+        if(lastFocused&&typeof lastFocused.focus==='function')lastFocused.focus();
+    };
     open.addEventListener('click',show);
     close.addEventListener('click',hide);
     panel.addEventListener('click',(event)=>{if(event.target===panel)hide();});
-    document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&panel.style.display==='block')hide();});
+    document.addEventListener('keydown',(event)=>{
+        if(panel.style.display!=='block')return;
+        if(event.key==='Escape'){hide();return;}
+        if(event.key!=='Tab')return;
+        const items=focusable();
+        if(!items.length){event.preventDefault();panel.focus();return;}
+        const first=items[0],last=items[items.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    });
 })();
 </script>
