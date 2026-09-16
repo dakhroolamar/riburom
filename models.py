@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import deferred
 
 db = SQLAlchemy()
 
@@ -155,9 +156,9 @@ class SiteSettings(db.Model):
     header_wordmark = db.Column(db.String(500))
     header_mark = db.Column(db.String(500))
     hero_logo = db.Column(db.String(500))
-    # Alembic migrations complete before Gunicorn starts, so this field is
-    # mapped normally with the rest of SiteSettings.
-    hero_animation_video = db.Column(db.String(500))
+    # Keep this deferred for one-time adoption of older pre-Alembic databases:
+    # the legacy bridge can run before Alembic adds this newer column.
+    hero_animation_video = deferred(db.Column(db.String(500)))
     header_wordmark_width = db.Column(db.Integer, default=125, nullable=False)
     header_mark_width = db.Column(db.Integer, default=48, nullable=False)
     header_logo_gap = db.Column(db.Integer, default=8, nullable=False)
