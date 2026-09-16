@@ -79,6 +79,19 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   assert.equal(await page.evaluate(() => gsap.version), '3.12.5');
   assert.ok(await page.evaluate(() => ScrollTrigger.getAll().length > 0));
+  const waterLayers = await page.evaluate(() => {
+    const section = document.querySelector('#rbHomeSections > header, #rbHomeSections > section');
+    const canvas = document.querySelector('[data-rb-water-canvas]');
+    const shield = document.querySelector('[data-rb-water-shield]');
+    return {
+      section: getComputedStyle(section).zIndex,
+      canvas: Number(getComputedStyle(canvas).zIndex),
+      shield: Number(getComputedStyle(shield).zIndex)
+    };
+  });
+  assert.equal(waterLayers.section, 'auto', 'homepage section must not hide the water layer');
+  assert.ok(waterLayers.canvas > 0 && waterLayers.shield > waterLayers.canvas,
+    `invalid water stacking order: ${JSON.stringify(waterLayers)}`);
   const journey = page.locator('[data-rb-waterfall]');
   const before = Number(await journey.getAttribute('data-water-progress') || 0);
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
