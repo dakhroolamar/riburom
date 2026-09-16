@@ -13,6 +13,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         import wsgi
         from app import app, db
         from marketplace_models import Provider, ProviderType, Service, ServiceCategory, MarketplaceInquiry
+        from models import NotificationOutbox
 
         cls.app = app
         cls.db = db
@@ -21,6 +22,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         cls.Service = Service
         cls.ServiceCategory = ServiceCategory
         cls.MarketplaceInquiry = MarketplaceInquiry
+        cls.NotificationOutbox = NotificationOutbox
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         cls.context = cls.app.app_context()
         cls.context.push()
@@ -39,6 +41,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
 
     def setUp(self):
         self.db.session.rollback()
+        self.db.session.query(self.NotificationOutbox).delete()
         self.db.session.query(self.MarketplaceInquiry).delete()
         self.db.session.query(self.Service).delete()
         self.db.session.query(self.Provider).delete()
@@ -85,7 +88,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
 
     def test_general_provider_enquiry_is_accepted(self):
         provider, _, _ = self._seed()
-        with patch('marketplace_inquiries.notify_new_enquiry') as notify:
+        with patch('marketplace_inquiries.dispatch_notification_outbox') as dispatch:
             response = self.client.post('/marketplace/inquiries', data=self._payload(provider))
         self.assertEqual(response.status_code, 200)
         inquiry = self.MarketplaceInquiry.query.one()
@@ -95,7 +98,7 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         self.assertIn(b'Your enquiry has been received', response.data)
         self.assertIn(b'Continue browsing', response.data)
         self.assertIn(b'General provider enquiry', response.data)
-        notify.assert_called_once()
+        dispatch.assert_called_once()
 
     def test_multiple_services_are_persisted_and_notified(self):
         provider, service_one, service_two = self._seed()
@@ -109,8 +112,11 @@ class MarketplaceMultiServiceInquiryTests(unittest.TestCase):
         selected = json.loads(inquiry.selected_services_json)
         self.assertEqual([item['id'] for item in selected], [service_one.id, service_two.id])
         self.assertEqual(inquiry.service_id, service_one.id)
-        self.assertIn('Guided Walk', notify.call_args.args[0]['message'])
-        self.assertIn('Local Driver', notify.call_args.args[0]['message'])
+        outbox = self.NotificationOutbox.query.one()
+        self.assertEqual(outbox.source_type, 'marketplace_inquiry')
+        self.assertEqual(outbox.source_id, str(inquiry.id))
+        self.assertIn('Guided Walk', outbox.body)
+        self.assertIn('Local Driver', outbox.body)
         self.assertIn(b'Your enquiry has been received', response.data)
         self.assertIn(b'Guided Walk + 1 more', response.data)
         self.assertIn(b'Continue browsing', response.data)

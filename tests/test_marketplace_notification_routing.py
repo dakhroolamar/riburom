@@ -13,7 +13,7 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
         import wsgi
         from app import app, db
         from marketplace_models import Provider, Service, ServiceCategory
-        from models import SiteSettings
+        from models import NotificationOutbox, SiteSettings
 
         cls.app = app
         cls.db = db
@@ -21,6 +21,7 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
         cls.Service = Service
         cls.ServiceCategory = ServiceCategory
         cls.SiteSettings = SiteSettings
+        cls.NotificationOutbox = NotificationOutbox
 
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         cls.context = cls.app.app_context()
@@ -40,6 +41,7 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
 
     def setUp(self):
         self.db.session.rollback()
+        self.db.session.query(self.NotificationOutbox).delete()
         self.db.session.query(self.Service).delete()
         self.db.session.query(self.Provider).delete()
         self.db.session.query(self.ServiceCategory).delete()
@@ -90,16 +92,16 @@ class MarketplaceNotificationRoutingTests(unittest.TestCase):
             'requirements': 'Test notification routing',
         }
 
-        with patch('marketplace_inquiries.notify_new_enquiry') as notify:
+        with patch('marketplace_inquiries.dispatch_notification_outbox') as dispatch:
             response = self.client.post('/marketplace/inquiries', data=payload)
 
         self.assertEqual(response.status_code, 200)
-        notify.assert_called_once()
-        notification = notify.call_args.args[0]
-        self.assertEqual(notification['notification_email'], 'business@example.com')
-        self.assertNotEqual(notification['notification_email'], 'provider@example.com')
-        self.assertIn('Provider Email Example', notification['message'])
-        self.assertIn('Guided Walk', notification['message'])
+        dispatch.assert_called_once()
+        outbox = self.NotificationOutbox.query.one()
+        self.assertEqual(outbox.recipient, 'business@example.com')
+        self.assertNotEqual(outbox.recipient, 'provider@example.com')
+        self.assertIn('Provider Email Example', outbox.body)
+        self.assertIn('Guided Walk', outbox.body)
 
 
 if __name__ == '__main__':

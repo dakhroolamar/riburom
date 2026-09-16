@@ -7,7 +7,7 @@ from flask import flash, redirect, render_template, request, url_for
 
 from marketplace_models import MarketplaceInquiry, Provider, Service
 from models import db
-from notifications import notify_new_enquiry
+from notifications import dispatch_notification_outbox, enqueue_new_enquiry
 
 
 PUBLIC_PROVIDER_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
@@ -193,7 +193,7 @@ def register_marketplace_inquiries(flask_app):
             status='NEW',
         )
         db.session.add(inquiry)
-        db.session.commit()
+        db.session.flush()
 
         service_lines = selected_service_names or ['General provider enquiry']
         notification_lines = [
@@ -225,15 +225,21 @@ def register_marketplace_inquiries(flask_app):
         ]
 
         settings = get_site_settings()
-        notify_new_enquiry({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'tour_interest': f'Marketplace — {provider.name} — {", ".join(service_lines)}',
-            'message': '\n'.join(notification_lines),
-            'notification_email': settings.footer_email,
-            'notification_phone': provider.phone,
-        })
+        outbox_ids = enqueue_new_enquiry(
+            {
+                'name': name,
+                'email': email,
+                'phone': phone,
+                'tour_interest': f'Marketplace — {provider.name} — {", ".join(service_lines)}',
+                'message': '\n'.join(notification_lines),
+                'notification_email': settings.footer_email,
+                'notification_phone': provider.phone,
+            },
+            source_type='marketplace_inquiry',
+            source_id=inquiry.id,
+        )
+        db.session.commit()
+        dispatch_notification_outbox(outbox_ids)
 
         return render_template(
             'marketplace_inquiry_success.html',

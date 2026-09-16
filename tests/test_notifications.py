@@ -78,6 +78,26 @@ class BrevoTransportTests(unittest.TestCase):
         os.environ.pop('NOTIFICATION_EMAIL', None)
         self.assertEqual(notifications._recipient_email(''), 'owner@example.com')
 
+    def test_production_ignores_cms_recipient_fallback(self):
+        with patch.dict(os.environ, {
+            'APP_ENV': 'production',
+            'NOTIFICATION_EMAIL': 'operations@example.com',
+        }, clear=False):
+            self.assertEqual(
+                notifications._recipient_email('cms-editor@example.com'),
+                'operations@example.com',
+            )
+
+        with patch.dict(os.environ, {
+            'APP_ENV': 'production',
+            'INITIAL_OWNER_EMAIL': 'owner@example.com',
+        }, clear=False):
+            os.environ.pop('NOTIFICATION_EMAIL', None)
+            self.assertEqual(
+                notifications._recipient_email('cms-editor@example.com'),
+                'owner@example.com',
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

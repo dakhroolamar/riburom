@@ -796,8 +796,40 @@ def send_message():
             if travellers < 1 or travellers > 999: raise ValueError
         except ValueError:
             flash('Number of travellers must be a whole number between 1 and 999.', 'error'); return redirect('/#contact')
-    db.session.add(Message(name=name, email=email, phone=phone or None, travel_dates=travel_dates or None, travellers=travellers, tour_interest=tour_interest or None, message=message))
+    enquiry = Message(
+        name=name,
+        email=email,
+        phone=phone or None,
+        travel_dates=travel_dates or None,
+        travellers=travellers,
+        tour_interest=tour_interest or None,
+        message=message,
+    )
+    db.session.add(enquiry)
+    db.session.flush()
+
+    # Persist notification intent in the same transaction as the enquiry. This
+    # removes the old count/newest-row race and makes failed delivery retryable.
+    from notifications import enqueue_new_enquiry, dispatch_notification_outbox
+    settings = db.session.get(SiteSettings, 1)
+    outbox_ids = enqueue_new_enquiry(
+        {
+            'name': enquiry.name,
+            'email': enquiry.email,
+            'phone': enquiry.phone,
+            'travel_dates': enquiry.travel_dates,
+            'travellers': enquiry.travellers,
+            'tour_interest': enquiry.tour_interest,
+            'message': enquiry.message,
+            'notification_email': settings.footer_email if settings else '',
+            'notification_phone': settings.footer_phone if settings else '',
+        },
+        source_type='general_message',
+        source_id=enquiry.id,
+    )
     db.session.commit()
+    dispatch_notification_outbox(outbox_ids)
+
     flash("Thanks! Your message has been sent — we'll get back to you soon.", 'success')
     return redirect('/#contact')
 
