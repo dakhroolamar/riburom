@@ -49,7 +49,13 @@ def register_marketplace_service_media(flask_app, manage_required):
             service.image_url = service.images[0].image_url
 
         add_audit('uploaded', 'service_images', service.id, f'{service.name}; count={len(saved)}')
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            for image_url in saved:
+                delete_media(image_url)
+            raise
         flash(f'{len(saved)} image(s) added to "{service.name}".', 'success')
         return redirect(url_for('workspace_marketplace'))
 

@@ -174,7 +174,13 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.flush()
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('created', 'provider', provider.id, provider.name)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if image_url:
+                delete_media(image_url)
+            raise
 
         flash(f'Provider "{provider.name}" created.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -454,7 +460,13 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.add(service)
         db.session.flush()
         add_audit('created', 'service', service.id, f'{provider.name}: {service.name}')
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if image_url:
+                delete_media(image_url)
+            raise
 
         flash(f'Service "{service.name}" created.', 'success')
         return redirect(url_for('workspace_marketplace'))
