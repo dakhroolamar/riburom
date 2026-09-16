@@ -29,14 +29,20 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
       const metrics = await page.evaluate(() => {
         const heading = document.querySelector('h1'), nav = document.querySelector('nav');
         const rect = heading.getBoundingClientRect();
-        const stream = document.querySelector('.rb-waterfall')?.getBoundingClientRect();
+        const waterRoot = document.querySelector('[data-rb-waterfall]');
+        const canvas = waterRoot?.querySelector('[data-rb-water-canvas]');
+        const protectedContent = waterRoot ? [...waterRoot.querySelectorAll('h1,h2,h3,p,form,button')].filter(el => {
+          const r = el.getBoundingClientRect();
+          return r.width && r.height;
+        }) : [];
         return {title: heading.textContent.trim(), overflow: document.documentElement.scrollWidth > innerWidth,
           headingOverflow: heading.scrollWidth > heading.clientWidth + 1,
           safe: rect.left >= 0 && rect.right <= innerWidth && rect.top >= nav.getBoundingClientRect().bottom,
           visible: getComputedStyle(heading).visibility !== 'hidden' && getComputedStyle(heading).opacity !== '0',
-          streamClear: !stream || [...document.querySelectorAll('h1,h2,p,form,button')].every(el => {
-            const r = el.getBoundingClientRect(); return !r.width || !r.height || r.left >= stream.right || r.bottom < stream.top || r.top > stream.bottom;
-          })};
+          streamClear: !waterRoot || (
+            canvas && getComputedStyle(canvas).pointerEvents === 'none' &&
+            protectedContent.every(el => !!el.closest('[data-rb-water-shield]'))
+          )};
       });
       assert.equal(metrics.overflow, false, `overflow ${route} ${width}`);
       assert.equal(metrics.headingOverflow, false, `title overflow ${route} ${width}`);
