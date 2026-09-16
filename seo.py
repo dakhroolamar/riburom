@@ -2,10 +2,9 @@
 
 import json
 import os
-import re
 from html import escape
 
-from flask import Response, request, url_for
+from flask import Response, g, request, url_for
 
 from marketplace_models import Provider
 from models import Package
@@ -95,7 +94,9 @@ def _page_metadata(endpoint):
         )
     elif endpoint == "tour_detail":
         slug = request.view_args.get("slug") if request.view_args else None
-        pkg = Package.query.filter_by(slug=slug, published=True).first()
+        pkg = getattr(g, 'seo_package', None)
+        if pkg is None:
+            pkg = Package.query.filter_by(slug=slug, published=True).first()
         if pkg:
             description = _clean_description(pkg.description)
             canonical = SEO_BASE_URL + url_for("tour_detail", slug=pkg.slug)
@@ -135,11 +136,13 @@ def _page_metadata(endpoint):
         )
     elif endpoint == "marketplace_public_provider":
         slug = request.view_args.get("slug") if request.view_args else None
-        provider = Provider.query.filter(
-            Provider.slug == slug,
-            Provider.is_active.is_(True),
-            Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
-        ).first()
+        provider = getattr(g, 'seo_provider', None)
+        if provider is None:
+            provider = Provider.query.filter(
+                Provider.slug == slug,
+                Provider.is_active.is_(True),
+                Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+            ).first()
         if provider:
             description = _clean_description(
                 provider.description,
@@ -230,26 +233,9 @@ def register_seo(flask_app):
     flask_app.view_functions["robots_txt"] = _robots_response
     flask_app.view_functions["sitemap_xml"] = _sitemap_response
 
-    @flask_app.after_request
-    def add_public_seo(response):
+    @flask_app.context_processor
+    def public_seo_context():
         endpoint = request.endpoint
-        if endpoint not in PUBLIC_ENDPOINTS or response.status_code != 200:
-            return response
-        if "text/html" not in response.headers.get("Content-Type", ""):
-            return response
-        body = response.get_data(as_text=True)
-        if "<head" not in body.lower() or "</head>" not in body.lower():
-            return response
-        patterns = [
-            r"<title>.*?</title>",
-            r'<meta\s+name=["\']description["\'][^>]*>\s*',
-            r'<meta\s+property=["\']og:[^"\']+["\'][^>]*>\s*',
-            r'<meta\s+name=["\']twitter:[^"\']+["\'][^>]*>\s*',
-            r'<link\s+rel=["\']canonical["\'][^>]*>\s*',
-            r'<script\s+type=["\']application/ld\+json["\'][^>]*>.*?</script>\s*',
-        ]
-        for pattern in patterns:
-            body = re.sub(pattern, "", body, flags=re.I | re.S)
-        body = body.replace("</head>", _seo_markup(endpoint) + "</head>", 1)
-        response.set_data(body)
-        return response
+        if endpoint not in PUBLIC_ENDPOINTS:
+            return {}
+        return {"seo_markup": _seo_markup(endpoint)}

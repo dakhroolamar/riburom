@@ -816,6 +816,7 @@ def marketplace_public_index():
 @app.route('/marketplace/providers/<slug>')
 def marketplace_public_provider(slug):
     provider = _public_provider_query().filter_by(slug=slug).first_or_404()
+    g.seo_provider = provider
 
     services = [
         service
@@ -839,6 +840,7 @@ def all_tours():
 @app.route('/tours/<slug>')
 def tour_detail(slug):
     pkg = Package.query.filter_by(slug=slug, published=True).first_or_404()
+    g.seo_package = pkg
     return render_template('tour_detail.html', pkg=pkg)
 
 
