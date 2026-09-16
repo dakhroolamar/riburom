@@ -47,6 +47,7 @@ class User(db.Model):
     full_name = db.Column(db.String(160), nullable=False)
     email = db.Column(db.String(254), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(300), nullable=False)
+    session_version = db.Column(db.Integer, nullable=False, default=0)
     role = db.Column(db.String(40), nullable=False, default='enquiries')
     # Per-user permission overrides. NULL means use the legacy role defaults;
     # an explicit JSON list (including []) means use exactly those permissions.

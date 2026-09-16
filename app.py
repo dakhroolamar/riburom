@@ -352,7 +352,11 @@ def get_current_user():
     if not user_id:
         return None
     user = db.session.get(User, user_id)
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or session.get('session_version') != user.session_version
+    ):
         session.clear()
         return None
     return user
@@ -827,6 +831,7 @@ def admin_login():
         if user and user.is_active and check_password_hash(user.password_hash, password):
             session.clear()
             session['user_id'] = user.id
+            session['session_version'] = user.session_version
             user.last_login = datetime.utcnow()
             add_audit('login', 'user', user.id)
             db.session.commit()
@@ -863,8 +868,10 @@ def account():
         if new_password != confirm:
             flash('New passwords do not match.', 'error'); return redirect(url_for('account'))
         user.password_hash = generate_password_hash(new_password)
+        user.session_version += 1
         add_audit('password_changed', 'user', user.id)
         db.session.commit()
+        session['session_version'] = user.session_version
         flash('Password changed successfully.', 'success')
         return redirect(url_for('admin'))
     return render_template('account.html', user=user)
@@ -1533,6 +1540,7 @@ def update_user(id):
     if role == 'owner':
         permissions = list(PERMISSION_KEYS)
 
+    old_security_state = (user.role, user.permissions_json, user.is_active)
     user.username = username
     user.full_name = full_name
     user.email = email
@@ -1540,6 +1548,8 @@ def update_user(id):
     user.permissions_json = json.dumps(permissions)
     user.is_active = bool(request.form.get('is_active'))
     if user.role == 'owner': user.is_active = True
+    if old_security_state != (user.role, user.permissions_json, user.is_active):
+        user.session_version += 1
 
     add_audit('updated', 'user', user.id, f'{username} ({role}) permissions={", ".join(permissions) or "none"}')
     db.session.commit()
@@ -1554,6 +1564,7 @@ def reset_user_password(id):
     password = request.form.get('new_password') or ''
     if len(password) < 12: flash('Password must be at least 12 characters long.', 'error'); return redirect('/admin#users')
     user.password_hash = generate_password_hash(password)
+    user.session_version += 1
     add_audit('password_reset_by_owner', 'user', user.id); db.session.commit()
     flash(f'Password reset for {user.username}.', 'success'); return redirect('/admin#users')
 
@@ -1567,6 +1578,7 @@ def delete_user(id):
     if user.role == 'owner' and User.query.filter_by(role='owner', is_active=True).count() <= 1: flash('At least one active Owner must remain.', 'error'); return redirect('/admin#users')
     username = user.username
     user.is_active = False
+    user.session_version += 1
     add_audit('deactivated', 'user', id, username)
     db.session.commit()
     flash(f'User {username} deactivated.', 'success'); return redirect('/admin#users')

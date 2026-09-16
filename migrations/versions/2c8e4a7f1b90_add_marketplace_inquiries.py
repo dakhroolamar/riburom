@@ -18,7 +18,7 @@ branch_labels = None
 depends_on = None
 
 
-TABLE_SQL = """
+TABLE_SQLITE = """
 CREATE TABLE IF NOT EXISTS marketplace_inquiries (
     id INTEGER NOT NULL PRIMARY KEY,
     provider_id INTEGER NULL REFERENCES providers(id) ON DELETE SET NULL,
@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS marketplace_inquiries (
 )
 """
 
+TABLE_POSTGRESQL = TABLE_SQLITE.replace(
+    'id INTEGER NOT NULL PRIMARY KEY,',
+    'id SERIAL PRIMARY KEY,',
+    1,
+)
+
 INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS ix_marketplace_inquiries_email "
     "ON marketplace_inquiries (email)",
@@ -66,7 +72,8 @@ def upgrade():
     dialect = bind.dialect.name
 
     if dialect in {'postgresql', 'sqlite'}:
-        op.execute(sa.text(TABLE_SQL))
+        table_sql = TABLE_POSTGRESQL if dialect == 'postgresql' else TABLE_SQLITE
+        op.execute(sa.text(table_sql))
         for statement in INDEX_SQL:
             op.execute(sa.text(statement))
         return
