@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
-    <title>{{ pkg.title }} | {{ public.content.site_title }}</title>
-    <meta name="description" content="{{ pkg.description[:155] }}">
     <link rel="manifest" href="/static/manifest.json">
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
