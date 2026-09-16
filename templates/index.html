@@ -5,12 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="089Id0LC5YsQeLBPDnBq9LA7MSHMMwf3CfzHovsqdVs">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
-    <title>{{ public.content.site_title }}</title>
-    <meta name="description" content="{{ public.content.meta_description }}">
-    <meta property="og:title" content="Ri Burom Tours & Travels">
-    <meta property="og:description" content="{{ public.content.og_description }}">
-    {% set og_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}{% if og_logo %}<meta property="og:image" content="{{ og_logo|imgsrc }}">{% endif %}
-    <meta property="og:type" content="website">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#166534">
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=8" defer></script>
