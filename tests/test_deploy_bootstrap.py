@@ -132,6 +132,42 @@ class DeployBootstrapIsolationTests(unittest.TestCase):
             admin_hash='not-a-valid-werkzeug-hash',
         )
 
+    def test_legacy_bootstrap_refuses_alembic_managed_database(self):
+        self._run_python(
+            """
+            from unittest.mock import patch
+            from app import run_deploy_bootstrap
+
+            with patch('app.inspect') as mocked_inspect:
+                mocked_inspect.return_value.has_table.return_value = True
+                try:
+                    run_deploy_bootstrap()
+                except RuntimeError as exc:
+                    assert 'not allowed after Alembic adoption' in str(exc)
+                else:
+                    raise AssertionError('Expected Alembic-managed bootstrap refusal')
+            """
+        )
+
+    def test_post_migration_bootstrap_does_not_create_schema(self):
+        self._run_python(
+            """
+            from app import app, db, run_post_migration_bootstrap
+            from sqlalchemy import inspect
+
+            with app.app_context():
+                assert inspect(db.engine).get_table_names() == []
+
+            try:
+                run_post_migration_bootstrap()
+            except Exception:
+                pass
+
+            with app.app_context():
+                assert inspect(db.engine).get_table_names() == []
+            """
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
