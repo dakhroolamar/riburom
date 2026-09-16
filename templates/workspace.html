@@ -88,10 +88,17 @@ body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-seri
 
   {% if current_user.has_permission('view_messages') %}
   <section class="panel">
-    <div class="between"><div><h2>Enquiries</h2><p class="muted">Public enquiries collected through the website.</p></div><span class="pill">{{ unread_count }} unread</span></div>
+    <div class="between"><div><h2>Enquiries</h2><p class="muted">Public enquiries collected through the website. Showing the newest 50 per page.</p></div><span class="pill">{{ unread_count }} unread · {{ message_total }} total</span></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Trip</th><th>Message</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>
       {% for msg in messages %}<tr><td><strong>{{ msg.name }}</strong><div class="small">{{ msg.email }}{% if msg.phone %}<br>{{ msg.phone }}{% endif %}</div></td><td>{{ msg.tour_interest or 'Not specified' }}{% if msg.travel_dates %}<div class="small muted">{{ msg.travel_dates }} · {{ msg.travellers or '?' }} travellers</div>{% endif %}</td><td style="max-width:420px">{{ msg.message }}</td><td class="small">{{ msg.created_at.strftime('%d %b %Y %H:%M') }}</td><td>{% if msg.is_read %}<span class="pill" style="background:#e5e7eb;color:#374151">Read</span>{% else %}<span class="pill" style="background:#fef3c7;color:#92400e">New</span>{% endif %}</td><td>{% if not msg.is_read and current_user.has_permission('manage_messages') %}<form action="{{ url_for('mark_message_read', id=msg.id) }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-gray">Mark read</button></form>{% endif %}{% if current_user.has_permission('manage_messages') %}<form action="{{ url_for('delete_message', id=msg.id) }}" method="POST" onsubmit="return confirm('Delete this enquiry?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-red">Delete</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted">No enquiries yet.</td></tr>{% endfor %}
     </tbody></table></div>
+    {% if message_pages > 1 %}
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      {% if message_page > 1 %}<a class="btn btn-gray" href="{{ url_for('workspace_operations', message_page=message_page-1) }}">Previous</a>{% endif %}
+      <span class="muted">Page {{ message_page }} of {{ message_pages }}</span>
+      {% if message_page < message_pages %}<a class="btn btn-gray" href="{{ url_for('workspace_operations', message_page=message_page+1) }}">Next</a>{% endif %}
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 
@@ -215,7 +222,7 @@ body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-seri
 
 {% elif area=='developer' %}
   <div class="danger-note"><strong>Developer / System workspace.</strong> This area is intentionally read-only in this phase. Infrastructure secrets remain in Render environment variables and are never exposed here.</div>
-  <section class="panel"><h2>System Status</h2><div class="grid grid-3"><div class="stat"><div class="n" style="font-size:18px">{{ storage_backend }}</div><div class="l">Media storage backend</div></div><div class="stat"><div class="n" style="font-size:18px">{{ user_count }}</div><div class="l">User accounts</div></div><div class="stat"><div class="n" style="font-size:18px">{{ packages|length }}</div><div class="l">Experience records</div></div></div></section>
+  <section class="panel"><h2>System Status</h2><div class="grid grid-3"><div class="stat"><div class="n" style="font-size:18px">{{ storage_backend }}</div><div class="l">Media storage backend</div></div><div class="stat"><div class="n" style="font-size:18px">{{ user_count }}</div><div class="l">User accounts</div></div><div class="stat"><div class="n" style="font-size:18px">{{ package_count }}</div><div class="l">Experience records</div></div></div></section>
   <section class="panel"><h2>Public configuration snapshot</h2><p class="muted">The live public content/theme is stored in the site's editable configuration. No secrets are shown here.</p>{% if public %}<pre style="white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:10px;max-height:520px;overflow:auto">{{ public|tojson(indent=2) }}</pre>{% endif %}</section>
   {% if current_user.has_permission('view_audit_log') %}<section class="panel"><h2>Recent system activity</h2><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead><tbody>{% for a in audits %}<tr><td>{{ a.created_at.strftime('%d %b %Y %H:%M') }}</td><td>{{ a.username or 'system' }}</td><td>{{ a.action }}</td><td>{{ a.target_type or '' }}{% if a.target_id %} #{{ a.target_id }}{% endif %}</td><td>{{ a.details or '' }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 {% endif %}

@@ -274,11 +274,19 @@ def valid_local_redirect(target: str | None) -> bool:
 
 
 def get_site_settings():
+    if has_request_context():
+        cached = getattr(g, '_ri_burom_site_settings', None)
+        if cached is not None:
+            return cached
+
     settings = db.session.get(SiteSettings, 1)
     if settings is None:
         settings = SiteSettings(id=1)
         db.session.add(settings)
         db.session.commit()
+
+    if has_request_context():
+        g._ri_burom_site_settings = settings
     return settings
 
 

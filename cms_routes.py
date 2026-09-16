@@ -5,6 +5,7 @@ from functools import wraps
 import json
 
 from flask import abort, flash, redirect, render_template, request, url_for
+from sqlalchemy.orm import selectinload
 
 from app import (
     PERMISSION_KEYS,
@@ -133,33 +134,123 @@ marketplace_inquiry_manage_required = _access_required('manage_marketplace_inqui
 
 def _get_context(area):
     user = get_current_user()
-    packages = Package.query.order_by(Package.sort_order.asc(), Package.id.desc()).all()
-    messages = Message.query.order_by(Message.id.desc()).all() if user.has_permission('view_messages') or user.role == 'owner' else []
-    unread = Message.query.filter_by(is_read=False).count() if user.has_permission('view_messages') or user.role == 'owner' else 0
-    team = TeamMember.query.order_by(TeamMember.sort_order.asc(), TeamMember.id.asc()).all() if user.has_permission('manage_team') or user.role == 'owner' else []
+    can_view_messages = user.role == 'owner' or user.has_permission('view_messages')
+    can_manage_team = user.role == 'owner' or user.has_permission('manage_team')
+    can_view_audit = user.role == 'owner' or user.has_permission('view_audit_log')
+
+    packages = []
+    package_count = 0
+    messages = []
+    unread = 0
+    message_total = 0
+    message_page = 1
+    message_pages = 1
+    team = []
+    users = []
+    audits = []
+    user_count = 0
+
+    if area == 'operations':
+        packages = Package.query.order_by(Package.sort_order.asc(), Package.id.desc()).all()
+        package_count = len(packages)
+
+        if can_view_messages:
+            per_page = 50
+            message_total = Message.query.count()
+            message_pages = max(1, (message_total + per_page - 1) // per_page)
+            requested_page = max(request.args.get('message_page', default=1, type=int) or 1, 1)
+            message_page = min(requested_page, message_pages)
+            messages = (
+                Message.query
+                .order_by(Message.id.desc())
+                .offset((message_page - 1) * per_page)
+                .limit(per_page)
+                .all()
+            )
+            unread = Message.query.filter_by(is_read=False).count()
+
+        if can_manage_team:
+            team = TeamMember.query.order_by(
+                TeamMember.sort_order.asc(), TeamMember.id.asc()
+            ).all()
+
+    elif area == 'administration':
+        user_count = User.query.count()
+        users = User.query.order_by(User.username.asc()).all()
+        if can_view_audit:
+            audits = AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all()
+
+    elif area == 'developer':
+        package_count = Package.query.count()
+        user_count = User.query.count()
+        if can_view_audit:
+            audits = AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all()
+
     return {
-        'area': area, 'current_user': user, 'packages': packages, 'messages': messages, 'unread_count': unread, 'team': team,
-        'settings': get_site_settings(), 'about': AboutContent.query.get(1),
-        'about_sections': AboutSection.query.order_by(AboutSection.sort_order.asc(), AboutSection.id.asc()).all(),
-        'user_count': User.query.count() if user.role == 'owner' else 0,
-        'users': User.query.order_by(User.username.asc()).all() if user.role == 'owner' else [],
-        'audits': AuditLog.query.order_by(AuditLog.id.desc()).limit(50).all() if user.has_permission('view_audit_log') or user.role == 'owner' else [],
+        'area': area,
+        'current_user': user,
+        'packages': packages,
+        'package_count': package_count,
+        'messages': messages,
+        'message_total': message_total,
+        'message_page': message_page,
+        'message_pages': message_pages,
+        'unread_count': unread,
+        'team': team,
+        'settings': get_site_settings(),
+        'about': db.session.get(AboutContent, 1),
+        'about_sections': AboutSection.query.order_by(
+            AboutSection.sort_order.asc(), AboutSection.id.asc()
+        ).all(),
+        'user_count': user_count,
+        'users': users,
+        'audits': audits,
         'storage_backend': __import__('storage').STORAGE_BACKEND,
-        'permission_labels': PERMISSION_LABELS, 'permission_keys': PERMISSION_KEYS, 'role_labels': ROLE_LABELS,
+        'permission_labels': PERMISSION_LABELS,
+        'permission_keys': PERMISSION_KEYS,
+        'role_labels': ROLE_LABELS,
     }
 
 
 def _marketplace_context():
+    providers = (
+        Provider.query
+        .options(
+            selectinload(Provider.provider_type_assignments).selectinload(
+                ProviderTypeAssignment.provider_type
+            ),
+            selectinload(Provider.services),
+        )
+        .order_by(Provider.name.asc(), Provider.id.asc())
+        .all()
+    )
+    services = (
+        Service.query
+        .options(
+            selectinload(Service.provider),
+            selectinload(Service.service_category),
+            selectinload(Service.images),
+        )
+        .order_by(Service.name.asc(), Service.id.asc())
+        .all()
+    )
     return {
-        'providers': Provider.query.order_by(Provider.name.asc(), Provider.id.asc()).all(),
-        'provider_types': ProviderType.query.order_by(ProviderType.sort_order.asc(), ProviderType.name.asc()).all(),
-        'service_categories': ServiceCategory.query.order_by(ServiceCategory.sort_order.asc(), ServiceCategory.name.asc()).all(),
-        'services': Service.query.order_by(Service.name.asc(), Service.id.asc()).all(),
+        'providers': providers,
+        'provider_types': ProviderType.query.order_by(
+            ProviderType.sort_order.asc(), ProviderType.name.asc()
+        ).all(),
+        'service_categories': ServiceCategory.query.order_by(
+            ServiceCategory.sort_order.asc(), ServiceCategory.name.asc()
+        ).all(),
+        'services': services,
         'provider_statuses': sorted(PROVIDER_STATUSES),
         'service_statuses': sorted(SERVICE_STATUSES),
         'provider_type_ids': {
-            provider.id: [assignment.provider_type_id for assignment in provider.provider_type_assignments]
-            for provider in Provider.query.all()
+            provider.id: [
+                assignment.provider_type_id
+                for assignment in provider.provider_type_assignments
+            ]
+            for provider in providers
         },
     }
 
