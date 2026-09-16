@@ -8,7 +8,7 @@ class PackageCompatibilityTests(unittest.TestCase):
     def setUpClass(cls):
         cls.db_path = configure_isolated_sqlite('package_compatibility')
 
-        from app import app, db
+        from app import app, db, run_deploy_bootstrap
         from models import Package, User
 
         cls.app = app
@@ -16,6 +16,7 @@ class PackageCompatibilityTests(unittest.TestCase):
         cls.Package = Package
         cls.User = User
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+        run_deploy_bootstrap()
         cls.context = cls.app.app_context()
         cls.context.push()
 

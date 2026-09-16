@@ -12,7 +12,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
     def setUpClass(cls):
         cls.db_path = configure_isolated_sqlite('hero_animation_video')
         import wsgi
-        from app import app, db
+        from app import app, db, run_deploy_bootstrap
         from models import SiteSettings, User
 
         cls.app = app
@@ -22,7 +22,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
         cls.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         cls.context = cls.app.app_context()
         cls.context.push()
-        db.create_all()
+        run_deploy_bootstrap()
         cls.client = app.test_client()
         cls.owner = User.query.filter_by(role='owner').first()
         if cls.owner is None:
