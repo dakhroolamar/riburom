@@ -174,7 +174,7 @@ body.rb-public-site{
   text-transform:uppercase;
 }
 
-.rb-button{
+.rb-action{
   min-height:2.8rem;
   padding:.72rem 1.15rem;
   border:1px solid transparent;
@@ -182,7 +182,7 @@ body.rb-public-site{
   line-height:1.15;
 }
 
-.rb-button-outline{
+.rb-action-outline{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -194,7 +194,7 @@ body.rb-public-site{
   text-decoration:none;
 }
 
-.rb-button-quiet{
+.rb-action-quiet{
   display:inline-flex;
   align-items:center;
   justify-content:center;
