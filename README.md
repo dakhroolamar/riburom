@@ -1,161 +1,241 @@
 # RI BUROM Tours & Travels
 
-This build adds the multi-user Control Room and the security/CMS improvements discussed during the code review.
+RI BUROM is a Flask application for the public tourism website, staff CMS/workspace,
+tour/experience management, provider/service marketplace discovery, and structured
+traveller enquiries.
 
-## Access model
+The marketplace is currently **staff-assisted and enquiry-based**. It is not yet a
+transactional booking platform: there is no inventory reservation, payment,
+commission, cancellation/refund, traveller account, or provider self-service flow.
 
-RI BUROM now supports individual user accounts with three roles:
+## Production architecture
 
-- **Owner** — full access, including user management, security-sensitive actions, content and enquiries.
-- **Content Manager** — tours, media, About Us and team management; no user administration or enquiry deletion.
-- **Enquiries / Booking** — view and manage customer enquiries; no website-content management.
+| Layer | Production service |
+| --- | --- |
+| Source / deployment branch | GitHub `main` |
+| Application hosting | Render, Gunicorn → `wsgi:app` |
+| Database | Neon PostgreSQL via `DATABASE_URL` |
+| Media | Cloudinary |
+| Email notifications | Brevo HTTPS API |
+| Optional messaging | Twilio integration when configured |
+| Schema migrations | Flask-Migrate / Alembic |
 
-Only Owners can create, deactivate, edit roles, or reset passwords for other accounts.
+Python is pinned to **3.14.3** in `.python-version`, and CI uses the same version.
 
-Every user can change their own password from **My Account**. Passwords are stored only as secure hashes. The system prevents the last active Owner from being removed or demoted.
+## Main application areas
 
-## Security
+- Public homepage, About page, experiences, tour details, and marketplace.
+- Staff Operations workspace for tours, website enquiries, and team profiles.
+- CMS for public copy, styling, media, backgrounds, typography, and structure.
+- Marketplace administration for provider types, providers, service categories,
+  services, galleries, publication state, and marketplace enquiries.
+- Owner-only user/permission administration and audit history.
+- Developer/System workspace for a read-only operational snapshot.
 
-- CSRF protection on all POST forms.
-- Login and public contact rate limiting using Flask-Limiter.
-- Production fails closed unless `SECRET_KEY` and `ADMIN_PASSWORD_HASH` are configured.
-- Production is the default. Set `APP_ENV=development` explicitly for local development.
-- Individual username/password authentication with role-based authorization.
-- Password changes and owner password resets use Werkzeug password hashes.
-- Safe validation of the login `next` redirect.
-- Secure/HttpOnly/SameSite session-cookie settings.
-- Basic security response headers.
-- Admin logout is a CSRF-protected POST.
-- Audit log records logins, logouts, password changes/resets, user changes, and major CMS actions.
-- At least one active Owner is always required.
+Public marketplace enquiries support one or multiple services and are stored separately
+from the legacy website contact form.
 
-## CMS improvements
+## Security and reliability
 
-- Tour slugs, so public pages use `/tours/<slug>`.
-- Tour detail pages with location, duration, price, category, season, difficulty, itinerary, included/excluded fields and a booking CTA.
-- `published`, `featured`, and `sort_order` controls from the admin panel.
-- Team members can be edited as well as added/deleted.
-- Media can be replaced or removed from package/team/hero records.
-- Old media is cleaned up when replaced or deleted. Local uploads are kept under `static/uploads/`, separate from system assets.
-- Uploaded image validation opens/verifies the file, applies EXIF orientation, resizes and compresses it.
-- PDF uploads are checked for the `%PDF-` file signature.
+The application currently includes:
 
-## Contact / leads
+- global CSRF protection for form submissions;
+- secure/HttpOnly/SameSite session cookies in production;
+- password hashing and Owner-only user administration;
+- session-version revocation after password resets and security-sensitive user changes;
+- fail-closed production configuration for `SECRET_KEY`, `DATABASE_URL`, and Cloudinary;
+- per-user permission overrides;
+- separate permissions for marketplace catalogue management and traveller enquiry PII;
+- request IDs and baseline security response headers;
+- rate limiting for login/public enquiry routes;
+- upload validation, image re-encoding, generated filenames, and safe local-path handling;
+- durable notification outbox rows with bounded retry attempts;
+- CSV formula-injection neutralization;
+- a database-independent 500 response.
 
-- Contact form captures phone, travel dates, traveller count and tour interest.
-- Server-side validation and field-length limits.
-- Leads appear in the Enquiries / Booking inbox.
+The current Render service runs one instance / one Gunicorn worker, so the configured
+`memory://` rate-limit store is sufficient for the present deployment. Configure a
+shared Redis/Valkey `RATELIMIT_STORAGE_URI` before increasing worker or instance count.
 
-## PWA / caching
+## Health endpoints
 
-- Service worker does not cache `/admin` or authenticated pages.
-- Cache version is bumped so old unsafe cache entries are cleared.
+- `GET /healthz` — process-level liveness; does not depend on PostgreSQL.
+- `GET /readyz` — readiness check that verifies a database connection.
 
-## Database / deployment
+These endpoints expose only a small status response and no credentials or schema data.
 
-- Flask-Migrate is included for future schema migrations.
-- A boot-time bridge migrates the existing SQLite/Postgres schema and creates the new user/audit tables.
-- If the database has no users, the first Owner is created from `ADMIN_PASSWORD_HASH` and the `INITIAL_OWNER_*` values.
-- `migrate_to_postgres.py` reads legacy SQLite databases directly and maps old rows into the expanded schema.
+## Deployment flow
 
-## Local setup
+Render auto-deploys the `main` branch.
 
-```bash
-python -m venv venv
-# Windows
-venv\\Scripts\\activate
-# macOS/Linux
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-Create a `.env` from `.env.example` and set:
-
-```text
-APP_ENV=development
-SECRET_KEY=your-local-secret
-ADMIN_PASSWORD_HASH=your-generated-password-hash
-INITIAL_OWNER_USERNAME=owner
-INITIAL_OWNER_NAME=RI BUROM Owner
-```
-
-Generate a hash:
+Current build command:
 
 ```bash
-python generate_password_hash.py
+pip install -r requirements.txt && python scripts/debug_migration.py
 ```
 
-Then run:
+Current start command:
 
 ```bash
-python app.py
+gunicorn wsgi:app
 ```
 
-Open `http://127.0.0.1:5000/admin/login`.
+`app.py` imports are intentionally side-effect free. During deployment:
 
-The initial Owner account will be created automatically if the database has no users.
+1. the migration gate verifies the PostgreSQL connection;
+2. if `alembic_version` exists, legacy `db.create_all()`/schema repair is skipped;
+3. Alembic upgrades to the repository migration head;
+4. bounded application defaults/bootstrap data are checked after migration;
+5. Gunicorn starts only after the build succeeds.
 
-## Production
+The first Owner is created only when the user table is empty. Normal deploys do not
+re-create, reactivate, rename, or re-promote an existing account.
 
-Before deployment, set:
+## Notification delivery
+
+General contact and marketplace enquiries create `NotificationOutbox` rows in the same
+database transaction as the enquiry.
+
+Production notification recipients come from operational environment configuration,
+not editable public footer fields:
+
+- `NOTIFICATION_EMAIL`, falling back to `INITIAL_OWNER_EMAIL`;
+- `NOTIFICATION_PHONE`, falling back to `WHATSAPP_PHONE`.
+
+Email delivery uses Brevo when `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` are
+configured. Optional SMS/WhatsApp delivery uses Twilio configuration.
+
+The request starts an asynchronous attempt for the exact committed outbox rows.
+Failed rows remain durable and can be retried by later enquiry traffic or with:
+
+```bash
+python scripts/process_notification_outbox.py
+```
+
+## Production environment
+
+Use Render environment variables. Never commit real secret values.
+
+Required production configuration includes:
 
 ```text
 APP_ENV=production
 SECRET_KEY=...
 ADMIN_PASSWORD_HASH=...
-INITIAL_OWNER_USERNAME=...
-INITIAL_OWNER_NAME=...
 DATABASE_URL=postgresql://...
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
+PUBLIC_BASE_URL=https://riburomtours.com
 ```
 
-Do not use the development fallback `ADMIN_PASSWORD` in production.
+Operational notification configuration:
 
-For more than one Gunicorn worker/instance, use Redis (or another shared backend) for `RATELIMIT_STORAGE_URI`; `memory://` is per-process. The `redis` Python package is included in `requirements.txt`.
+```text
+INITIAL_OWNER_EMAIL=...
+NOTIFICATION_EMAIL=...
+BREVO_API_KEY=...
+BREVO_SENDER_EMAIL=...
+BREVO_SENDER_NAME=RI BUROM
+```
 
-## Database migration
+Optional messaging configuration is documented in `.env.example`.
 
-For a one-time data copy from the included SQLite database to PostgreSQL:
+## Local development
+
+Create a virtual environment using Python 3.14.3:
 
 ```bash
-DATABASE_URL="postgresql://..." python migrate_to_postgres.py
+python -m venv .venv
 ```
 
-For future schema changes, use Flask-Migrate/Alembic:
+Activate it and install dependencies:
 
 ```bash
-flask db init        # once, if migrations/ does not exist
-flask db migrate -m "describe the schema change"
-flask db upgrade
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-## Important deployment note
+Copy `.env.example` to `.env` and use development settings. Local development may
+use SQLite and local files under `static/uploads/`.
 
-The ZIP intentionally does not contain the real logo/photos referenced by the sample database. Restore those assets into the project or upload them through the admin control room after configuring persistent storage.
+Generate a Werkzeug password hash with:
 
-The public site still uses the Tailwind CDN for the existing visual layer. Moving to a compiled local stylesheet is a separate frontend build step.
+```bash
+python generate_password_hash.py
+```
 
-## Branding / About / Blog / Instagram CMS
+Run locally:
 
-The Control Room now provides a dedicated content-management area for the public-facing brand:
+```bash
+python app.py
+```
 
-- **Header branding:** upload two separate images: a left-side RI BUROM wordmark and a separate logo mark.
-- **Hero logo:** upload a separate image for the homepage hero.
-- **Logo resizing:** change the display width of the wordmark, logo mark, header gap, and hero logo using admin sliders. This changes display size without altering the original uploaded image.
-- **About pillars:** fully edit the Nature, Culture and Community headings/text.
-- **Two additional About sections:** create/edit two extra heading + body sections and choose whether each is shown publicly.
-- **Logo meaning section:** edit the public explanation, upload the complete logo concept PDF, add the designer/creator name and credit, and choose whether the section is visible.
-- **External blog:** paste a blog URL, title, excerpt, button label and optional image. The featured story can be enabled and optionally displayed on the homepage. The link opens the external blog in a new tab.
-- **Footer:** edit business name, tagline, phone, email, address and copyright line.
-- **Instagram:** paste the Instagram URL. The site provides a direct clickable Instagram button and can automatically generate/display a QR code in the footer.
+Then open `http://127.0.0.1:5000/admin/login`.
 
-All of these controls are available to users with the existing `manage_about`/`manage_media` permissions, which means Owner and Content Manager can manage the public website without giving them user-administration privileges.
+## Tests
 
-## v5.2 additions
-This build adds Owner-controlled About Us section ordering/visibility, structured profile roles and ordering, removes the hardcoded header wordmark fallback, and makes local storage the default during development while allowing Cloudinary in production.
+The GitHub Actions workflow runs the complete Python test suite plus PostgreSQL 18
+migration/reconciliation coverage.
 
-### Local media behavior
-Set `APP_ENV=development` and leave `USE_CLOUDINARY=false` (or unset). Uploaded images/PDFs are saved under `static/uploads/`. Configure valid Cloudinary credentials for production deployment.
+Locally:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Tests are deliberately prevented from using PostgreSQL through the normal application
+`DATABASE_URL`. PostgreSQL-specific tests use a separate disposable
+`MARKETPLACE_TEST_DATABASE_URL`.
+
+**Never point test configuration at the production Neon database.**
+
+## Database maintenance safety
+
+Normal schema changes belong in Alembic migrations. Do not use `db.create_all()` as a
+production migration mechanism.
+
+Two legacy maintenance utilities remain for exceptional recovery/migration work:
+
+- `scripts/prepare_production_migrations.py`
+- `migrate_to_postgres.py`
+
+They now refuse to mutate a database unless explicit acknowledgement variables are
+provided. Production use requires an additional acknowledgement that a backup exists.
+These scripts are not part of routine deployment.
+
+## Repository layout
+
+```text
+app.py                         Core Flask application and legacy/public routes
+wsgi.py                        Production registration/WSGI entrypoint
+models.py                      Core application models
+marketplace_models.py          Marketplace domain models
+cms_*.py                       Workspace/CMS modules
+marketplace_*.py               Marketplace routes and operations
+notifications.py               Durable notification outbox/delivery
+seo.py                         Canonicals, metadata, robots and sitemap
+storage.py                     Cloudinary/local media abstraction
+migrations/                    Alembic migration history
+scripts/                       Deployment/maintenance workers
+templates/                     Jinja templates
+static/                        Local CSS/JS/system assets
+tests/                         Unit/integration/migration tests
+```
+
+The old tracked `repo_from_git/` duplicate tree and temporary squash files were
+removed from `main`. The pre-cleanup state is preserved on the GitHub branch
+`archive/repo-from-git-before-cleanup`.
+
+## Current product boundary
+
+RI BUROM currently supports discovery and staff-assisted enquiry operations. A future
+transactional marketplace would require separate work for availability/inventory,
+provider accounts, traveller accounts, quotations/contracts, payment/commission,
+cancellations/refunds, and transactional booking records. Those concerns should not be
+represented by the current enquiry status field alone.
