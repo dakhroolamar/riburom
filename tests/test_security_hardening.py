@@ -37,6 +37,16 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertEqual(response.headers['Referrer-Policy'], 'strict-origin-when-cross-origin')
         self.assertTrue(response.headers.get('X-Request-ID'))
 
+    def test_health_endpoint_is_database_independent(self):
+        response = self.client.get('/healthz')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'status': 'ok'})
+
+    def test_readiness_endpoint_checks_database(self):
+        response = self.client.get('/readyz')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'status': 'ready'})
+
     def test_500_handler_is_database_independent(self):
         from app import server_error
 

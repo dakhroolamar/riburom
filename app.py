@@ -621,6 +621,29 @@ def owner_required(view_func):
 
 
 # ------------------------------------------------------------
+# Health / readiness
+# ------------------------------------------------------------
+@app.route('/healthz')
+def healthz():
+    return {'status': 'ok'}, 200
+
+
+@app.route('/readyz')
+def readyz():
+    try:
+        with db.engine.connect() as connection:
+            connection.execute(text('SELECT 1')).scalar()
+    except Exception:
+        logging.getLogger('riburom').warning(
+            'Readiness check failed request_id=%s',
+            getattr(g, 'request_id', 'unknown'),
+            exc_info=True,
+        )
+        return {'status': 'unavailable'}, 503
+    return {'status': 'ready'}, 200
+
+
+# ------------------------------------------------------------
 # Public routes
 # ------------------------------------------------------------
 @app.route('/')
