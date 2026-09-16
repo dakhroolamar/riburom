@@ -67,6 +67,9 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   await page.keyboard.press('Escape');
   await page.locator('#providerInquiryOverlay').waitFor({state:'hidden'});
   await page.goto('http://127.0.0.1:5055/');
+  // Pointer interaction is a desktop/fine-pointer feature; run live-water QA
+  // at the representative desktop viewport rather than the last mobile size.
+  await page.setViewportSize({width:1440,height:900});
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.reload();
   await page.waitForTimeout(800);
