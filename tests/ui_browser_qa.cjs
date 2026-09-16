@@ -73,6 +73,10 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.reload();
   await page.waitForTimeout(800);
+  // The public UI intentionally uses smooth scrolling. Disable it only inside
+  // browser QA so pointer assertions run after each programmatic scroll has
+  // settled instead of racing the waterfall's scroll-reset interaction logic.
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   assert.equal(await page.evaluate(() => gsap.version), '3.12.5');
   assert.ok(await page.evaluate(() => ScrollTrigger.getAll().length > 0));
   const journey = page.locator('[data-rb-waterfall]');
