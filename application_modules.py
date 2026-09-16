@@ -8,7 +8,6 @@ assemble the same Flask application.
 def register_application_modules(flask_app):
     if getattr(flask_app, '_ri_burom_feature_modules_registered', False):
         return
-    flask_app._ri_burom_feature_modules_registered = True
 
     from cms_routes import (
         register_workspace,
@@ -47,3 +46,6 @@ def register_application_modules(flask_app):
     register_notifications(flask_app)
     register_seo(flask_app)
     register_hero_animation_routes(flask_app)
+
+    # Mark successful composition only after every feature registered cleanly.
+    flask_app._ri_burom_feature_modules_registered = True
