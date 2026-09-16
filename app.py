@@ -68,6 +68,12 @@ app.config['RATELIMIT_STORAGE_URI'] = os.environ.get('RATELIMIT_STORAGE_URI', 'm
 # --- Database ---
 database_url = os.environ.get('DATABASE_URL')
 
+if IS_PRODUCTION and not database_url:
+    raise RuntimeError(
+        'DATABASE_URL must be configured in production. '
+        'RI BUROM will not fall back to local SQLite in production.'
+    )
+
 if os.environ.get('TESTING') == '1':
     if not database_url:
         raise RuntimeError(

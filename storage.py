@@ -34,6 +34,14 @@ def _cloudinary_configured():
 
 USING_CLOUDINARY = _cloudinary_configured()
 
+_storage_env = os.environ.get('APP_ENV', 'production').strip().lower()
+_storage_is_production = _storage_env not in {'development', 'dev', 'testing', 'test'}
+if _storage_is_production and not USING_CLOUDINARY:
+    raise RuntimeError(
+        'Cloudinary must be configured in production. '
+        'RI BUROM will not fall back to ephemeral local media storage.'
+    )
+
 if USING_CLOUDINARY:
     import cloudinary
     import cloudinary.uploader
