@@ -617,9 +617,9 @@ body.rb-public-site .rb-hero-title{font-size:clamp(2.45rem,5.5vw,5.5rem);line-he
 /* Live homepage water: a full-width serpentine stream. The canvas lives behind
    content; marked content surfaces occlude it so crossings read as depth, not overlap. */
 #rbHomeSections.rb-paper-journey{position:relative;isolation:isolate;overflow:clip}
-#rbHomeSections.rb-paper-journey > :not(.rb-waterfall):not(.rb-water-canvas){position:relative;z-index:2}
+#rbHomeSections.rb-paper-journey > :not(.rb-waterfall):not(.rb-water-canvas){position:relative;z-index:auto}
 .rb-waterfall{
-  position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:visible;
+  position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible;
 }
 .rb-waterfall .rb-water-route{
   fill:none;stroke:url(#rb-water-fallback-gradient);stroke-width:8;stroke-linecap:round;
