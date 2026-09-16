@@ -19,6 +19,7 @@
             {% if site_settings.header_mark %}
                 <img src="{{ site_settings.header_mark|imgsrc }}" alt="Ri Burom logo mark" style="width: {{ site_settings.header_mark_width }}px; height: {{ site_settings.header_mark_width }}px; object-fit: contain;">
             {% endif %}
+            {% if not site_settings.header_wordmark and not site_settings.header_mark %}<span class="rb-brand-fallback">RI BUROM<small>Tours &amp; Travels</small></span>{% endif %}
         </a>
 
         <div class="rb-nav-links">
