@@ -543,18 +543,32 @@ def _create_initial_owner_if_missing():
 
 
 def run_deploy_bootstrap():
-    """Run RI BUROM's explicit deploy-time compatibility/bootstrap work.
+    """Prepare only a fresh/pre-Alembic database for Alembic adoption.
 
-    This function is intentionally *not* called while importing app.py.
-    Render's deploy preparation script invokes it explicitly before Alembic.
-    Keeping the call explicit prevents Gunicorn imports/restarts from mutating
-    Neon while preserving the compatibility work the current production
-    database still relies on.
+    Established databases with an alembic_version table must never pass
+    through db.create_all() or the legacy repair path during ordinary deploys.
     """
     with app.app_context():
+        if inspect(db.engine).has_table('alembic_version'):
+            raise RuntimeError(
+                'Legacy deploy bootstrap is not allowed after Alembic adoption.'
+            )
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         db.create_all()
         _run_legacy_migrations()
+        seed_defaults()
+        return {
+            'initial_owner_created': _create_initial_owner_if_missing(),
+        }
+
+
+def run_post_migration_bootstrap():
+    """Seed missing application defaults after Alembic reaches current head.
+
+    This performs bounded data initialization only. It does not create, alter,
+    or repair schema objects.
+    """
+    with app.app_context():
         seed_defaults()
         return {
             'initial_owner_created': _create_initial_owner_if_missing(),
