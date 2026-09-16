@@ -6,6 +6,7 @@ import json
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
 from app import add_audit, get_current_user, get_public_config, get_site_settings
+from config_concurrency import public_config_token, public_config_token_matches
 from models import db
 from storage import delete_media, imgsrc, save_image
 
@@ -65,8 +66,13 @@ def register_section_backgrounds(flask_app):
     @_media_required
     def workspace_cms_backgrounds():
         settings = get_site_settings()
-        return render_template('cms_backgrounds.html', section_labels=SECTION_BACKGROUND_LABELS,
-                               section_backgrounds=_get_backgrounds(settings), settings=settings)
+        return render_template(
+            'cms_backgrounds.html',
+            section_labels=SECTION_BACKGROUND_LABELS,
+            section_backgrounds=_get_backgrounds(settings),
+            settings=settings,
+            public_config_token=public_config_token(settings),
+        )
 
     @flask_app.route('/workspace/cms/backgrounds/save', methods=['POST'])
     @_media_required
@@ -75,6 +81,9 @@ def register_section_backgrounds(flask_app):
         if section_key not in SECTION_BACKGROUND_LABELS:
             abort(400)
         settings = get_site_settings()
+        if not public_config_token_matches(settings, request.form.get('public_config_token')):
+            flash('The public configuration changed after this page was opened. Reload the background editor and apply your change again.', 'error')
+            return redirect(url_for('workspace_cms_backgrounds'))
         cfg = get_public_config(settings)
         theme = cfg.setdefault('theme', {})
         backgrounds = theme.setdefault('section_backgrounds', {})

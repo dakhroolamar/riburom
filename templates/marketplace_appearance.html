@@ -32,6 +32,7 @@
     <p class="muted">The global Body/Heading font families still come from the CMS typography settings. These controls determine marketplace-specific colour, weight and emphasis.</p>
     <form method="POST" action="{{ save_url }}" class="grid grid-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="public_config_token" value="{{ public_config_token }}">
         <div class="field"><label>Marketplace background</label><input type="color" name="background_color" value="{{ style.background_color }}"></div>
         <div class="field"><label>Heading colour</label><input type="color" name="heading_color" value="{{ style.heading_color }}"></div>
         <div class="field"><label>Body / label colour</label><input type="color" name="body_color" value="{{ style.body_color }}"></div>

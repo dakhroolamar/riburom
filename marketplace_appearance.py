@@ -6,6 +6,7 @@ from functools import wraps
 from flask import abort, flash, redirect, render_template, request, url_for
 
 from app import _safe_hex, add_audit, get_current_user, get_public_config, get_site_settings
+from config_concurrency import public_config_token, public_config_token_matches
 from models import db
 
 
@@ -53,6 +54,9 @@ def _permission_required(permission):
 
 def _save_marketplace_style(success_redirect_endpoint):
     settings, cfg, current = _style_context()
+    if not public_config_token_matches(settings, request.form.get('public_config_token')):
+        flash('The public configuration changed after this page was opened. Reload the appearance editor and apply your change again.', 'error')
+        return redirect(url_for(success_redirect_endpoint))
     section = cfg['theme']['marketplace'] = current
 
     for field in ('background_color', 'heading_color', 'body_color', 'eyebrow_color',
@@ -90,10 +94,12 @@ def register_marketplace_appearance(flask_app):
     @flask_app.route('/workspace/cms/marketplace-appearance')
     @_permission_required('manage_media')
     def workspace_cms_marketplace_appearance():
+        settings, _, style = _style_context()
         return render_template(
             'marketplace_appearance.html',
             current_user=get_current_user(),
-            style=_style_context()[2],
+            style=style,
+            public_config_token=public_config_token(settings),
             save_url=url_for('workspace_cms_save_marketplace_appearance'),
             back_url=url_for('workspace_cms'),
             back_label='Content & Appearance',
@@ -107,10 +113,12 @@ def register_marketplace_appearance(flask_app):
     @flask_app.route('/workspace/marketplace/appearance')
     @_permission_required('manage_marketplace')
     def workspace_marketplace_appearance():
+        settings, _, style = _style_context()
         return render_template(
             'marketplace_appearance.html',
             current_user=get_current_user(),
-            style=_style_context()[2],
+            style=style,
+            public_config_token=public_config_token(settings),
             save_url=url_for('workspace_marketplace_save_appearance'),
             back_url=url_for('workspace_marketplace'),
             back_label='Marketplace Control Room',

@@ -18,6 +18,7 @@ from app import (
     get_public_config,
     get_site_settings,
 )
+from config_concurrency import public_config_token, public_config_token_matches
 from models import AuditLog, AboutContent, AboutSection, Message, Package, TeamMember, User, db
 from marketplace_models import (
     PROVIDER_STATUSES,
@@ -273,7 +274,12 @@ def register_workspace(flask_app):
     @cms_access_required
     def workspace_cms():
         settings = get_site_settings(); public = _with_defaults(get_public_config(settings))
-        context = _get_context('cms'); context.update({'public': public, 'section_styles': public['theme']['sections'], 'section_labels': SECTION_LABELS})
+        context = _get_context('cms'); context.update({
+            'public': public,
+            'section_styles': public['theme']['sections'],
+            'section_labels': SECTION_LABELS,
+            'public_config_token': public_config_token(settings),
+        })
         return render_template('cms.html', **context)
 
     @flask_app.route('/workspace/cms/media')
@@ -287,7 +293,11 @@ def register_workspace(flask_app):
     @cms_structure_required
     def workspace_cms_structure():
         settings = get_site_settings(); public = _with_defaults(get_public_config(settings))
-        context = _get_context('cms_structure'); context.update({'public': public, 'section_labels': SECTION_LABELS})
+        context = _get_context('cms_structure'); context.update({
+            'public': public,
+            'section_labels': SECTION_LABELS,
+            'public_config_token': public_config_token(settings),
+        })
         return render_template('cms_structure.html', **context)
 
     @flask_app.route('/workspace/marketplace')
@@ -309,7 +319,11 @@ def register_workspace(flask_app):
     @flask_app.route('/workspace/cms/save-content', methods=['POST'])
     @cms_content_required
     def workspace_cms_save_content():
-        settings = get_site_settings(); cfg = _with_defaults(get_public_config(settings))
+        settings = get_site_settings()
+        if not public_config_token_matches(settings, request.form.get('public_config_token')):
+            flash('The public configuration changed after this page was opened. Reload the CMS and apply your change again.', 'error')
+            return redirect(url_for('workspace_cms'))
+        cfg = _with_defaults(get_public_config(settings))
         for field in CONTENT_FIELDS:
             if field in request.form:
                 value = (request.form.get(field) or '').strip()
@@ -323,7 +337,11 @@ def register_workspace(flask_app):
     @flask_app.route('/workspace/cms/save-sections', methods=['POST'])
     @cms_media_required
     def workspace_cms_save_sections():
-        settings = get_site_settings(); cfg = _with_defaults(get_public_config(settings)); sections = cfg['theme']['sections']
+        settings = get_site_settings()
+        if not public_config_token_matches(settings, request.form.get('public_config_token')):
+            flash('The public configuration changed after this page was opened. Reload the CMS and apply your change again.', 'error')
+            return redirect(url_for('workspace_cms'))
+        cfg = _with_defaults(get_public_config(settings)); sections = cfg['theme']['sections']
         for key in SECTION_STYLE_DEFAULTS:
             current = sections[key]
             for field in ('background_color','heading_color','body_color','eyebrow_color','overlay_color'):
@@ -341,7 +359,11 @@ def register_workspace(flask_app):
     @flask_app.route('/workspace/cms/save-home-structure', methods=['POST'])
     @cms_structure_required
     def workspace_cms_save_home_structure():
-        settings = get_site_settings(); cfg = _with_defaults(get_public_config(settings)); valid = ['hero','about','tours','why','blog','contact']
+        settings = get_site_settings()
+        if not public_config_token_matches(settings, request.form.get('public_config_token')):
+            flash('The public configuration changed after this page was opened. Reload the structure editor and apply your change again.', 'error')
+            return redirect(url_for('workspace_cms_structure'))
+        cfg = _with_defaults(get_public_config(settings)); valid = ['hero','about','tours','why','blog','contact']
         try: order = json.loads(request.form.get('home_section_order') or '[]')
         except (TypeError, ValueError, json.JSONDecodeError): order = []
         order = [key for key in order if key in valid] + [key for key in valid if key not in order]
