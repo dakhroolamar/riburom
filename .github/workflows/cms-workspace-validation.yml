@@ -2,7 +2,7 @@ name: RI BUROM CMS Workspace Validation
 
 on:
   push:
-    branches: [main, feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation, feature/marketplace-foundation, feature/marketplace-reconciliation, feature/marketplace-package-items]
+    branches: [main, ui/visual-refresh, feature/cms-workspace, fix/inquiry-notifications-ux, feature/brevo-email-notifications, feature/seo-foundation, feature/marketplace-foundation, feature/marketplace-reconciliation, feature/marketplace-package-items]
   pull_request:
     branches: [main]
 
