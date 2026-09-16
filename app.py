@@ -13,7 +13,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, send_from_directory, abort, has_request_context, Response,
 )
-from sqlalchemy import inspect, func, desc
+from sqlalchemy import inspect, func, desc, text
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -489,7 +489,11 @@ def _create_initial_owner_if_missing():
     if not initial_password_hash or not inspect(db.engine).has_table('users'):
         return False
 
-    if User.query.first() is not None:
+    # Use a raw existence query here so deploy bootstrap remains compatible
+    # with a production users table that has not yet received a newly-added
+    # ORM column. Alembic runs later in the same deploy and brings the table
+    # to the current model shape before Gunicorn starts.
+    if db.session.execute(text('SELECT 1 FROM users LIMIT 1')).first() is not None:
         return False
 
     try:

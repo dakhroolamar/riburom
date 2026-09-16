@@ -72,7 +72,7 @@ class SessionRevocationTests(unittest.TestCase):
         user.session_version += 1
         self.db.session.commit()
 
-        response = self.client.get('/admin', follow_redirects=False)
+        response = self.client.get('/workspace/marketplace', follow_redirects=False)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/admin/login', response.headers['Location'])
         with self.client.session_transaction() as browser_session:
@@ -85,7 +85,7 @@ class SessionRevocationTests(unittest.TestCase):
         user.session_version += 1
         self.db.session.commit()
 
-        response = self.client.get('/admin', follow_redirects=False)
+        response = self.client.get('/workspace/marketplace', follow_redirects=False)
         self.assertEqual(response.status_code, 302)
         self.assertIn('/admin/login', response.headers['Location'])
 
