@@ -1,7 +1,9 @@
 import io
 import json
+import logging
 import os
 import re
+import uuid
 from collections import Counter
 from datetime import datetime, timedelta
 from functools import wraps
@@ -11,13 +13,14 @@ from urllib.parse import urljoin, urlparse, quote
 from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, send_from_directory, abort, has_request_context, Response,
+    session, flash, send_from_directory, abort, has_request_context, Response, g,
 )
 from sqlalchemy import inspect, func, desc, text
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFError, CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 import qrcode
 
@@ -34,6 +37,15 @@ from storage import (
 from marketplace_models import Provider, Service
 
 app = Flask(__name__)
+TRUST_PROXY_HEADERS = (
+    os.environ.get('RENDER', '').strip().lower() == 'true'
+    or os.environ.get('TRUST_PROXY_HEADERS', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+)
+if TRUST_PROXY_HEADERS:
+    # Trust exactly one front proxy. On Render this is the platform edge/load
+    # balancer. Outside Render this must be explicitly enabled by the operator.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 APP_ENV = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
 IS_DEVELOPMENT = APP_ENV in {'development', 'dev', 'testing'}
@@ -124,6 +136,8 @@ PERMISSION_LABELS = {
     'manage_structure': 'Manage Page Structure / Ordering',
     'view_marketplace': 'View Marketplace Providers & Services',
     'manage_marketplace': 'Manage Marketplace Providers & Services',
+    'view_marketplace_inquiries': 'View Marketplace Enquiries',
+    'manage_marketplace_inquiries': 'Manage Marketplace Enquiries',
 }
 PERMISSION_KEYS = tuple(PERMISSION_LABELS.keys())
 
@@ -1633,8 +1647,14 @@ def delete_user(id):
 # ------------------------------------------------------------
 # Security / error handling
 # ------------------------------------------------------------
+@app.before_request
+def attach_request_id():
+    g.request_id = uuid.uuid4().hex
+
+
 @app.after_request
 def add_security_headers(response):
+    response.headers.setdefault('X-Request-ID', getattr(g, 'request_id', uuid.uuid4().hex))
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
@@ -1647,7 +1667,7 @@ def add_security_headers(response):
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     flash('The form expired or was submitted from an invalid session. Please try again.', 'error')
-    return redirect(request.referrer or url_for('home'))
+    return redirect(url_for('home'))
 
 
 @app.errorhandler(403)
@@ -1663,12 +1683,29 @@ def not_found(e):
 @app.errorhandler(413)
 def too_large(e):
     flash('That file is too large (16MB max).', 'error')
-    return redirect(request.referrer or url_for('admin'))
+    return redirect(url_for('admin') if request.path.startswith(('/admin', '/workspace')) else url_for('home'))
 
 
 @app.errorhandler(500)
 def server_error(e):
-    return render_template('errors/500.html'), 500
+    logging.getLogger('riburom').exception(
+        'Unhandled application error request_id=%s method=%s path=%s',
+        getattr(g, 'request_id', 'unknown'),
+        request.method,
+        request.path,
+        exc_info=e,
+    )
+    # Do not render a normal template here: the shared context processor reads
+    # SiteSettings from the database and could fail again during a DB outage.
+    return Response(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>RI BUROM — Service unavailable</title></head>'
+        '<body><main><h1>Something went wrong</h1>'
+        '<p>Please try again in a moment.</p></main></body></html>',
+        status=500,
+        mimetype='text/html',
+    )
 
 
 if __name__ == '__main__':
