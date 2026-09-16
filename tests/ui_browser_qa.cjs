@@ -91,7 +91,8 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
     }
     return Math.max(...xs) - Math.min(...xs);
   });
-  assert.ok(routeSpread > 800, `water route spread too narrow: ${routeSpread}`);
+  const viewportWidth = await page.evaluate(() => innerWidth);
+  assert.ok(routeSpread > viewportWidth * .6, `water route spread too narrow: ${routeSpread}`);
 
   // Fine-pointer interaction adds a local ripple near a visible point.
   await page.evaluate(() => scrollTo(0, Math.round(document.documentElement.scrollHeight * .28)));

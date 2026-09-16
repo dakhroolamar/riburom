@@ -189,10 +189,11 @@
 
   function nearestVisiblePoint(clientX, clientY) {
     const list = screenPoints();
+    const shields = shieldRects();
     let nearest = null;
     let distance = Infinity;
     for (const p of list) {
-      if (p.y < -40 || p.y > canvasHeight + 40) continue;
+      if (p.y < -40 || p.y > canvasHeight + 40 || isShielded(p, shields)) continue;
       const d = Math.hypot(p.x - clientX, p.y - clientY);
       if (d < distance) {
         distance = d;
@@ -236,6 +237,8 @@
     const delta = clamp(y - lastScrollY, -120, 120);
     state.scrollPhase += delta * .012;
     lastScrollY = y;
+    hoverPoint = null;
+    root.dataset.waterInteractive = 'false';
   }
 
   mm.add('(prefers-reduced-motion: no-preference)', () => {
