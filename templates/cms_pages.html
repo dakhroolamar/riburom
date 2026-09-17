@@ -1,25 +1,122 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ pages[page] }} — RI BUROM Pages</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>{{ pages[page] }} — RI BUROM Website Editor</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cms-pages.css') }}">
-<script src="{{ url_for('static', filename='js/cms-pages.js') }}" defer></script></head>
-<body><header><a href="{{ url_for('workspace_operations') }}">RI BUROM · Dashboard</a><nav><a href="{{ url_for('cms_pages') }}">Pages</a><a href="{{ url_for('cms_library') }}">Media Library</a><a href="{{ url_for('workspace_operations') }}">Tours / Experiences & Enquiries</a><a href="{{ url_for('workspace_marketplace') }}">Marketplace</a><a href="{{ url_for('workspace_cms') }}">Site Settings</a></nav></header>
-<div class="editor-layout"><aside aria-label="Pages"><h2>Pages</h2>{% for key,title in pages.items() %}<a href="{{ url_for('cms_pages', page=key) }}" {% if page == key %}aria-current="page"{% endif %}>{{ title }}</a>{% endfor %}</aside>
-<main data-cms-page="{{ page }}"><h1>{{ pages[page] }}</h1><p>Edit text, photographs and appearance in the order visitors see them.</p>
-<p class="notice">Saving applies your changes to the website. Unsaved gallery selections and logo previews stay in this editor.</p>
-{% if sections %}<nav class="sections" aria-label="Home sections">{% for key,title in sections %}<button type="button" data-section="{{ key }}" data-collection="{{ key if key in collections else '' }}">{{ '%02d'|format(loop.index) }} {{ title }}</button>{% endfor %}</nav>{% endif %}
-{% if page == 'footer' %}<button type="button" data-section="footer_partners" data-collection="footer_partners">Partners & Certifications</button>{% endif %}
-{% if page == 'tour-detail' %}<h2>Choose an experience</h2>{% for package in packages %}<button type="button" data-section="tour-{{ package.id }}" data-collection="tour-{{ package.id }}">{{ package.title }}</button>{% else %}<p>Create an experience in Tours / Experiences first.</p>{% endfor %}{% endif %}
-<section id="section-panel"><h2 id="section-title">Page controls</h2>
-<nav class="tabs" aria-label="Editing panels"><button type="button" data-panel="content">Content</button><button type="button" data-panel="media">Media</button><button type="button" data-panel="appearance">Appearance</button><button type="button" data-panel="advanced">Advanced</button></nav>
-<div data-tab="content"><form id="section-content"><div id="content-fields"></div><button type="submit">Save text</button></form><p>Existing page text and publishing controls remain available.</p><a href="{{ url_for('workspace_cms') }}">Edit page text</a>{% if page in ['marketplace','provider'] %}<p><a href="{{ url_for('workspace_marketplace') }}">Edit marketplace content</a></p>{% endif %}</div>
-<div data-tab="media" hidden>{% include '_cms_media_editor.html' %}<p id="other-media"><a href="{{ url_for('workspace_cms_backgrounds') }}">Edit section background photographs</a></p></div>
-<div data-tab="appearance" hidden><p><a href="{{ url_for('workspace_cms') }}">Edit current colors and typography</a></p>
-<section id="logo-editor" hidden><h3>Hero logo placement</h3><label>Preview size<select id="logo-device"><option value="desktop">Desktop</option><option value="tablet">Tablet</option><option value="mobile">Mobile</option></select></label>
-<div id="logo-preview"><img id="preview-logo" src="{{ (settings.hero_logo or settings.header_mark or settings.header_wordmark or 'logo.png')|imgsrc }}" alt="RI BUROM logo preview"></div>
-<label>Logo size<input type="range" id="logo-size" min="20" max="90" value="60"></label>
-<label>Move left ↔ right<input type="range" id="logo-x" min="0" max="100" value="50"></label>
-<label>Move up ↕ down<input type="range" id="logo-y" min="0" max="100" value="50"></label>
-<button type="button" id="logo-reset">Reset to recommended position</button><button type="button" id="logo-save">Save logo placement</button></section></div>
-<div data-tab="advanced" hidden><p><a href="{{ url_for('workspace_cms_structure') }}">Section order and visibility</a></p><p>Focal points are available on each selected photograph. Click its important subject to set the crop focus.</p></div>
-</section><p id="editor-status" role="status" aria-live="polite"></p></main></div></body></html>
+<script src="{{ url_for('static', filename='js/cms-pages.js') }}" defer></script>
+</head>
+<body class="cms-editor">
+{% set section_names = {
+  'hero':'Hero & opening',
+  'home_gallery':'Landscape story gallery',
+  'home_about_gallery':'About photo flipbook',
+  'home_tours':'Signature experiences',
+  'home_why':'Why RI BUROM',
+  'home_blog':'Stories / blog',
+  'home_contact':'Enquiry section',
+  'footer_partners':'Footer & partners'
+} %}
+<header class="editor-header">
+  <a class="editor-brand" href="{{ url_for('cms_pages') }}"><strong>RI BUROM</strong><span>Website Editor</span></a>
+  <nav class="editor-primary-nav" aria-label="Website editor navigation">
+    <a class="active" href="{{ url_for('cms_pages') }}">Pages</a>
+    <a href="{{ url_for('cms_library') }}">Media Library</a>
+    <a href="{{ url_for('workspace_operations') }}">Tours & Enquiries</a>
+    <a href="{{ url_for('workspace_marketplace') }}">Marketplace</a>
+    <a href="{{ url_for('workspace_cms') }}">Site Settings</a>
+    <a class="view-site" href="/" target="_blank" rel="noopener">View Site ↗</a>
+  </nav>
+</header>
+
+<div class="editor-layout">
+  <aside class="page-sidebar" aria-label="Website pages">
+    <div class="sidebar-heading"><span>Website</span><h2>Pages</h2></div>
+    <nav class="page-list">
+      {% for key,title in pages.items() %}
+      <a href="{{ url_for('cms_pages', page=key) }}" {% if page == key %}aria-current="page"{% endif %}><span>{{ '%02d'|format(loop.index) }}</span>{{ title }}</a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-help"><strong>Simple rule</strong><p>Edit a page here. Use Site Settings only for global colours, typography and site-wide labels.</p></div>
+  </aside>
+
+  <main data-cms-page="{{ page }}">
+    <div class="page-heading">
+      <div><p class="eyebrow">Editing page</p><h1>{{ pages[page] }}</h1><p>Choose a section, then edit its text, photographs or appearance.</p></div>
+      <a class="preview-link" href="/" target="_blank" rel="noopener">Preview website ↗</a>
+    </div>
+
+    <p class="notice"><strong>Publishing:</strong> saved changes appear on the live website immediately. Uploading or rearranging photographs does not publish until you choose <strong>Save gallery</strong>.</p>
+
+    {% if sections %}
+    <section class="section-picker" aria-labelledby="section-picker-title">
+      <div class="section-picker-heading"><div><p class="eyebrow">Step 1</p><h2 id="section-picker-title">Choose a section</h2></div><span class="helper">Shown in visitor order</span></div>
+      <nav class="sections" aria-label="Home sections">
+        {% for key,title in sections %}
+        <button type="button" data-section="{{ key }}" data-collection="{{ key if key in collections else '' }}" {% if loop.first %}aria-current="true"{% endif %}><span>{{ '%02d'|format(loop.index) }}</span>{{ section_names.get(key, title) }}</button>
+        {% endfor %}
+      </nav>
+    </section>
+    {% endif %}
+
+    {% if page == 'footer' %}
+    <section class="section-picker compact"><button type="button" data-section="footer_partners" data-collection="footer_partners">Partners & Certifications</button></section>
+    {% endif %}
+
+    {% if page == 'tour-detail' %}
+    <section class="section-picker" aria-labelledby="tour-picker-title"><div class="section-picker-heading"><div><p class="eyebrow">Step 1</p><h2 id="tour-picker-title">Choose an experience</h2></div></div><div class="sections">
+      {% for package in packages %}<button type="button" data-section="tour-{{ package.id }}" data-collection="tour-{{ package.id }}">{{ package.title }}</button>{% else %}<p>Create an experience in Tours & Enquiries first.</p>{% endfor %}
+    </div></section>
+    {% endif %}
+
+    <section id="section-panel" class="editor-panel">
+      <div class="panel-heading"><div><p class="eyebrow">Step 2</p><h2 id="section-title">Page controls</h2></div><p>Select what you want to change.</p></div>
+      <nav class="tabs" aria-label="Editing panels">
+        <button type="button" data-panel="content" aria-pressed="true">Text</button>
+        <button type="button" data-panel="media" aria-pressed="false">Photos</button>
+        <button type="button" data-panel="appearance" aria-pressed="false">Appearance</button>
+        <button type="button" data-panel="advanced" aria-pressed="false">Advanced</button>
+      </nav>
+
+      <div data-tab="content">
+        <div class="tab-intro"><h3>Section text</h3><p>Edit only the wording for the selected section.</p></div>
+        <form id="section-content"><div id="content-fields"></div><button type="submit" class="primary-action">Save text</button></form>
+        <p class="secondary-help">Need navigation labels, global metadata or site-wide wording? <a href="{{ url_for('workspace_cms') }}">Open Site Settings</a>.</p>
+        {% if page in ['marketplace','provider'] %}<p class="secondary-help"><a href="{{ url_for('workspace_marketplace') }}">Open Marketplace control room</a>.</p>{% endif %}
+      </div>
+
+      <div data-tab="media" hidden>
+        <div class="tab-intro"><h3>Section photos</h3><p>Choose, upload, order and crop the photographs used in this section.</p></div>
+        {% include '_cms_media_editor.html' %}
+        <p id="other-media" class="secondary-help"><a href="{{ url_for('workspace_cms_backgrounds') }}">Edit legacy section background photographs</a>.</p>
+      </div>
+
+      <div data-tab="appearance" hidden>
+        <div class="tab-intro"><h3>Appearance</h3><p>Page-specific visual controls live here; global colours and typography remain in Site Settings.</p></div>
+        <p class="secondary-help"><a href="{{ url_for('workspace_cms') }}">Open global Site Settings</a>.</p>
+        <section id="logo-editor" hidden>
+          <h3>Hero logo placement</h3>
+          <div class="control-grid">
+            <label>Preview size<select id="logo-device"><option value="desktop">Desktop</option><option value="tablet">Tablet</option><option value="mobile">Mobile</option></select></label>
+            <label>Logo size<input type="range" id="logo-size" min="20" max="90" value="60"></label>
+            <label>Move left ↔ right<input type="range" id="logo-x" min="0" max="100" value="50"></label>
+            <label>Move up ↕ down<input type="range" id="logo-y" min="0" max="100" value="50"></label>
+          </div>
+          <div id="logo-preview"><img id="preview-logo" src="{{ (settings.hero_logo or settings.header_mark or settings.header_wordmark or 'logo.png')|imgsrc }}" alt="RI BUROM logo preview"></div>
+          <div class="action-row"><button type="button" id="logo-reset">Reset position</button><button type="button" id="logo-save" class="primary-action">Save logo placement</button></div>
+        </section>
+      </div>
+
+      <div data-tab="advanced" hidden>
+        <div class="tab-intro"><h3>Advanced controls</h3><p>Use these only when you need to change layout order, visibility or image crop focus.</p></div>
+        <p><a href="{{ url_for('workspace_cms_structure') }}">Section order and visibility</a></p>
+        <p class="secondary-help">Crop focus is available on each selected photograph. Click the important subject to keep it visible across screen sizes.</p>
+      </div>
+    </section>
+    <p id="editor-status" class="editor-status" role="status" aria-live="polite"></p>
+  </main>
+</div>
+</body>
+</html>
