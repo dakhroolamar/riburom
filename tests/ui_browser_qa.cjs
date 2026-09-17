@@ -162,35 +162,38 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
 
   // Fine-pointer interaction adds a local ripple near a visible, already
   // revealed section of the stream. Search a few journey positions because
-  // some crossings are intentionally hidden behind content shields.
+  // some crossings are intentionally hidden behind content shields. Keep the
+  // selected point safely behind the reveal front: the runtime intentionally
+  // ignores pointer interaction on water that has not been revealed yet.
   let interactionPoint = null;
   for (const fraction of [.16,.30,.44,.58,.72,.84]) {
     await page.evaluate(f => scrollTo(0, Math.round(document.documentElement.scrollHeight * f)), fraction);
-    await page.waitForTimeout(260);
+    await page.waitForTimeout(400);
     const revealed = Number(await journey.getAttribute('data-water-progress') || 0);
     interactionPoint = await page.evaluate(maxT => {
       const route = document.querySelector('.rb-water-route');
       const ctm = route.getScreenCTM();
       const length = route.getTotalLength();
+      const safeMaxT = Math.max(0, maxT - .015);
       const shields = [...document.querySelectorAll('[data-rb-water-shield]')].map(el => {
         const r = el.getBoundingClientRect();
         return {left:r.left - 20,right:r.right + 20,top:r.top - 20,bottom:r.bottom + 20};
       });
       for (let i = 0; i <= 180; i += 1) {
         const t = i / 180;
-        if (t > maxT + .01) break;
+        if (t > safeMaxT) break;
         const p = route.getPointAtLength(length * t);
         const x = ctm.a * p.x + ctm.c * p.y + ctm.e;
         const y = ctm.b * p.x + ctm.d * p.y + ctm.f;
         const shielded = shields.some(r => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom);
-        if (y > 120 && y < innerHeight - 80 && !shielded) return {x,y};
+        if (y > 150 && y < innerHeight - 100 && !shielded) return {x,y,t,maxT};
       }
       return null;
     }, revealed);
     if (interactionPoint) break;
   }
   assert.ok(interactionPoint, 'no visible unshielded stream point found for pointer QA');
-  await page.mouse.move(interactionPoint.x, interactionPoint.y);
+  await page.mouse.move(interactionPoint.x, interactionPoint.y, {steps: 2});
   await page.waitForFunction(() =>
     document.querySelector('[data-rb-waterfall]')?.dataset.waterInteractive === 'true'
   );
