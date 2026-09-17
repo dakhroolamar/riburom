@@ -53,6 +53,10 @@ jobs:
       - name: Run responsive browser QA
         run: node tests/ui_browser_qa.cjs
 
+      - name: Diagnose mobile river collisions
+        if: always()
+        run: node tests/water_mobile_diagnostic.cjs
+
       - name: Run read-only production smoke QA
         if: always()
         env:
