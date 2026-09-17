@@ -24,6 +24,30 @@ async function waitForImages(page, selector) {
   }, selector, { timeout: 10000 });
 }
 
+async function scrollThrough(page) {
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  const viewport = page.viewportSize()?.height || 800;
+  for (let y = 0; y < height; y += Math.max(320, Math.floor(viewport * 0.7))) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    await page.waitForTimeout(45);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(150);
+}
+
+async function assertPublicCmsRendering(page, label) {
+  await page.waitForFunction(() => {
+    const hero = document.querySelector('.cms-hero-gallery');
+    const river = document.querySelector('[data-rb-river-gallery]');
+    const about = document.querySelector('[data-rb-about-flip]');
+    return hero && hero.querySelectorAll('.cms-gallery-track figure').length >= 3 &&
+      river && !river.hidden && river.querySelectorAll('.rb-river-gallery-slide').length >= 3 &&
+      about && !about.hidden && about.querySelector('img')?.complete && about.querySelector('img')?.naturalWidth > 0;
+  }, { timeout: 10000 });
+  await waitForImages(page, '.cms-hero-gallery img');
+  assert.ok(await page.locator('.rb-river-gallery-slide').count() >= 3, `${label}: CMS river gallery was not rendered`);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -83,6 +107,8 @@ async function waitForImages(page, selector) {
   assert.ok(publicMedia.media_details, 'Public CMS response is missing media_details');
   assert.ok((publicMedia.media_details.home_gallery || []).length >= 3, 'Public homepage did not expose CMS river gallery media');
   assert.ok((publicMedia.media_details.home_about_gallery || []).length >= 3, 'Public homepage did not expose CMS About gallery media');
+  await assertPublicCmsRendering(page, 'desktop');
+  await scrollThrough(page);
   await page.screenshot({ path: `${OUT}/home-desktop.png`, fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -93,11 +119,13 @@ async function waitForImages(page, selector) {
 
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
   await assertNoHorizontalOverflow(page, 'Public homepage mobile 390px');
+  await assertPublicCmsRendering(page, 'mobile 390px');
+  await scrollThrough(page);
   await page.screenshot({ path: `${OUT}/home-mobile-390.png`, fullPage: true });
 
   assert.deepEqual(errors, [], `Browser errors detected:\n${errors.join('\n')}`);
   await browser.close();
-  console.log('CMS browser QA passed: editor, collection persistence, logo placement, media library, public CMS integration, desktop and 390px layouts.');
+  console.log('CMS browser QA passed: editor, collection persistence, logo placement, media library, rendered public galleries, desktop and 390px layouts.');
 })().catch(async (error) => {
   console.error(error.stack || error);
   process.exit(1);
