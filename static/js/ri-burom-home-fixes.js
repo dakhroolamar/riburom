@@ -1,58 +1,28 @@
 (function () {
   'use strict';
 
-  function syncHeroMedia() {
+  function ensureHomeFixStyles() {
+    if (document.querySelector('link[data-rb-home-fixes-css]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/static/css/ri-burom-home-fixes.css?v=2';
+    link.dataset.rbHomeFixesCss = '1';
+    document.head.appendChild(link);
+  }
+
+  function syncHeroOpeningFilm() {
     const hero = document.getElementById('rb-home-hero');
     const stage = document.querySelector('[data-rb-hero-video-stage]');
     const video = document.querySelector('[data-rb-hero-animation-video]');
     const logo = document.querySelector('.rb-hero-permanent-logo');
-    const heroImage = document.querySelector('.rb-home-landscape-photo');
-
-    if (heroImage) {
-      heroImage.style.setProperty('opacity', '1', 'important');
-      heroImage.style.setProperty('mix-blend-mode', 'normal', 'important');
-      heroImage.style.setProperty('position', 'absolute', 'important');
-      heroImage.style.setProperty('inset', '0', 'important');
-      heroImage.style.setProperty('width', '100%', 'important');
-      heroImage.style.setProperty('height', '100%', 'important');
-      heroImage.style.setProperty('object-fit', 'cover', 'important');
-    }
 
     if (!hero || !stage || !video || !logo) return;
 
-    if (video.parentElement !== stage) stage.appendChild(video);
+    /* ri-burom-motion.js owns playback state. This layer only decides where
+       the film is presented: across the full white hero story area. */
+    if (video.parentElement !== hero) hero.appendChild(video);
     video.classList.remove('rb-hero-animation-video--background');
-
-    stage.style.setProperty('position', 'relative', 'important');
-    stage.style.setProperty('width', 'min(78vw, 560px)', 'important');
-    stage.style.setProperty('max-width', '100%', 'important');
-    stage.style.setProperty('margin', '0 auto 1.5rem', 'important');
-
-    video.style.setProperty('position', 'absolute', 'important');
-    video.style.setProperty('inset', '0', 'important');
-    video.style.setProperty('width', '100%', 'important');
-    video.style.setProperty('height', '100%', 'important');
-    video.style.setProperty('max-width', '100%', 'important');
-    video.style.setProperty('max-height', '100%', 'important');
-    video.style.setProperty('object-fit', 'contain', 'important');
-    video.style.setProperty('object-position', 'center', 'important');
-    video.style.setProperty('pointer-events', 'none', 'important');
-    video.style.setProperty('background', 'transparent', 'important');
-    video.style.setProperty('z-index', '2', 'important');
-
-    const syncState = () => {
-      const playing = hero.classList.contains('rb-hero-video-playing') && !video.ended;
-      video.style.setProperty('opacity', playing ? '1' : '0', 'important');
-      video.style.setProperty('visibility', playing ? 'visible' : 'hidden', 'important');
-      logo.style.setProperty('opacity', playing ? '0' : '1', 'important');
-      logo.style.setProperty('visibility', 'visible', 'important');
-    };
-
-    syncState();
-    new MutationObserver(syncState).observe(hero, { attributes: true, attributeFilter: ['class'] });
-    video.addEventListener('playing', syncState);
-    video.addEventListener('ended', syncState);
-    video.addEventListener('error', syncState);
+    video.classList.add('rb-hero-opening-film');
   }
 
   function applyHomeAboutFrame() {
@@ -90,7 +60,8 @@
   }
 
   function run() {
-    syncHeroMedia();
+    ensureHomeFixStyles();
+    syncHeroOpeningFilm();
     applyHomeAboutFrame();
   }
 
@@ -99,5 +70,5 @@
   } else {
     run();
   }
-  window.addEventListener('load', syncHeroMedia, { once: true });
+  window.addEventListener('load', syncHeroOpeningFilm, { once: true });
 })();
