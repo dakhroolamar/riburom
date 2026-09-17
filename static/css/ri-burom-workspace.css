@@ -133,9 +133,31 @@ body.rb-workspace .info{border-radius:var(--rbw-radius-md)}
 .rbw-status--danger{background:#fee2e2;color:#991b1b}
 .rbw-status--neutral{background:#e8ede9;color:#475569}
 
+/* The page editor is now the primary CMS. Keep legacy settings available,
+   but remove duplicate destinations from the old Content & Appearance header. */
+body.rb-workspace .cms-top .cms-nav a:nth-child(5),
+body.rb-workspace .cms-top .cms-nav a:nth-child(6),
+body.rb-workspace .cms-top .cms-nav a:nth-child(7),
+body.rb-workspace .cms-top .cms-nav a:nth-child(8){display:none}
+body.rb-workspace .cms-main>.marketplace-link{display:none}
+body.rb-workspace .cms-main>.info{
+  margin-bottom:18px;
+  border-color:#c9d9ce;
+  background:#f3f8f4;
+  color:#315344;
+}
+body.rb-workspace .cms-main>.info::before{
+  content:"Site Settings — use Pages for normal page-by-page editing. This screen is for global wording, typography and section appearance.";
+  display:block;
+  margin-bottom:5px;
+  color:#143e30;
+  font-weight:800;
+}
+
 @media(max-width:760px){
   body.rb-workspace .panel{padding:16px}
   .rbw-page-frame{width:min(calc(100% - 1rem),100rem)}
   .rbw-page-heading{display:block}
   .rbw-toolbar{margin-top:1rem}
+  body.rb-workspace .cms-top .cms-nav{gap:4px}
 }
