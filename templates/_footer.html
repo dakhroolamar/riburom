@@ -1,5 +1,5 @@
 <footer class="rb-footer rb-textile-edge text-white">
-    {% set partners = cms_collection_media('footer_partners') %}
+    {% set partners = cms_collection_media('footer_partners') if cms_collection_media is defined else [] %}
     {% if partners %}<div class="cms-partner-strip" aria-label="Partners and certifications">{% for partner in partners %}<figure>
         {% if partner.url %}<a href="{{ partner.url }}" {% if partner.new_tab %}target="_blank" rel="noopener noreferrer"{% endif %}>{% endif %}
         <img src="{{ partner.src }}" alt="{{ partner.alt or partner.organization }}" loading="lazy" decoding="async">
