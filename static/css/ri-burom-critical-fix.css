@@ -39,4 +39,10 @@
   #rb-home-hero.rb-paper-hero{
     --rb-hero-landscape-gap:clamp(36px,9vw,52px);
   }
+
+  /* Keep a real right-side river bank on narrow screens so the Why parchment
+     does not cut the mobile river route into a masked segment. */
+  #rb-home-why.rb-aged-paper-tear{
+    width:82%!important;
+  }
 }
