@@ -104,16 +104,18 @@
 .rb-about-flip[hidden]{display:none!important}
 
 .rb-river-gallery{
-  --rb-gallery-exit:0;
+  --rb-gallery-zoom:1;
+  --rb-gallery-opacity:1;
+  --rb-gallery-saturate:1;
   position:absolute;
   inset:0;
   z-index:4;
   overflow:hidden;
   background:#dce6df;
-  transform:scale(calc(1 + (var(--rb-gallery-exit) * .045)));
+  transform:scale(var(--rb-gallery-zoom));
   transform-origin:center center;
-  opacity:calc(1 - (var(--rb-gallery-exit) * .14));
-  filter:saturate(calc(1 - (var(--rb-gallery-exit) * .08)));
+  opacity:var(--rb-gallery-opacity);
+  filter:saturate(var(--rb-gallery-saturate));
   transition:transform .18s linear,opacity .18s linear,filter .18s linear;
 }
 .rb-river-gallery::before,
