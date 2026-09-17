@@ -35,4 +35,6 @@ def cms_mobile_fixture():
     return Response('<!doctype html><title>390px homepage QA</title><iframe title="390 pixel homepage" src="/" style="width:390px;height:844px;border:0"></iframe>', mimetype='text/html')
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5055, use_reloader=False)
+    # The fixture uses a single in-memory SQLite database. Keep the disposable
+    # browser server single-threaded so parallel XHRs cannot race one connection.
+    app.run(host='127.0.0.1', port=5055, use_reloader=False, threaded=False)
