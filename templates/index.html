@@ -62,7 +62,7 @@
             </div>
             <div class="rb-river-gallery" data-rb-river-gallery data-rb-rail-shell aria-label="RI BUROM photo gallery" hidden>
                 <div class="rb-river-gallery-track" data-rb-rail-track></div>
-                <div class="rb-rail-controls" aria-label="Photo gallery controls">
+                <div class="rb-rail-controls" data-rb-water-shield aria-label="Photo gallery controls">
                     <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous gallery images">‹</button>
                     <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next gallery images">›</button>
                 </div>
@@ -125,10 +125,10 @@
                     </div>
                 </article>
                 {% else %}
-                <div class="rb-empty"><p>{{ public.content.home_tours_empty }}</p><a href="/marketplace" class="rb-action-outline rb-custom-link mt-6">Marketplace</a></div>
+                <div class="rb-empty" data-rb-water-shield><p>{{ public.content.home_tours_empty }}</p><a href="/marketplace" class="rb-action-outline rb-custom-link mt-6">Marketplace</a></div>
                 {% endfor %}
             </div>
-            <div class="rb-rail-controls" aria-label="Signature Experiences controls">
+            <div class="rb-rail-controls" data-rb-water-shield aria-label="Signature Experiences controls">
                 <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous experiences">‹</button>
                 <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next experiences">›</button>
             </div>
