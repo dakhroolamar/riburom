@@ -49,6 +49,19 @@ async function assertPublicCmsRendering(page, label) {
   assert.ok(await page.locator('.rb-river-gallery-slide').count() >= 3, `${label}: CMS river gallery was not rendered`);
 }
 
+async function assertRiverAutoplayWhileHovered(page) {
+  const gallery = page.locator('[data-rb-river-gallery]');
+  const track = gallery.locator('[data-rb-rail-track]');
+  await gallery.scrollIntoViewIfNeeded();
+  await gallery.hover();
+  const start = await track.evaluate(node => node.scrollLeft);
+  await page.waitForFunction((initial) => {
+    const node = document.querySelector('[data-rb-river-gallery] [data-rb-rail-track]');
+    return node && Math.abs(node.scrollLeft - initial) > 40;
+  }, start, { timeout: 8000 });
+  assert.ok(await gallery.locator('.rb-river-gallery-slide.is-active').count() === 1, 'River gallery should mark exactly one active photograph');
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -65,6 +78,8 @@ async function assertPublicCmsRendering(page, label) {
   await page.locator('h1').waitFor();
   assert.equal((await page.locator('h1').textContent()).trim(), 'Home');
   assert.equal(await page.locator('meta[name="csrf-token"]').count(), 1);
+  assert.equal(await page.locator('.editor-primary-nav a').count(), 6, 'CMS primary navigation should stay compact');
+  assert.equal(await page.locator('.sections button[aria-current="true"]').count(), 1, 'CMS should show one selected section');
   await assertNoHorizontalOverflow(page, 'CMS desktop');
 
   await page.locator('button[data-section="hero"]').click();
@@ -109,6 +124,7 @@ async function assertPublicCmsRendering(page, label) {
   assert.ok((publicMedia.media_details.home_gallery || []).length >= 3, 'Public homepage did not expose CMS river gallery media');
   assert.ok((publicMedia.media_details.home_about_gallery || []).length >= 3, 'Public homepage did not expose CMS About gallery media');
   await assertPublicCmsRendering(page, 'desktop');
+  await assertRiverAutoplayWhileHovered(page);
   await scrollThrough(page);
   await page.screenshot({ path: `${OUT}/home-desktop.png`, fullPage: true });
 
@@ -126,7 +142,7 @@ async function assertPublicCmsRendering(page, label) {
 
   assert.deepEqual(errors, [], `Browser errors detected:\n${errors.join('\n')}`);
   await browser.close();
-  console.log('CMS browser QA passed: editor, collection persistence, logo placement, media library, rendered public galleries, desktop and 390px layouts.');
+  console.log('CMS browser QA passed: clearer editor hierarchy, collection persistence, logo placement, media library, gallery autoplay, desktop and 390px layouts.');
 })().catch(async (error) => {
   console.error(error.stack || error);
   process.exit(1);
