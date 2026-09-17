@@ -8,7 +8,7 @@ on:
 jobs:
   browser-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       APP_ENV: testing
       TESTING: '1'
@@ -52,6 +52,12 @@ jobs:
 
       - name: Run responsive browser QA
         run: node tests/ui_browser_qa.cjs
+
+      - name: Run read-only production smoke QA
+        if: always()
+        env:
+          RB_QA_BASE_URL: https://riburomtours.com
+        run: node tests/production_smoke_qa.cjs
 
       - name: Show preview log on failure
         if: failure()
