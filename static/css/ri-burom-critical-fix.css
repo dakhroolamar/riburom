@@ -1,0 +1,42 @@
+/* Critical public homepage correction loaded after the theme and homepage layers. */
+
+/* The CMS theme intentionally owns normal section colours, but the Why RI BUROM
+   section is a light parchment treatment. These ID-qualified selectors must win
+   over the generic #rb-home-why h2/p theme rules so text remains readable. */
+#rb-home-why.rb-aged-paper-tear{
+  color:#3f3022!important;
+}
+#rb-home-why.rb-aged-paper-tear .rb-aged-eyebrow{
+  color:#7c4f22!important;
+}
+#rb-home-why.rb-aged-paper-tear h2.rb-aged-title{
+  color:#4a2f19!important;
+  text-shadow:0 1px rgba(255,255,255,.35)!important;
+}
+#rb-home-why.rb-aged-paper-tear p.rb-aged-copy{
+  color:#5f4a35!important;
+}
+#rb-home-why.rb-aged-paper-tear .rb-aged-note{
+  color:#4b3827!important;
+}
+#rb-home-why.rb-aged-paper-tear .rb-aged-note h3{
+  color:#4a2f19!important;
+}
+#rb-home-why.rb-aged-paper-tear .rb-aged-note p{
+  color:#68513d!important;
+}
+
+/* Keep a deliberate neutral-paper band between the opening film/story area and
+   the landscape/gallery. The video sizing script reads this same variable. */
+#rb-home-hero.rb-paper-hero{
+  --rb-hero-landscape-gap:clamp(48px,4.5vw,72px);
+}
+#rb-home-hero.rb-paper-hero .rb-paper-landscape{
+  margin-top:var(--rb-hero-landscape-gap)!important;
+}
+
+@media(max-width:767px){
+  #rb-home-hero.rb-paper-hero{
+    --rb-hero-landscape-gap:clamp(36px,9vw,52px);
+  }
+}
