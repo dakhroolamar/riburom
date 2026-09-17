@@ -1,0 +1,8 @@
+/* Post-merge visual QA corrections. Keep homepage-only refinements isolated. */
+@media(max-width:767px){
+  /* The torn-paper sheet stays centred but leaves real banks on both sides so
+     the animated river can pass without being cut by the Why RI BUROM copy. */
+  #rb-home-why.rb-aged-paper-tear{
+    width:82%!important;
+  }
+}
