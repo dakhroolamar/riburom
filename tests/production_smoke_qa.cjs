@@ -14,13 +14,8 @@ async function waitForPublicReady(page) {
 }
 
 async function assertNoHorizontalOverflow(page, label) {
-  const m = await page.evaluate(() => ({
-    viewport: innerWidth,
-    html: document.documentElement.scrollWidth,
-    body: document.body.scrollWidth,
-  }));
-  assert.ok(m.html <= m.viewport + 2 && m.body <= m.viewport + 2,
-    `${label} horizontal overflow: ${JSON.stringify(m)}`);
+  const m = await page.evaluate(() => ({ viewport: innerWidth, html: document.documentElement.scrollWidth, body: document.body.scrollWidth }));
+  assert.ok(m.html <= m.viewport + 2 && m.body <= m.viewport + 2, `${label} horizontal overflow: ${JSON.stringify(m)}`);
 }
 
 async function assertBasicMetadata(page, label) {
@@ -49,10 +44,8 @@ async function assertLoadedVisibleImages(page, label) {
   const broken = await page.evaluate(() => [...document.images]
     .filter(img => {
       const r = img.getBoundingClientRect();
-      const meaningful = img.getAttribute('src') && !img.hidden;
-      return meaningful && img.complete && img.naturalWidth === 0 && r.width > 1 && r.height > 1;
-    })
-    .map(img => img.currentSrc || img.src));
+      return img.getAttribute('src') && !img.hidden && img.complete && img.naturalWidth === 0 && r.width > 1 && r.height > 1;
+    }).map(img => img.currentSrc || img.src));
   assert.deepEqual(broken, [], `${label}: broken images ${broken.join(', ')}`);
 }
 
@@ -62,23 +55,29 @@ async function getJson(request, path) {
   return response.json();
 }
 
+async function assertRailControlIfScrollable(shell, label) {
+  const track = shell.locator('[data-rb-rail-track]');
+  const geometry = await track.evaluate(el => ({ clientWidth: el.clientWidth, scrollWidth: el.scrollWidth, left: el.scrollLeft }));
+  if (geometry.scrollWidth <= geometry.clientWidth + 2) return;
+  await shell.locator('[data-rb-rail-next]').click();
+  await shell.page().waitForTimeout(500);
+  const after = await track.evaluate(el => el.scrollLeft);
+  assert.ok(after > geometry.left, `${label} next control did not scroll: ${geometry.left} -> ${after}; ${JSON.stringify(geometry)}`);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const pageErrors = [];
   const badSameOrigin = [];
-
   const context = await browser.newContext({ viewport: desktop, reducedMotion: 'no-preference' });
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   page.on('pageerror', err => pageErrors.push(err.message));
   page.on('response', response => {
     const url = new URL(response.url());
-    if (url.origin === new URL(BASE).origin && response.status() >= 400) {
-      badSameOrigin.push(`${response.status()} ${url.pathname}`);
-    }
+    if (url.origin === new URL(BASE).origin && response.status() >= 400) badSameOrigin.push(`${response.status()} ${url.pathname}`);
   });
 
-  // Runtime/readiness + security headers.
   for (const path of ['/healthz', '/readyz']) {
     const r = await context.request.get(absolute(path));
     assert.equal(r.status(), 200, `${path} returned ${r.status()}`);
@@ -97,18 +96,15 @@ async function getJson(request, path) {
   assert.match(await robots.text(), /Sitemap:\s*https:\/\/riburomtours\.com\/sitemap\.xml/i);
   const sitemap = await context.request.get(absolute('/sitemap.xml'));
   assert.equal(sitemap.status(), 200);
-  const sitemapText = await sitemap.text();
-  assert.match(sitemapText, /https:\/\/riburomtours\.com\/marketplace/);
+  assert.match(await sitemap.text(), /https:\/\/riburomtours\.com\/marketplace/);
 
   const media = await getJson(context.request, '/api/public-section-backgrounds');
-  assert.ok(media && typeof media === 'object');
-  assert.ok(media.backgrounds && media.galleries && media.styles, 'section media API contract incomplete');
+  assert.ok(media && media.backgrounds && media.galleries && media.styles, 'section media API contract incomplete');
   for (const key of ['home_gallery', 'home_about_gallery']) {
     assert.ok(Array.isArray(media.galleries[key]), `missing gallery array ${key}`);
     assert.ok(media.galleries[key].length <= 10, `${key} exceeds 10-image limit`);
   }
 
-  // Desktop public routes.
   const publicRoutes = ['/', '/all_tours', '/marketplace', '/about'];
   for (const route of publicRoutes) {
     const response = await page.goto(absolute(route), { waitUntil: 'domcontentloaded' });
@@ -119,7 +115,6 @@ async function getJson(request, path) {
     await assertLoadedVisibleImages(page, route);
   }
 
-  // Homepage interaction system.
   await page.goto(absolute('/'), { waitUntil: 'domcontentloaded' });
   await waitForPublicReady(page);
   const hero = page.locator('#rb-home-hero');
@@ -128,8 +123,7 @@ async function getJson(request, path) {
   if (await film.count()) {
     await page.waitForTimeout(500);
     const filmMetrics = await film.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      const h = document.querySelector('#rb-home-hero').getBoundingClientRect();
+      const r = el.getBoundingClientRect(), h = document.querySelector('#rb-home-hero').getBoundingClientRect();
       return { width: r.width, height: r.height, heroWidth: h.width, cls: el.className };
     });
     assert.ok(String(filmMetrics.cls).includes('rb-hero-opening-film'), 'hero film not promoted to opening-film layer');
@@ -138,13 +132,9 @@ async function getJson(request, path) {
     await film.evaluate(el => el.dispatchEvent(new Event('ended')));
     await page.waitForTimeout(650);
   }
-  const logoMetrics = await page.locator('.rb-hero-permanent-logo').evaluate(el => ({
-    original: Number(el.dataset.rbOriginalHeroWidth || 0),
-    width: parseFloat(getComputedStyle(el).width),
-  }));
+  const logoMetrics = await page.locator('.rb-hero-permanent-logo').evaluate(el => ({ original: Number(el.dataset.rbOriginalHeroWidth || 0), width: parseFloat(getComputedStyle(el).width) }));
   if (logoMetrics.original) {
-    assert.ok(Math.abs(logoMetrics.width - Math.min(logoMetrics.original * 2, 320)) < 3,
-      `final hero logo is not doubled: ${JSON.stringify(logoMetrics)}`);
+    assert.ok(Math.abs(logoMetrics.width - Math.min(logoMetrics.original * 2, 320)) < 3, `final hero logo is not doubled: ${JSON.stringify(logoMetrics)}`);
   }
   const gap = await page.evaluate(() => {
     const content = document.querySelector('#rb-home-hero .rb-hero-content')?.getBoundingClientRect();
@@ -154,37 +144,19 @@ async function getJson(request, path) {
   assert.ok(gap >= 20, `hero-to-landscape breathing room too small: ${gap}px`);
 
   const whyVisual = await page.locator('#rb-home-why').evaluate(el => {
-    const s = getComputedStyle(el);
-    return { clipPath: s.clipPath, backgroundImage: s.backgroundImage, color: s.color };
+    const s = getComputedStyle(el); return { clipPath: s.clipPath, backgroundImage: s.backgroundImage, color: s.color };
   });
   assert.notEqual(whyVisual.clipPath, 'none', 'Why RI BUROM has no torn-paper silhouette');
   assert.match(whyVisual.backgroundImage, /gradient/i, 'Why RI BUROM is missing aged-paper texture');
 
   const experienceShell = page.locator('#rb-home-tours [data-rb-rail-shell]');
-  if (await experienceShell.count()) {
-    const track = experienceShell.locator('[data-rb-rail-track]');
-    const cardCount = await track.locator('.rb-experience-card').count();
-    if (cardCount > 1) {
-      const before = await track.evaluate(el => el.scrollLeft);
-      await experienceShell.locator('[data-rb-rail-next]').click();
-      await page.waitForTimeout(500);
-      const after = await track.evaluate(el => el.scrollLeft);
-      assert.ok(after > before, `Signature Experiences next control did not scroll: ${before} -> ${after}`);
-    }
-  }
+  if (await experienceShell.count()) await assertRailControlIfScrollable(experienceShell, 'Signature Experiences');
 
   const riverGallery = page.locator('[data-rb-river-gallery]');
   if ((media.galleries.home_gallery || []).length) {
     await page.waitForFunction(() => !document.querySelector('[data-rb-river-gallery]')?.hidden);
     assert.equal(await riverGallery.locator('.rb-river-gallery-slide').count(), Math.min(media.galleries.home_gallery.length, 10));
-    if (media.galleries.home_gallery.length > 1) {
-      const track = riverGallery.locator('[data-rb-rail-track]');
-      const before = await track.evaluate(el => el.scrollLeft);
-      await riverGallery.locator('[data-rb-rail-next]').click();
-      await page.waitForTimeout(500);
-      const after = await track.evaluate(el => el.scrollLeft);
-      assert.ok(after > before, `river gallery next control did not scroll: ${before} -> ${after}`);
-    }
+    if (media.galleries.home_gallery.length > 1) await assertRailControlIfScrollable(riverGallery, 'river gallery');
   } else {
     assert.equal(await page.locator('[data-rb-river-gallery-fallback]').isVisible(), true, 'river gallery fallback is missing');
   }
@@ -199,8 +171,7 @@ async function getJson(request, path) {
       const before = await counter.textContent();
       await flip.locator('[data-rb-about-next]').click();
       await page.waitForTimeout(650);
-      const after = await counter.textContent();
-      assert.notEqual(after, before, 'About calendar-flip gallery did not advance');
+      assert.notEqual(await counter.textContent(), before, 'About calendar-flip gallery did not advance');
     }
   } else {
     assert.equal(await page.locator('[data-rb-about-gallery-fallback]').isVisible(), true, 'About fallback artwork is missing');
@@ -208,7 +179,6 @@ async function getJson(request, path) {
 
   assert.ok(await page.locator('#rb-home-contact form input[name="csrf_token"]').count(), 'homepage enquiry missing CSRF token');
 
-  // Tour detail: separate, package-specific enquiry.
   await page.goto(absolute('/all_tours'), { waitUntil: 'domcontentloaded' });
   const tourHref = await page.locator('a[href^="/tours/"]').first().getAttribute('href').catch(() => null);
   if (tourHref) {
@@ -224,7 +194,6 @@ async function getJson(request, path) {
     assert.equal(interest, title, 'tour enquiry is not tied to package title');
   }
 
-  // Marketplace provider interaction, without submitting anything.
   await page.goto(absolute('/marketplace'), { waitUntil: 'domcontentloaded' });
   const providerHref = await page.locator('a[href^="/marketplace/providers/"]').first().getAttribute('href').catch(() => null);
   if (providerHref) {
@@ -241,7 +210,6 @@ async function getJson(request, path) {
     }
   }
 
-  // Mobile navigation and responsive overflow.
   const mobileContext = await browser.newContext({ viewport: mobile, reducedMotion: 'reduce' });
   const mobilePage = await mobileContext.newPage();
   mobilePage.on('pageerror', err => pageErrors.push(`mobile: ${err.message}`));
@@ -262,12 +230,8 @@ async function getJson(request, path) {
   const uniqueBad = [...new Set(badSameOrigin)].filter(x => !x.startsWith('404 /favicon'));
   assert.deepEqual(uniqueBad, [], `same-origin HTTP errors observed: ${uniqueBad.join(', ')}`);
   assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`);
-
   console.log('Production smoke QA passed: runtime, security headers, SEO, desktop/mobile layout, galleries, experience rail, tour enquiry and marketplace interaction.');
   await mobileContext.close();
   await context.close();
   await browser.close();
-})().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+})().catch(err => { console.error(err); process.exit(1); });
