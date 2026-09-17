@@ -1,0 +1,117 @@
+/* Homepage media corrections layered after the shared RI BUROM design system. */
+
+#rb-home-hero.rb-paper-hero{
+  --rb-home-landscape-height:clamp(150px,23vw,340px);
+}
+
+/* A CMS-uploaded hero image is the landscape itself, not a translucent texture. */
+#rb-home-hero.rb-paper-hero .rb-home-landscape-photo{
+  opacity:1!important;
+  mix-blend-mode:normal!important;
+}
+
+/* While the opening animation is active it owns the complete white story area,
+   from the top of the hero to the start of the landscape. */
+#rb-home-hero.rb-paper-hero .rb-hero-opening-film{
+  position:absolute!important;
+  top:0!important;
+  right:0!important;
+  bottom:var(--rb-home-landscape-height)!important;
+  left:0!important;
+  z-index:18!important;
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  min-width:100%!important;
+  min-height:0!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:cover!important;
+  object-position:center center!important;
+  background:var(--rb-hero-bg,#fff)!important;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .55s cubic-bezier(.22,.7,.25,1),visibility 0s linear .55s;
+}
+
+#rb-home-hero.rb-paper-hero.rb-hero-video-enabled:not(.rb-hero-video-complete):not(.rb-hero-video-fallback) .rb-hero-opening-film,
+#rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-opening-film{
+  opacity:1!important;
+  visibility:visible!important;
+  transition-delay:0s;
+}
+
+/* Do not show the final hero copy underneath the opening film. */
+#rb-home-hero.rb-paper-hero.rb-hero-video-enabled:not(.rb-hero-video-complete):not(.rb-hero-video-fallback) .rb-hero-content,
+#rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-content{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transform:translateY(12px)!important;
+}
+
+#rb-home-hero.rb-paper-hero.rb-hero-video-complete .rb-hero-content,
+#rb-home-hero.rb-paper-hero.rb-hero-video-fallback .rb-hero-content{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:none!important;
+}
+
+/* After the film completes, the permanent logo is intentionally twice the
+   previous 160 x 100 px cap. */
+#rb-home-hero.rb-paper-hero .rb-hero-video-stage{
+  display:flex;
+  justify-content:center;
+  width:min(86vw,320px)!important;
+  max-width:320px!important;
+  min-height:0;
+  margin:0 auto 1.5rem;
+}
+
+#rb-home-hero.rb-paper-hero .rb-hero-permanent-logo{
+  width:100%!important;
+  max-width:320px!important;
+  max-height:200px!important;
+  height:auto!important;
+  object-fit:contain!important;
+}
+
+#rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-permanent-logo{
+  opacity:0!important;
+}
+
+#rb-home-hero.rb-paper-hero.rb-hero-video-complete .rb-hero-permanent-logo,
+#rb-home-hero.rb-paper-hero.rb-hero-video-fallback .rb-hero-permanent-logo{
+  opacity:1!important;
+}
+
+#rb-home-hero.rb-paper-hero .rb-hero-video-sound{
+  bottom:calc(var(--rb-home-landscape-height) + 24px);
+  z-index:22;
+}
+
+@media(max-width:767px){
+  #rb-home-hero.rb-paper-hero{
+    --rb-home-landscape-height:clamp(150px,36vw,250px);
+  }
+  #rb-home-hero.rb-paper-hero .rb-hero-video-stage{
+    width:min(78vw,280px)!important;
+    max-width:280px!important;
+  }
+  #rb-home-hero.rb-paper-hero .rb-hero-permanent-logo{
+    max-width:280px!important;
+    max-height:180px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #rb-home-hero.rb-paper-hero .rb-hero-opening-film{display:none!important}
+  #rb-home-hero.rb-paper-hero .rb-hero-content{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:none!important;
+  }
+}
