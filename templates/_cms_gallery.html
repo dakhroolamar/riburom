@@ -1,0 +1,11 @@
+{% if gallery_images %}
+<div class="cms-public-gallery" data-cms-gallery {% if gallery_autoplay %}data-gallery-autoplay{% endif %} aria-label="{{ gallery_label }}">
+  <div class="cms-gallery-track" tabindex="0" aria-label="Swipe or use arrow keys to browse photographs">
+    {% for item in gallery_images %}<figure>
+    <img {% if loop.first %}src="{{ item.src }}"{% else %}data-src="{{ item.src }}"{% endif %} alt="{{ item.alt }}" style="object-position:{{ item.focal_x }}% {{ item.focal_y }}%" decoding="async" {% if loop.first and gallery_eager %}fetchpriority="high"{% else %}loading="lazy"{% endif %}>
+    {% if item.caption or item.credit %}<figcaption>{{ item.caption }}{% if item.credit %} <span>© {{ item.credit }}</span>{% endif %}</figcaption>{% endif %}
+    </figure>{% endfor %}
+  </div>
+  {% if gallery_images|length > 1 %}<div class="cms-gallery-controls"><button type="button" data-gallery-prev aria-label="Previous photograph">‹</button><span data-gallery-count aria-live="polite">1 / {{ gallery_images|length }}</span><button type="button" data-gallery-next aria-label="Next photograph">›</button>{% if gallery_autoplay %}<button type="button" data-gallery-pause aria-label="Pause automatic photographs">Ⅱ</button>{% endif %}</div>{% endif %}
+</div>
+{% endif %}

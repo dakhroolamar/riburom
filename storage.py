@@ -220,6 +220,16 @@ def delete_media(value):
     if not value or os.path.basename(str(value)) in PROTECTED_STATIC_FILES:
         return
 
+    # A legacy editor can replace a photograph that has since been reused in
+    # the library. Keep that blob while the library owns its reference.
+    from flask import has_app_context
+    if has_app_context():
+        from models import db
+        from cms_media_models import MediaAsset
+        from sqlalchemy import inspect
+        if inspect(db.engine).has_table('cms_media_assets') and MediaAsset.query.filter_by(path=value).first():
+            return
+
     try:
         if value.startswith('http://') or value.startswith('https://'):
             if not USING_CLOUDINARY:

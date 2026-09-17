@@ -149,7 +149,15 @@
       figure.className = 'rb-river-gallery-slide';
       figure.setAttribute('role', 'group');
       figure.setAttribute('aria-label', 'Gallery image ' + (index + 1) + ' of ' + images.length);
-      figure.appendChild(makeImage(src, 'Meghalaya travel gallery image ' + (index + 1), index < 2));
+      const detail = payload.media_details?.home_gallery?.[index];
+      const photo = makeImage(src, detail?.alt || 'Meghalaya travel gallery image ' + (index + 1), false);
+      if (detail) photo.style.objectPosition = `${detail.focal_x}% ${detail.focal_y}%`;
+      figure.appendChild(photo);
+      if (detail?.caption || detail?.credit) {
+        const caption = document.createElement('figcaption');
+        caption.textContent = [detail.caption, detail.credit].filter(Boolean).join(' · ');
+        figure.appendChild(caption);
+      }
       track.appendChild(figure);
     });
 
@@ -198,7 +206,18 @@
     let flipping = false;
     const sync = () => {
       image.src = images[index];
-      image.alt = 'RI BUROM about gallery image ' + (index + 1);
+      const detail = payload.media_details?.home_about_gallery?.[index];
+      image.alt = detail?.alt || 'RI BUROM about gallery image ' + (index + 1);
+      if (detail) image.style.objectPosition = `${detail.focal_x}% ${detail.focal_y}%`;
+      let caption = flip.querySelector('[data-cms-about-caption]');
+      if (!caption) {
+        caption = document.createElement('p');
+        caption.dataset.cmsAboutCaption = '1';
+        caption.className = 'cms-about-caption';
+        flip.appendChild(caption);
+      }
+      caption.textContent = detail ? [detail.caption, detail.credit].filter(Boolean).join(' · ') : '';
+      caption.hidden = !caption.textContent;
       if (counter) counter.textContent = (index + 1) + ' / ' + images.length;
     };
     const move = (direction) => {

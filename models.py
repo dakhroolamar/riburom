@@ -325,3 +325,4 @@ def seed_defaults():
 # are defined. This registers their tables in the same SQLAlchemy metadata while
 # keeping all legacy application entities independent.
 import marketplace_models  # noqa: E402,F401
+import cms_media_models  # noqa: E402,F401

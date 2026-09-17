@@ -38,6 +38,7 @@ body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-seri
 <div class="ws-top">
   <div class="ws-title">
     <h1>{% if area=='operations' %}Operations{% elif area=='cms' %}Website CMS{% elif area=='administration' %}Administration{% else %}Developer / System{% endif %}</h1>
+    {% if current_user.has_permission('manage_media') or current_user.has_permission('manage_about') %}<p><a href="{{ url_for('cms_pages') }}">Pages</a> · <a href="{{ url_for('cms_library') }}">Media Library</a></p>{% endif %}
     <p>{{ current_user.full_name }} · {{ current_user.role_label }}</p>
   </div>
   <div class="ws-actions">

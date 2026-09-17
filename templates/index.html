@@ -38,7 +38,8 @@
     <header id="rb-home-hero" class="rb-paper-hero rb-paper-edge rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center rb-hero-content rb-hero-copy" data-rb-water-shield>
             {% if hero_logo %}
-            <div class="rb-hero-video-stage" data-rb-hero-video-stage>
+            {% set placement = cms_logo_placement() %}
+            <div class="rb-hero-video-stage{% if placement %} cms-positioned-logo{% endif %}" data-rb-hero-video-stage {% if placement %}style="{% for device, values in placement.items() %}{% for axis in ['x','y','size'] %}--cms-{{ 'logo' if device == 'desktop' else device }}-{{ axis }}:{{ values[axis] }}%;{% endfor %}{% endfor %}"{% endif %}>
                 <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
                 {% if settings.hero_animation_video %}
                 <video class="rb-hero-animation-video" data-rb-hero-animation-video autoplay muted playsinline preload="metadata" poster="{{ hero_logo|imgsrc }}" aria-hidden="true">
@@ -55,6 +56,8 @@
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
+        {% set gallery_images = cms_collection_media('hero', false) %}
+        {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_autoplay = true %}{% include '_cms_gallery.html' %}</div>{% endif %}
         <div class="rb-paper-landscape rb-river-gallery-host" data-rb-water-source data-rb-river-gallery-host>
             <div class="rb-river-gallery-fallback" data-rb-river-gallery-fallback>
                 {% include '_paper_landscape.html' %}
@@ -108,7 +111,7 @@
                 {% for pkg in packages %}
                 <article data-reveal class="rb-card rb-paper-card rb-experience-card flex flex-col" data-rb-water-shield>
                     <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
-                        <img class="rb-card-media" src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
+                        <img class="rb-card-media" src="{{ cms_tour_cover(pkg) }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
                     </a>
                     <div class="p-6 flex-grow">
                         <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
