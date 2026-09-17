@@ -1,7 +1,8 @@
-/* Homepage media corrections layered after the shared RI BUROM design system. */
+/* Homepage interaction refinements layered after the shared RI BUROM design system. */
 
 #rb-home-hero.rb-paper-hero{
   --rb-home-landscape-height:clamp(150px,23vw,340px);
+  --rb-hero-landscape-gap:clamp(24px,3vw,46px);
 }
 
 /* A CMS-uploaded hero image is the landscape itself, not a translucent texture. */
@@ -10,7 +11,12 @@
   mix-blend-mode:normal!important;
 }
 
-/* The opening film owns the complete white story area above the landscape. */
+/* Deliberate breathing room between the opening film / hero copy and the landscape. */
+#rb-home-hero.rb-paper-hero .rb-paper-landscape{
+  margin-top:var(--rb-hero-landscape-gap)!important;
+}
+
+/* The opening film owns the white story area but stops before the landscape gap. */
 #rb-home-hero.rb-paper-hero .rb-hero-opening-film{
   position:absolute!important;
   top:0!important;
@@ -20,7 +26,7 @@
   z-index:18!important;
   display:block!important;
   width:100%!important;
-  height:calc(100% - var(--rb-home-landscape-height))!important;
+  height:calc(100% - var(--rb-home-landscape-height) - var(--rb-hero-landscape-gap))!important;
   min-width:100%!important;
   min-height:0!important;
   max-width:none!important;
@@ -41,7 +47,6 @@
   transition-delay:0s;
 }
 
-/* Do not show the final hero copy underneath the opening film. */
 #rb-home-hero.rb-paper-hero.rb-hero-video-enabled:not(.rb-hero-video-complete):not(.rb-hero-video-fallback) .rb-hero-content,
 #rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-content{
   opacity:0!important;
@@ -58,8 +63,6 @@
   transform:none!important;
 }
 
-/* Final logo: JavaScript doubles the configured CMS width. These caps only
-   prevent the enlarged mark from overwhelming smaller viewports. */
 #rb-home-hero.rb-paper-hero .rb-hero-video-stage{
   display:flex;
   justify-content:center;
@@ -76,28 +79,353 @@
   object-fit:contain!important;
 }
 
-#rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-permanent-logo{
-  opacity:0!important;
-}
-
+#rb-home-hero.rb-paper-hero.rb-hero-video-playing .rb-hero-permanent-logo{opacity:0!important}
 #rb-home-hero.rb-paper-hero.rb-hero-video-complete .rb-hero-permanent-logo,
-#rb-home-hero.rb-paper-hero.rb-hero-video-fallback .rb-hero-permanent-logo{
-  opacity:1!important;
-}
+#rb-home-hero.rb-paper-hero.rb-hero-video-fallback .rb-hero-permanent-logo{opacity:1!important}
 
 #rb-home-hero.rb-paper-hero .rb-hero-video-sound{
-  bottom:calc(var(--rb-home-landscape-height) + 24px);
+  bottom:calc(var(--rb-home-landscape-height) + var(--rb-hero-landscape-gap) + 16px);
   z-index:22;
+}
+
+/* --------------------------------------------------------------------------
+   River-start photo gallery
+   Native horizontal scrolling keeps touch / trackpad behaviour familiar.
+   Edge fades and the exit zoom add depth without hijacking vertical scroll.
+   -------------------------------------------------------------------------- */
+.rb-river-gallery-host{isolation:isolate}
+.rb-river-gallery-host.has-river-gallery{pointer-events:auto!important}
+.rb-river-gallery-fallback{
+  position:absolute;
+  inset:0;
+}
+.rb-river-gallery-fallback[hidden],
+.rb-river-gallery[hidden],
+.rb-about-flip[hidden]{display:none!important}
+
+.rb-river-gallery{
+  --rb-gallery-exit:0;
+  position:absolute;
+  inset:0;
+  z-index:4;
+  overflow:hidden;
+  background:#dce6df;
+  transform:scale(calc(1 + (var(--rb-gallery-exit) * .045)));
+  transform-origin:center center;
+  opacity:calc(1 - (var(--rb-gallery-exit) * .14));
+  filter:saturate(calc(1 - (var(--rb-gallery-exit) * .08)));
+  transition:transform .18s linear,opacity .18s linear,filter .18s linear;
+}
+.rb-river-gallery::before,
+.rb-river-gallery::after{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:clamp(24px,6vw,90px);
+  z-index:5;
+  pointer-events:none;
+}
+.rb-river-gallery::before{
+  left:0;
+  background:linear-gradient(90deg,rgba(247,244,233,.82),rgba(247,244,233,0));
+}
+.rb-river-gallery::after{
+  right:0;
+  background:linear-gradient(270deg,rgba(247,244,233,.82),rgba(247,244,233,0));
+}
+.rb-river-gallery-track{
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(68%,1fr);
+  gap:clamp(10px,1.4vw,20px);
+  width:100%;
+  height:100%;
+  padding-inline:clamp(14px,3vw,42px);
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scroll-padding-inline:clamp(14px,3vw,42px);
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.rb-river-gallery-track::-webkit-scrollbar{display:none}
+.rb-river-gallery-slide{
+  position:relative;
+  height:100%;
+  margin:0;
+  overflow:hidden;
+  scroll-snap-align:center;
+  border-radius:clamp(10px,1.2vw,18px);
+  background:#c7d6ce;
+  box-shadow:0 16px 40px rgba(8,39,23,.16);
+}
+.rb-river-gallery-slide img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scale(1.01);
+}
+
+.rb-rail-controls{
+  display:flex;
+  justify-content:flex-end;
+  gap:.55rem;
+  margin-top:1rem;
+}
+.rb-river-gallery .rb-rail-controls{
+  position:absolute;
+  right:clamp(14px,3vw,42px);
+  bottom:14px;
+  z-index:8;
+  margin:0;
+}
+.rb-rail-button{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:999px;
+  background:rgba(10,55,34,.82);
+  color:#fff;
+  box-shadow:0 8px 24px rgba(8,39,23,.22);
+  backdrop-filter:blur(8px);
+  font:700 1.25rem/1 var(--rb-font-body,Arial,sans-serif);
+  cursor:pointer;
+  transition:transform .2s ease,background-color .2s ease;
+}
+.rb-rail-button:hover{transform:translateY(-2px);background:#14532d}
+.rb-rail-button:focus-visible{outline:3px solid rgba(216,170,77,.9);outline-offset:2px}
+
+/* Signature Experiences becomes a sideways discovery rail on every viewport. */
+.rb-experience-shell{position:relative;min-width:0}
+.rb-experience-rail{
+  display:grid!important;
+  grid-template-columns:none!important;
+  grid-auto-flow:column;
+  grid-auto-columns:clamp(280px,31vw,370px);
+  gap:clamp(16px,2vw,28px)!important;
+  padding:.4rem .3rem 1.4rem;
+  overflow-x:auto;
+  overflow-y:visible;
+  scroll-snap-type:x mandatory;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.rb-experience-rail::-webkit-scrollbar{display:none}
+.rb-experience-card{
+  scroll-snap-align:start;
+  min-width:0;
+  height:100%;
+}
+.rb-experience-shell .rb-rail-controls{margin-top:.15rem}
+.rb-experience-shell .rb-rail-button{
+  border-color:color-mix(in srgb,var(--rb-primary) 22%,transparent);
+  background:var(--rb-paper,#f7f4e9);
+  color:var(--rb-primary,#166534);
+  box-shadow:0 8px 22px rgba(8,39,23,.1);
+}
+
+/* --------------------------------------------------------------------------
+   About image: CMS-driven calendar-flip gallery
+   -------------------------------------------------------------------------- */
+.rb-about-gallery-host{
+  perspective:1200px;
+  transform-style:preserve-3d;
+}
+.rb-about-gallery-fallback{width:100%;height:100%}
+.rb-about-gallery-fallback > svg,
+.rb-about-gallery-fallback > img{width:100%;height:100%;display:block;object-fit:cover}
+.rb-about-flip{
+  position:relative;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  overflow:hidden;
+  border-radius:4px;
+  background:#ddd1b9;
+  box-shadow:0 16px 34px rgba(82,55,32,.18);
+}
+.rb-about-flip::before{
+  content:"";
+  position:absolute;
+  top:9px;
+  left:12%;
+  right:12%;
+  height:9px;
+  z-index:4;
+  opacity:.55;
+  background:repeating-radial-gradient(circle at 7px 50%,#624b36 0 2px,transparent 2.5px 14px);
+  pointer-events:none;
+}
+.rb-about-flip-page{
+  position:absolute;
+  inset:0;
+  transform-origin:top center;
+  transform-style:preserve-3d;
+  backface-visibility:hidden;
+  will-change:transform;
+}
+.rb-about-flip-page img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.rb-about-flip-page::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.12),transparent 22%,transparent 75%,rgba(42,26,14,.12));
+}
+.rb-about-flip-counter{
+  position:absolute;
+  right:12px;
+  top:12px;
+  z-index:6;
+  padding:.35rem .6rem;
+  border-radius:999px;
+  background:rgba(25,39,29,.7);
+  color:#fff;
+  font-size:.72rem;
+  font-weight:800;
+  letter-spacing:.05em;
+  backdrop-filter:blur(8px);
+}
+.rb-about-flip-button{
+  position:absolute;
+  top:50%;
+  z-index:6;
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:999px;
+  background:rgba(247,244,233,.88);
+  color:#14532d;
+  box-shadow:0 8px 20px rgba(0,0,0,.14);
+  transform:translateY(-50%);
+  cursor:pointer;
+  font-size:1.15rem;
+  font-weight:900;
+}
+.rb-about-flip-button--prev{left:10px}
+.rb-about-flip-button--next{right:10px}
+.rb-about-flip-button:focus-visible{outline:3px solid #d8aa4d;outline-offset:2px}
+
+@keyframes rb-calendar-flip-next{
+  0%{transform:rotateX(0deg);filter:brightness(1)}
+  45%{transform:rotateX(-88deg);filter:brightness(.72)}
+  50%{transform:rotateX(88deg);filter:brightness(.82)}
+  100%{transform:rotateX(0deg);filter:brightness(1)}
+}
+@keyframes rb-calendar-flip-prev{
+  0%{transform:rotateX(0deg);filter:brightness(1)}
+  45%{transform:rotateX(88deg);filter:brightness(.72)}
+  50%{transform:rotateX(-88deg);filter:brightness(.82)}
+  100%{transform:rotateX(0deg);filter:brightness(1)}
+}
+.rb-about-flip-page.is-flipping-next{animation:rb-calendar-flip-next .56s cubic-bezier(.45,.02,.18,.98)}
+.rb-about-flip-page.is-flipping-prev{animation:rb-calendar-flip-prev .56s cubic-bezier(.45,.02,.18,.98)}
+
+/* --------------------------------------------------------------------------
+   Why RI BUROM: tactile torn vintage paper instead of a flat colour panel.
+   The irregular silhouette follows common torn-paper techniques (jagged clip
+   geometry); layered radial/repeating gradients create fibre, age and stains.
+   -------------------------------------------------------------------------- */
+#rb-home-why.rb-aged-paper-tear{
+  position:relative;
+  isolation:isolate;
+  width:min(96%,80rem)!important;
+  max-width:80rem!important;
+  margin:clamp(2.5rem,6vw,5rem) auto!important;
+  padding:clamp(5rem,8vw,7.5rem) clamp(1.5rem,5vw,5rem)!important;
+  overflow:hidden;
+  color:#3f3022!important;
+  background:
+    radial-gradient(circle at 18% 18%,rgba(120,77,34,.12) 0 1px,transparent 2px) 0 0/19px 19px,
+    radial-gradient(ellipse at 82% 72%,rgba(118,70,28,.10),transparent 34%),
+    radial-gradient(ellipse at 12% 85%,rgba(111,68,29,.08),transparent 28%),
+    repeating-linear-gradient(8deg,rgba(102,72,43,.035) 0 1px,transparent 1px 5px),
+    linear-gradient(138deg,#f6ecd4 0%,#ead6af 46%,#f3e4c7 74%,#e5cda2 100%)!important;
+  clip-path:polygon(
+    0 2.2%,2.5% .9%,5.2% 1.7%,8.4% .6%,11.5% 1.9%,14.8% .8%,18.2% 2%,22% .5%,26% 1.6%,30% .7%,34% 1.8%,38.5% .5%,43% 1.6%,47.5% .8%,52% 1.9%,56.8% .5%,61.2% 1.7%,65.8% .7%,70% 1.9%,74.5% .5%,79% 1.6%,83.6% .8%,88% 2%,92% .7%,96% 1.8%,100% .6%,
+    100% 97.7%,97.2% 99.1%,94.1% 98.2%,90.5% 99.4%,86.8% 98.1%,82.7% 99.3%,78.4% 97.9%,74.4% 99.4%,70.3% 98.2%,66% 99.2%,61.8% 98%,57.6% 99.4%,53.3% 98.1%,49% 99.3%,44.9% 98%,40.5% 99.2%,36% 98.2%,31.5% 99.4%,27.2% 98.1%,23% 99.2%,18.8% 98%,14.5% 99.4%,10.2% 98%,6.4% 99.2%,3.1% 98.1%,0 99.4%
+  );
+  filter:drop-shadow(0 20px 24px rgba(66,43,24,.22));
+}
+#rb-home-why.rb-aged-paper-tear::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 25% 35%,rgba(255,255,255,.36),transparent 20%),
+    radial-gradient(circle at 72% 24%,rgba(108,69,32,.08),transparent 16%),
+    radial-gradient(circle at 59% 79%,rgba(115,72,34,.08),transparent 24%);
+  box-shadow:inset 0 0 70px rgba(101,68,37,.14),inset 0 0 0 1px rgba(111,74,38,.06);
+  mix-blend-mode:multiply;
+}
+#rb-home-why.rb-aged-paper-tear::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  opacity:.28;
+  background:repeating-radial-gradient(circle at 0 0,rgba(72,48,29,.14) 0 .55px,transparent .7px 3.5px);
+}
+.rb-aged-paper-tear .rb-aged-eyebrow{color:#7c4f22!important;font-weight:850;letter-spacing:.14em}
+.rb-aged-paper-tear .rb-aged-title{color:#4a2f19!important;text-shadow:0 1px rgba(255,255,255,.35)}
+.rb-aged-paper-tear .rb-aged-copy{color:#5f4a35!important;line-height:1.75}
+.rb-aged-paper-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:clamp(14px,2vw,24px);
+}
+.rb-aged-note{
+  overflow:visible!important;
+  border:1px solid rgba(106,72,42,.2)!important;
+  border-radius:2px!important;
+  background:rgba(255,249,232,.58)!important;
+  color:#4b3827!important;
+  box-shadow:4px 7px 0 rgba(91,59,31,.055),0 14px 32px rgba(91,59,31,.08)!important;
+  padding:1.4rem!important;
+  backdrop-filter:blur(1px);
+}
+.rb-aged-note:nth-child(odd){transform:rotate(-.45deg)}
+.rb-aged-note:nth-child(even){transform:rotate(.4deg)}
+.rb-aged-note:hover{transform:translateY(-3px) rotate(0deg)!important;box-shadow:0 18px 36px rgba(91,59,31,.13)!important}
+.rb-aged-note h3{color:#4a2f19!important}
+.rb-aged-note p{color:#68513d!important;line-height:1.65}
+
+@media(max-width:900px){
+  .rb-aged-paper-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:767px){
   #rb-home-hero.rb-paper-hero{
-    --rb-home-landscape-height:clamp(150px,36vw,250px);
+    --rb-home-landscape-height:clamp(170px,46vw,270px);
+    --rb-hero-landscape-gap:clamp(26px,7vw,42px);
   }
   #rb-home-hero.rb-paper-hero .rb-hero-permanent-logo{
     max-width:min(78vw,240px)!important;
     max-height:190px!important;
   }
+  .rb-river-gallery-track{grid-auto-columns:86%;padding-inline:12px;scroll-padding-inline:12px}
+  .rb-river-gallery::before,.rb-river-gallery::after{width:28px}
+  .rb-river-gallery .rb-rail-controls{right:12px;bottom:10px}
+  .rb-rail-button{width:42px;height:42px}
+  .rb-experience-rail{grid-auto-columns:min(84vw,340px);gap:16px!important;padding-bottom:1rem}
+  #rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem 1.3rem!important}
+  .rb-aged-paper-grid{grid-template-columns:1fr}
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -108,4 +436,8 @@
     pointer-events:auto!important;
     transform:none!important;
   }
+  .rb-river-gallery{transform:none!important;opacity:1!important;filter:none!important;transition:none!important}
+  .rb-about-flip-page.is-flipping-next,
+  .rb-about-flip-page.is-flipping-prev{animation:none!important}
+  .rb-rail-button{transition:none!important}
 }
