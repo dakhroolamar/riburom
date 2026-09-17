@@ -38,13 +38,14 @@ async function scrollThrough(page) {
 async function assertPublicCmsRendering(page, label) {
   await page.waitForFunction(() => {
     const hero = document.querySelector('.cms-hero-gallery');
+    const firstHeroImage = hero?.querySelector('img');
     const river = document.querySelector('[data-rb-river-gallery]');
     const about = document.querySelector('[data-rb-about-flip]');
     return hero && hero.querySelectorAll('.cms-gallery-track figure').length >= 3 &&
+      firstHeroImage && firstHeroImage.complete && firstHeroImage.naturalWidth > 0 &&
       river && !river.hidden && river.querySelectorAll('.rb-river-gallery-slide').length >= 3 &&
       about && !about.hidden && about.querySelector('img')?.complete && about.querySelector('img')?.naturalWidth > 0;
   }, { timeout: 10000 });
-  await waitForImages(page, '.cms-hero-gallery img');
   assert.ok(await page.locator('.rb-river-gallery-slide').count() >= 3, `${label}: CMS river gallery was not rendered`);
 }
 
