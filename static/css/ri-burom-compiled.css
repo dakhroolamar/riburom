@@ -505,3 +505,89 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
     transform: none;
   }
 }
+
+
+/* UI utility coverage additions.
+   Keep this block synchronized with scripts/check_ui_utility_coverage.py.
+   These utilities close the gap between the hand-compiled utility layer and
+   classes already used by current public templates. */
+.-translate-y-1\/2{transform:translateY(-50%)}
+.aspect-\[16\/9\]{aspect-ratio:16/9}
+.bg-green-50{background-color:#f0fdf4}
+.bg-slate-900\/70{background-color:rgba(15,23,42,.70)}
+.border-gray-100{border-color:#f3f4f6}
+.border-gray-200{border-color:#e5e7eb}
+.gap-1{gap:.25rem}
+.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.h-fit{height:fit-content}
+.h-full{height:100%}
+.left-4{left:1rem}
+.max-w-xl{max-width:36rem}
+.min-h-\[70vh\]{min-height:70vh}
+.min-h-full{min-height:100%}
+.min-h-screen{min-height:100vh}
+.outline-none{outline:2px solid transparent;outline-offset:2px}
+.overflow-y-auto{overflow-y:auto}
+.pl-12{padding-left:3rem}
+.pr-24{padding-right:6rem}
+.py-3\.5{padding-top:.875rem;padding-bottom:.875rem}
+.py-6{padding-top:1.5rem;padding-bottom:1.5rem}
+.py-8{padding-top:2rem;padding-bottom:2rem}
+.right-3{right:.75rem}
+.rounded-2xl{border-radius:1rem}
+.shadow-xl{box-shadow:0 20px 25px -5px rgb(0 0 0 / .10),0 8px 10px -6px rgb(0 0 0 / .10)}
+.text-base{font-size:1rem;line-height:1.5rem}
+.text-green-100\/70{color:rgba(220,252,231,.70)}
+.text-green-200{color:#bbf7d0}
+.text-slate-700{color:#334155}
+.top-1\/2{top:50%}
+.tracking-\[0\.14em\]{letter-spacing:.14em}
+.tracking-\[0\.16em\]{letter-spacing:.16em}
+.tracking-\[0\.18em\]{letter-spacing:.18em}
+.w-16{width:4rem}
+.hover\:bg-gray-100:hover{background-color:#f3f4f6}
+.hover\:bg-green-50:hover{background-color:#f0fdf4}
+.hover\:opacity-80:hover{opacity:.8}
+.hover\:text-green-800:hover{color:#166534}
+.focus\:border-green-700:focus{border-color:#15803d}
+.focus\:ring-green-700:focus{--rb-ring-color:#15803d}
+.focus\:ring-green-700\/10:focus{--rb-ring-color:rgba(21,128,61,.10)}
+.focus\:ring-2:focus{box-shadow:0 0 0 2px var(--rb-ring-color,#15803d)}
+.focus\:ring-4:focus{box-shadow:0 0 0 4px var(--rb-ring-color,rgba(21,128,61,.10))}
+
+@media (min-width:640px){
+  .sm\:col-span-2{grid-column:span 2 / span 2}
+  .sm\:flex-row{flex-direction:row}
+  .sm\:items-center{align-items:center}
+  .sm\:justify-between{justify-content:space-between}
+  .sm\:mb-10{margin-bottom:2.5rem}
+  .sm\:p-5{padding:1.25rem}
+  .sm\:p-6{padding:1.5rem}
+  .sm\:p-7{padding:1.75rem}
+  .sm\:px-6{padding-left:1.5rem;padding-right:1.5rem}
+  .sm\:px-7{padding-left:1.75rem;padding-right:1.75rem}
+  .sm\:px-8{padding-left:2rem;padding-right:2rem}
+  .sm\:py-10{padding-top:2.5rem;padding-bottom:2.5rem}
+  .sm\:py-14{padding-top:3.5rem;padding-bottom:3.5rem}
+  .sm\:text-3xl{font-size:1.875rem;line-height:2.25rem}
+  .sm\:text-4xl{font-size:2.25rem;line-height:2.5rem}
+  .sm\:text-5xl{font-size:3rem;line-height:1}
+  .sm\:text-lg{font-size:1.125rem;line-height:1.75rem}
+  .sm\:text-sm{font-size:.875rem;line-height:1.25rem}
+}
+
+@media (min-width:768px){
+  .md\:p-12{padding:3rem}
+}
+
+@media (min-width:1024px){
+  .lg\:py-16{padding-top:4rem;padding-bottom:4rem}
+}
+
+@media (min-width:1280px){
+  .xl\:grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .xl\:col-span-8{grid-column:span 8 / span 8}
+  .xl\:col-span-4{grid-column:span 4 / span 4}
+  .xl\:sticky{position:sticky}
+  .xl\:top-28{top:7rem}
+}

@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-motion.css') }}?v=10" data-rb-motion-css>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-ui.css') }}?v=16">
 {% if seo_markup is defined %}{{ seo_markup|safe }}{% endif %}
 <style>
     :root {
@@ -19,10 +21,10 @@
 
         {% set sec = public.theme.sections or {} %}
         {% set s = sec.get('hero', {}) %}
-        --rb-hero-bg: {{ s.get('background_color', '#14532d') }};
-        --rb-hero-heading: {{ s.get('heading_color', '#ffffff') }};
-        --rb-hero-body: {{ s.get('body_color', '#f3f4f6') }};
-        --rb-hero-eyebrow: {{ s.get('eyebrow_color', '#fde68a') }};
+        --rb-hero-bg: {{ s.get('background_color', '#f7f4e9') }};
+        --rb-hero-heading: {{ s.get('heading_color', '#234d39') }};
+        --rb-hero-body: {{ s.get('body_color', '#4a5a51') }};
+        --rb-hero-eyebrow: {{ s.get('eyebrow_color', '#72513b') }};
         --rb-hero-heading-weight: {{ s.get('heading_weight', 800) }};
         --rb-hero-body-weight: {{ s.get('body_weight', 400) }};
         --rb-hero-heading-style: {% if s.get('heading_italic', false) %}italic{% else %}normal{% endif %};
@@ -31,7 +33,7 @@
         --rb-hero-overlay-opacity: {{ (s.get('overlay_opacity', 55) / 100) }};
 
         {% set s = sec.get('home_about', {}) %}
-        --rb-home-about-bg: {{ s.get('background_color', '#ffffff') }};
+        --rb-home-about-bg: {{ s.get('background_color', '#f7f4e9') }};
         --rb-home-about-heading: {{ s.get('heading_color', '#78350f') }};
         --rb-home-about-body: {{ s.get('body_color', '#374151') }};
         --rb-home-about-eyebrow: {{ s.get('eyebrow_color', '#166534') }};
@@ -41,7 +43,7 @@
         --rb-home-about-body-style: {% if s.get('body_italic', false) %}italic{% else %}normal{% endif %};
 
         {% set s = sec.get('home_tours', {}) %}
-        --rb-home-tours-bg: {{ s.get('background_color', '#ffffff') }};
+        --rb-home-tours-bg: {{ s.get('background_color', '#f7f4e9') }};
         --rb-home-tours-heading: {{ s.get('heading_color', '#166534') }};
         --rb-home-tours-body: {{ s.get('body_color', '#4b5563') }};
         --rb-home-tours-eyebrow: {{ s.get('eyebrow_color', '#166534') }};
@@ -61,7 +63,7 @@
         --rb-home-why-body-style: {% if s.get('body_italic', false) %}italic{% else %}normal{% endif %};
 
         {% set s = sec.get('home_blog', {}) %}
-        --rb-home-blog-bg: {{ s.get('background_color', '#ffffff') }};
+        --rb-home-blog-bg: {{ s.get('background_color', '#f7f4e9') }};
         --rb-home-blog-heading: {{ s.get('heading_color', '#166534') }};
         --rb-home-blog-body: {{ s.get('body_color', '#4b5563') }};
         --rb-home-blog-eyebrow: {{ s.get('eyebrow_color', '#78350f') }};
@@ -71,7 +73,7 @@
         --rb-home-blog-body-style: {% if s.get('body_italic', false) %}italic{% else %}normal{% endif %};
 
         {% set s = sec.get('home_contact', {}) %}
-        --rb-home-contact-bg: {{ s.get('background_color', '#e5e7eb') }};
+        --rb-home-contact-bg: {{ s.get('background_color', '#ede4cf') }};
         --rb-home-contact-heading: {{ s.get('heading_color', '#166534') }};
         --rb-home-contact-body: {{ s.get('body_color', '#4b5563') }};
         --rb-home-contact-eyebrow: {{ s.get('eyebrow_color', '#166534') }};

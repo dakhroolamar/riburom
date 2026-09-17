@@ -8,17 +8,6 @@
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
     <style>
-        .rb-provider-hero { position:relative; min-height:460px; overflow:hidden; background:#0f2f1b; }
-        .rb-provider-hero-media { position:absolute; inset:0; background-position:center; background-size:cover; transform:scale(1.04); }
-        .rb-provider-hero-overlay { position:absolute; inset:0; background:linear-gradient(90deg,rgba(6,24,12,.90) 0%,rgba(6,24,12,.72) 45%,rgba(6,24,12,.42) 100%); }
-        .rb-provider-hero-content { position:relative; z-index:2; max-width:1280px; margin:0 auto; padding:70px 24px 80px; color:#fff; }
-        .rb-provider-eyebrow { color:#f3d38a; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.18em; margin-bottom:12px; }
-        .rb-provider-title { color:#fff; font-size:clamp(2.5rem,6vw,4.8rem); line-height:1.04; font-weight:800; margin:0 0 18px; letter-spacing:-.03em; }
-        .rb-provider-description { max-width:760px; color:rgba(255,255,255,.88); font-size:clamp(1rem,1.8vw,1.2rem); line-height:1.7; white-space:pre-line; }
-        .rb-provider-stats { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
-        .rb-provider-stat { border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); border-radius:14px; padding:12px 15px; }
-        .rb-provider-stat strong { display:block; color:#fff; font-size:1rem; }
-        .rb-provider-stat span { display:block; color:rgba(255,255,255,.68); font-size:11px; margin-top:2px; }
         .rb-service-row { display:grid; grid-template-columns:180px 1fr; gap:24px; padding:22px; background:#fff; border:1px solid #e5e7eb; border-radius:20px; transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease; }
         .rb-service-row:hover { transform:translateY(-3px); box-shadow:0 16px 35px rgba(15,23,42,.10); border-color:#d1d5db; }
         .rb-service-media { min-height:180px; border-radius:14px; background:#f1f5f9 center/cover no-repeat; }
@@ -45,36 +34,32 @@
         .rb-primary-button,.rb-secondary-button { border:0; border-radius:12px; padding:12px 18px; font-weight:800; cursor:pointer; }
         .rb-primary-button { background:#166534; color:#fff; }
         .rb-secondary-button { background:#eef2f7; color:#1f2937; }
-        @media (max-width:800px){ .rb-provider-hero{min-height:520px}.rb-provider-hero-content{padding:52px 18px 64px}.rb-service-row{grid-template-columns:1fr;padding:16px}.rb-service-media{min-height:180px}.rb-enquiry-body{padding:18px}.rb-requirement-grid{grid-template-columns:1fr}.rb-enquiry-overlay{padding:8px}.rb-enquiry-modal{margin:12px auto;border-radius:18px} }
+        @media (max-width:800px){ .rb-service-row{grid-template-columns:1fr;padding:16px}.rb-service-media{min-height:180px}.rb-enquiry-body{padding:18px}.rb-requirement-grid{grid-template-columns:1fr}.rb-enquiry-overlay{padding:8px}.rb-enquiry-modal{margin:12px auto;border-radius:18px} }
     </style>
 </head>
-<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
+<body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
 {% include '_nav.html' %}
 {% include '_flash.html' %}
 
 <main>
-    <section class="rb-provider-hero" data-reveal="scale">
-        {% if provider.image_url %}<div class="rb-provider-hero-media" style="background-image:url('{{ provider.image_url|imgsrc }}');"></div>{% endif %}
-        <div class="rb-provider-hero-overlay"></div>
-        <div class="rb-provider-hero-content">
-            <div style="margin-bottom:24px"><a href="{{ url_for('marketplace_public_index') }}" style="color:rgba(255,255,255,.78);font-weight:700;text-decoration:none">← Back to marketplace</a></div>
-            <div class="rb-provider-eyebrow">Marketplace provider</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-                {% for assignment in provider.provider_type_assignments %}<span style="display:inline-flex;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800">{{ assignment.provider_type.name }}</span>{% endfor %}
+    <section class="rb-hero-readable rb-paper-edge">
+        <div class="rb-hero-copy">
+            <div class="mb-6"><a href="{{ url_for('marketplace_public_index') }}" class="rb-custom-link">← Back to marketplace</a></div>
+            <div class="rb-hero-eyebrow">Marketplace provider</div>
+            <div class="rb-hero-meta mt-6">
+                {% for assignment in provider.provider_type_assignments %}<span class="rb-paper-label">{{ assignment.provider_type.name }}</span>{% endfor %}
             </div>
-            <h1 class="rb-provider-title">{{ provider.name }}</h1>
-            {% if provider.description %}<p class="rb-provider-description">{{ provider.description }}</p>{% endif %}
-            <div class="rb-provider-stats">
-                <div class="rb-provider-stat"><strong>{{ services|length }}</strong><span>public service{% if services|length != 1 %}s{% endif %}</span></div>
-                {% if provider.phone %}<div class="rb-provider-stat"><strong>{{ provider.phone }}</strong><span>direct contact</span></div>{% endif %}
-                {% if provider.email %}<div class="rb-provider-stat"><strong>{{ provider.email }}</strong><span>email</span></div>{% endif %}
-            </div>
+            <h1 class="rb-hero-title">{{ provider.name }}</h1>
+            {% if provider.description %}<p>{{ provider.description }}</p>{% endif %}
+            <div class="rb-hero-meta mt-6"><span>{{ services|length }} public service{% if services|length != 1 %}s{% endif %}</span></div>
+            <div class="rb-hero-actions"><a class="rb-button text-white" href="#provider-enquiry">Enquire with this provider <span aria-hidden="true">&nbsp;↓</span></a></div>
+            {% if provider.image_url %}<img class="rb-paper-photo rb-provider-portrait" src="{{ provider.image_url|imgsrc }}" alt="{{ provider.name }}" decoding="async">{% endif %}
         </div>
     </section>
 
     <section class="max-w-7xl mx-auto px-5 sm:px-6 py-12 lg:py-16">
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            <div class="xl:col-span-8">
+        <div class="rb-provider-layout">
+            <div>
                 <div style="margin-bottom:28px">
                     <p class="text-green-800 font-bold uppercase tracking-wider text-sm mb-2">Marketplace services</p>
                     <h2 class="text-3xl sm:text-4xl font-bold text-gray-900">Choose what you need</h2>
@@ -99,21 +84,21 @@
                 </div>
             </div>
 
-            <aside class="xl:col-span-4">
+            <aside id="provider-enquiry">
                 <div class="xl:sticky xl:top-28 space-y-5">
                     <div class="bg-green-900 text-white rounded-2xl p-6 sm:p-7 shadow-xl">
                         <p class="text-xs uppercase tracking-[0.18em] font-bold text-green-200 mb-2">Marketplace enquiry</p>
                         <h2 class="text-2xl font-bold mb-3" style="color:#fff">Interested in this provider?</h2>
                         <p class="text-sm text-green-100 leading-relaxed mb-6">Choose one or several services, or leave the selection empty for a general provider enquiry.</p>
                         <button type="button" id="openProviderInquiry" class="w-full inline-flex items-center justify-center gap-2 bg-white text-green-900 hover:bg-green-50 font-bold px-5 py-3.5 rounded-xl transition">Enquire with this provider →</button>
-                        <p class="text-xs text-green-100/70 mt-3">Independent marketplace enquiry. Not the general Contact Us form.</p>
+                        <p class="text-xs text-green-100/70 mt-3">Independent marketplace enquiry</p>
                     </div>
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    {% if provider.email or provider.phone %}<div class="rb-paper-sheet p-6">
                         <p class="text-xs uppercase tracking-[0.18em] font-bold text-gray-500 mb-2">Provider</p>
                         <h2 class="text-xl font-bold text-gray-900 mb-4">Contact details</h2>
                         {% if provider.email %}<a href="mailto:{{ provider.email }}" class="block py-3 border-b border-gray-100 hover:text-green-800"><span class="block text-xs text-gray-500">Email</span><span class="font-semibold break-words">{{ provider.email }}</span></a>{% endif %}
                         {% if provider.phone %}<a href="tel:{{ provider.phone }}" class="block py-3 hover:text-green-800"><span class="block text-xs text-gray-500">Phone / WhatsApp</span><span class="font-semibold">{{ provider.phone }}</span></a>{% endif %}
-                    </div>
+                    </div>{% endif %}
                 </div>
             </aside>
         </div>

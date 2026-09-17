@@ -83,18 +83,20 @@
   }
 
   function showLoader() {
-    if (document.getElementById('rb-page-loader')) return;
-    const loader = document.createElement('div');
-    loader.id = 'rb-page-loader';
-    const src = getBrandImage();
-    loader.innerHTML = '<div class="rb-loader-core">' +
-      (src ? '<img class="rb-loader-mark" src="' + src + '" alt="" aria-hidden="true">' : '<div style="font-weight:800;letter-spacing:.08em">RI BUROM</div>') +
-      '<div class="rb-loader-line" aria-hidden="true"></div></div>';
-    document.body.prepend(loader);
-    const hide = () => setTimeout(() => loader.classList.add('is-hidden'), reduceMotion ? 120 : 650);
+    let loader = document.getElementById('rb-page-loader');
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.id = 'rb-page-loader';
+      const src = getBrandImage();
+      loader.innerHTML = '<div class="rb-loader-core">' +
+        (src ? '<img class="rb-loader-mark" src="' + src + '" alt="" aria-hidden="true">' : '<div style="font-weight:800;letter-spacing:.08em">RI BUROM</div>') +
+        '<div class="rb-loader-line" aria-hidden="true"></div></div>';
+      document.body.prepend(loader);
+    }
+    const hide = () => setTimeout(() => loader.classList.add('is-hidden'), reduceMotion ? 120 : 450);
     if (document.readyState === 'complete') hide();
     else window.addEventListener('load', hide, { once: true });
-    setTimeout(hide, 1800);
+    setTimeout(hide, 1600);
   }
 
   function makeSoundControl(hero, video) {

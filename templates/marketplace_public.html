@@ -20,17 +20,18 @@
         @media(max-width:700px){.marketplace-list-row{align-items:flex-start;flex-direction:column}.marketplace-list-actions{width:100%}.marketplace-list-actions .rb-button,.marketplace-list-actions a{flex:1;text-align:center}.marketplace-gallery-thumb{width:72px;height:56px}}
     </style>
 </head>
-<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-marketplace rb-editorial rb-page-enter bg-gray-50 text-gray-800 font-sans">
 {% include '_nav.html' %}
 {% include '_flash.html' %}
 
 <section data-reveal class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-    <div class="text-center mb-8 sm:mb-10">
+    <div class="rb-hero-readable rb-discovery-head"><div class="rb-hero-copy">
         <p class="text-green-800 font-bold uppercase tracking-[0.18em] text-sm mb-3">Marketplace</p>
-        <h1 class="text-3xl sm:text-5xl font-bold text-green-800 mb-4">Find what you need in Meghalaya</h1>
+        <h1 class="rb-hero-title">Find what you need in Meghalaya</h1>
         <p class="text-gray-600 max-w-3xl mx-auto leading-relaxed">Discover local providers and services, then choose the way you want to browse.</p>
-    </div>
+    </div></div>
 
+    <div {% if not providers %}hidden{% endif %}>
     <div class="max-w-4xl mx-auto bg-white border border-gray-200 rounded-2xl shadow-sm p-4 sm:p-5 mb-8">
         <label for="marketplace-search" class="block text-xs font-bold uppercase tracking-[0.14em] text-green-900 mb-2">Search</label>
         <div class="relative">
@@ -70,8 +71,9 @@
         </div>
     </div>
 
+    </div>
     <div id="marketplace-provider-view">
-        <div class="flex items-end justify-between gap-4 mb-5">
+        <div class="flex items-end justify-between gap-4 mb-5" {% if not providers %}hidden{% endif %}>
             <div><p class="text-xs font-bold uppercase tracking-[0.16em] text-green-800 mb-1">Local providers</p><h2 class="text-2xl sm:text-3xl font-bold text-gray-900">Choose a provider</h2></div>
             <span class="text-sm text-gray-500">Select a provider to see its full profile and images.</span>
         </div>
@@ -90,7 +92,7 @@
                     </div>
                 </div>
             </article>
-            {% else %}<p class="text-gray-500 italic">No public providers are currently available.</p>{% endfor %}
+            {% else %}<div class="rb-empty"><span class="rb-paper-label">Local connections</span><h2 class="rb-title mt-6">Your journey starts with a conversation.</h2><p>No public providers are currently available.</p><p>Tell us what you have in mind and we can help you plan your visit.</p><a href="/#contact" class="rb-button inline-flex text-white px-6 py-3 mt-6">{{ public.content.nav_contact }}</a></div>{% endfor %}
         </div>
     </div>
 
@@ -189,7 +191,9 @@
         });
         count.textContent=`${visible} ${mode==='providers'?'provider':'service'}${visible===1?'':'s'} found`;
         clear.classList.toggle('hidden',!term);
-        noResults.classList.toggle('hidden',visible!==0);
+        // An empty catalogue has its own planning CTA, not a failed-search state.
+        const hasInventory=document.querySelector('[data-provider-row]');
+        noResults.classList.toggle('hidden',visible!==0 || !hasInventory);
     }
 
     function setMode(next){

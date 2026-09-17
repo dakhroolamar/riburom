@@ -8,17 +8,33 @@
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#166534">
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=8" defer></script>
+    <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/gsap.min.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/ScrollTrigger.min.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-waterfall.js') }}?v=17" defer></script>
     {% include '_public_theme.html' %}
 </head>
-<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800">
+<body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
     {% include '_flash.html' %}
-    <main id="rbHomeSections" class="flex flex-col">
+    <main id="rbHomeSections" class="rb-paper-journey flex flex-col" data-rb-waterfall>
+    <canvas class="rb-water-canvas" data-rb-water-canvas aria-hidden="true"></canvas>
+    <svg class="rb-waterfall" viewBox="0 0 1000 1800" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="rb-water-fallback-gradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#1f6fa8"/>
+                <stop offset=".48" stop-color="#4fa8c7"/>
+                <stop offset="1" stop-color="#8fd3ee"/>
+            </linearGradient>
+        </defs>
+        <path id="rb-water-centerline" class="rb-water-route" fill="none" stroke="url(#rb-water-fallback-gradient)" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--mid" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--light" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--shine" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+    </svg>
     {% if public.home.visibility.hero %}
     {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
-    <header id="rb-home-hero" class="relative min-h-[88vh] rb-hero flex flex-col items-center justify-center bg-green-900 text-center px-4 bg-cover bg-center" style="order:{{ home_order_index.hero }};{% if hero_image %} background-image: url('{{ hero_image|imgsrc }}');{% endif %}">
-        <div class="absolute inset-0 bg-black" style="opacity:var(--rb-hero-overlay);"></div>
-        <div class="relative z-10 text-white max-w-5xl flex flex-col items-center py-20 rb-hero-content">
+    <header id="rb-home-hero" class="rb-paper-hero rb-paper-edge rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
+        <div class="relative z-10 text-white max-w-5xl flex flex-col items-center rb-hero-content rb-hero-copy" data-rb-water-shield>
             {% if hero_logo %}
             <div class="rb-hero-video-stage" data-rb-hero-video-stage>
                 <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
@@ -29,28 +45,36 @@
                 {% endif %}
             </div>
             {% endif %}
-            <p class="uppercase tracking-[0.35em] text-sm md:text-base font-semibold text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
-            <h1 class="text-4xl md:text-6xl font-bold mb-5">{{ public.content.hero_title }}</h1>
+            <p class="rb-hero-eyebrow text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
+            <h1 class="rb-hero-title">{{ public.content.hero_title }}</h1>
             <p class="text-lg md:text-2xl max-w-3xl mb-8 text-gray-100">{{ public.content.hero_subtitle }}</p>
-            <div class="flex flex-wrap justify-center gap-4">
+            <div class="rb-hero-actions">
                 <a href="#tours" class="rb-button-accent text-white font-bold py-3 px-8 rounded-full shadow-lg transition">{{ public.content.hero_primary_button }}</a>
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
+        <div class="rb-paper-landscape" data-rb-water-source>{% include '_paper_landscape.html' %}{% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}</div>
     </header>
     {% endif %}
 
     {% if public.home.visibility.about %}
-    <section id="rb-home-about" data-reveal="scale" style="order:{{ home_order_index.about }};" class="max-w-6xl mx-auto px-6 rb-section-space text-center">
+    <section id="rb-home-about" style="order:{{ home_order_index.about }};" class="rb-story">
+      <div class="rb-story-grid">
+        <div class="rb-story-art rb-paper-pin" data-rb-water-shield>{% include '_paper_falls.html' %}</div>
+        <div class="rb-water-shield" data-rb-water-shield>
         <p class="text-green-800 font-bold uppercase tracking-wider mb-3">{{ public.content.home_about_eyebrow }}</p>
         <h2 class="text-3xl md:text-4xl font-bold text-amber-900 mb-5">{{ public.content.home_about_title }}</h2>
         <p class="text-lg text-gray-700 max-w-4xl mx-auto leading-relaxed">{{ public.content.home_about_text }}</p>
+        <a class="rb-action-outline rb-custom-link mt-6" href="{{ url_for('about') }}">{{ public.content.nav_about }} <span aria-hidden="true">&nbsp;↗</span></a>
+        </div>
+      </div>
     </section>
     {% endif %}
 
     {% if public.home.visibility.tours %}
-    <section id="rb-home-tours" data-reveal style="order:{{ home_order_index.tours }};" class="max-w-7xl mx-auto px-6 rb-section-space">
-        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+    <section id="rb-home-tours" data-reveal style="order:{{ home_order_index.tours }};" class="rb-story">
+        <span id="tours"></span>
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 rb-water-shield" data-rb-water-shield>
             <div>
                 <p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ public.content.home_tours_eyebrow }}</p>
                 <h2 class="text-4xl font-bold text-green-800">{{ public.content.home_tours_title }}</h2>
@@ -59,9 +83,9 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
             {% for pkg in packages %}
-            <article data-reveal class="rb-card bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 flex flex-col">
+            <article data-reveal class="rb-card rb-paper-card flex flex-col" data-rb-water-shield>
                 <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
-                    <div class="h-56 bg-gray-300 bg-cover bg-center rb-card-media" style="background-image: url('{{ pkg.image_file|imgsrc }}');"></div>
+                    <img class="rb-card-media" src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
                 </a>
                 <div class="p-6 flex-grow">
                     <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
@@ -69,7 +93,8 @@
                         {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
                     </div>
                     <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
-                    <p class="text-gray-600 mb-4 whitespace-pre-line">{{ pkg.description }}</p>
+                    <p class="rb-card-excerpt text-gray-600 mb-4">{{ pkg.description }}</p>
+                    {% if pkg.price %}<p class="font-bold mb-4">{{ public.content.tours_price_prefix }} {{ pkg.price }}</p>{% endif %}
                     {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
                 </div>
                 <div class="p-6 pt-0">
@@ -77,35 +102,36 @@
                 </div>
             </article>
             {% else %}
-            <div class="md:col-span-3 text-center text-gray-500 text-xl italic py-10">{{ public.content.home_tours_empty }}</div>
+            <div class="rb-empty md:col-span-3"><p>{{ public.content.home_tours_empty }}</p><a href="/marketplace" class="rb-action-outline rb-custom-link mt-6">Marketplace</a></div>
             {% endfor %}
         </div>
     </section>
     {% endif %}
 
     {% if public.home.visibility.why %}
-    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="bg-green-900 text-white rb-section-space">
+    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="rb-story rb-paper-edge bg-green-900 text-white rb-section-space">
+        <div data-rb-roots>{% include '_paper_roots.html' %}</div>
         <div class="max-w-7xl mx-auto px-6">
-            <div class="max-w-3xl mb-10">
+            <div class="max-w-3xl mb-10 rb-water-shield rb-water-shield--dark" data-rb-water-shield>
                 <p class="text-amber-300 font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
                 <h2 class="text-3xl md:text-4xl font-bold mb-4">{{ public.content.home_why_title }}</h2>
                 <p class="text-green-100 text-lg">{{ public.content.home_why_text }}</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 rb-stagger">
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p class="text-green-100">{{ public.content.why1_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p class="text-green-100">{{ public.content.why2_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p class="text-green-100">{{ public.content.why3_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card"><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p class="text-green-100">{{ public.content.why4_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p class="text-green-100">{{ public.content.why1_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p class="text-green-100">{{ public.content.why2_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p class="text-green-100">{{ public.content.why3_text }}</p></div>
+                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p class="text-green-100">{{ public.content.why4_text }}</p></div>
             </div>
         </div>
     </section>
     {% endif %}
 
     {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and settings.blog_url %}
-    <section id="rb-home-blog" data-reveal="right" style="order:{{ home_order_index.blog }};" class="bg-white rb-section-space">
+    <section id="rb-home-blog" data-reveal="right" style="order:{{ home_order_index.blog }};" class="rb-story rb-section-space">
         <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-            {% if settings.blog_image %}<div class="h-80 bg-gray-200 bg-cover bg-center rounded-xl shadow-lg" style="background-image:url('{{ settings.blog_image|imgsrc }}');"></div>{% endif %}
-            <div class="{% if not settings.blog_image %}md:col-span-2{% endif %}">
+            {% if settings.blog_image %}<img class="rb-paper-photo" data-rb-water-shield src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" loading="lazy" decoding="async">{% endif %}
+            <div class="rb-water-shield {% if not settings.blog_image %}md:col-span-2{% endif %}" data-rb-water-shield>
                 <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">{{ public.content.blog_eyebrow }}</p>
                 <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
                 <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
@@ -114,16 +140,18 @@
         </div>
     </section>
     {% endif %}
+    {# No dedicated craft story or guide URL exists. The CMS blog supplies the
+       community story when enabled; do not invent an artisan, guide or PDF. #}
 
     {% if public.home.visibility.contact %}
     <section id="rb-home-contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
         <div id="contact" style="position:relative;top:-2px"></div>
         <div class="max-w-4xl mx-auto px-6">
-            <div class="text-center mb-8">
+            <div class="text-center mb-8 rb-water-shield" data-rb-water-shield>
                 <h2 class="text-3xl font-bold text-green-800">{{ public.content.contact_title }}</h2>
                 <p class="text-gray-600 mt-2">{{ public.content.contact_text }}</p>
             </div>
-            <form action="/send_message" method="POST" class="bg-white rounded-xl shadow-md p-8">
+            <form action="/send_message" method="POST" class="bg-white rounded-xl shadow-md p-8" data-rb-water-shield>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div><label for="contact-name" class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input id="contact-name" type="text" name="name" maxlength="120" autocomplete="name" class="w-full border border-gray-300 p-3 rounded" required></div>

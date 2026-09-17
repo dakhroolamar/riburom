@@ -7,12 +7,14 @@
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
 </head>
-<body class="rb-public-site rb-page-enter bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800 font-sans">
 {% include '_nav.html' %}{% include '_flash.html' %}
-<header data-reveal="scale" class="bg-green-900 text-white py-16 px-6 text-center">
-    <p class="text-amber-300 font-bold uppercase tracking-wider mb-3">{{ public.content.about_page_eyebrow }}</p>
-    <h1 class="text-4xl md:text-5xl font-bold">{{ public.content.about_page_heading or ('About ' ~ site_settings.footer_business_name) }}</h1>
+<header data-reveal="scale" class="rb-hero-readable rb-paper-edge rb-about-hero">
+    <div class="rb-hero-copy">
+    <p class="rb-hero-eyebrow">{{ public.content.about_page_eyebrow }}</p>
+    <h1 class="rb-hero-title">{{ public.content.about_page_heading or ('About ' ~ site_settings.footer_business_name) }}</h1>
     <p class="max-w-3xl mx-auto mt-5 text-green-100 text-lg">{{ public.content.about_page_intro }}</p>
+    </div>
 </header>
 
 <section class="max-w-6xl mx-auto px-6 py-10">

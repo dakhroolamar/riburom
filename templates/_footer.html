@@ -1,39 +1,52 @@
-<footer data-reveal class="rb-footer text-white py-12 px-6">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
-        <div>
+<footer class="rb-footer rb-textile-edge text-white">
+    <div class="rb-footer-grid">
+        <div class="rb-footer-brand">
             {% if site_settings.header_wordmark %}
-            <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom" class="max-w-[180px] max-h-16 mb-4 object-contain brightness-0 invert">
+            <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom">
             {% else %}
             <div class="text-2xl font-bold tracking-wide mb-4">RI BUROM</div>
             {% endif %}
-            <p class="text-amber-100">{{ site_settings.footer_tagline }}</p>
+            <p>{{ site_settings.footer_tagline }}</p>
         </div>
+
         <div>
-            <h3 class="font-bold text-xl mb-4">{{ public.content.footer_explore }}</h3>
-            <ul class="text-amber-100 space-y-2">
-                <li><a class="hover:text-white" href="/">{{ public.content.nav_home }}</a></li>
-                <li><a class="hover:text-white" href="/all_tours">{{ public.content.mobile_tours }}</a></li>
-                <li><a class="hover:text-white" href="/about">{{ public.content.nav_about }}</a></li>
-                <li><a class="hover:text-white" href="/#contact">{{ public.content.mobile_contact }}</a></li>
+            <h3 class="rb-footer-title">{{ public.content.footer_explore }}</h3>
+            <ul class="rb-footer-links">
+                <li><a href="/">{{ public.content.nav_home }}</a></li>
+                <li><a href="/all_tours">{{ public.content.mobile_tours }}</a></li>
+                <li><a href="/marketplace">Marketplace</a></li>
+                <li><a href="/about">{{ public.content.nav_about }}</a></li>
+                <li><a href="/#contact">{{ public.content.mobile_contact }}</a></li>
             </ul>
         </div>
-        <div>
-            <h3 class="font-bold text-xl mb-4">{{ public.content.footer_contact }}</h3>
-            {% if site_settings.footer_phone %}<p class="text-amber-100">📞 {{ site_settings.footer_phone }}</p>{% endif %}
-            {% if site_settings.footer_email %}<p class="text-amber-100 break-words">✉️ {{ site_settings.footer_email }}</p>{% endif %}
-            {% if site_settings.footer_address %}<p class="text-amber-100 mt-2 whitespace-pre-line">📍 {{ site_settings.footer_address }}</p>{% endif %}
+
+        <div class="rb-footer-contact-column">
+            <h3 class="rb-footer-title">{{ public.content.footer_contact }}</h3>
+            <div class="rb-footer-contact">
+                {% if site_settings.footer_phone %}
+                <div class="rb-footer-contact-item"><strong>Phone</strong><a href="tel:{{ site_settings.footer_phone }}">{{ site_settings.footer_phone }}</a></div>
+                {% endif %}
+                {% if site_settings.footer_email %}
+                <div class="rb-footer-contact-item"><strong>Email</strong><a href="mailto:{{ site_settings.footer_email }}">{{ site_settings.footer_email }}</a></div>
+                {% endif %}
+                {% if site_settings.footer_address %}
+                <div class="rb-footer-contact-item"><strong>Address</strong><span class="whitespace-pre-line">{{ site_settings.footer_address }}</span></div>
+                {% endif %}
+            </div>
             {% if site_settings.instagram_url %}
-            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-4 text-white px-4 py-2 font-bold">{{ public.content.footer_instagram_button or site_settings.instagram_label or 'Follow us on Instagram' }}</a>
+            <a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-5 text-white px-4 py-2 font-bold">{{ public.content.footer_instagram_button or site_settings.instagram_label or 'Follow us on Instagram' }}</a>
             {% endif %}
         </div>
+
         {% if site_settings.instagram_url and site_settings.instagram_show_qr and site_settings.instagram_qr %}
-        <div class="bg-white/10 rounded-xl p-4 text-center">
-            <p class="font-bold mb-3">{{ public.content.footer_qr }}</p>
-            <img src="{{ site_settings.instagram_qr|imgsrc }}" alt="Instagram QR code" class="w-36 h-36 mx-auto bg-white p-2 rounded">
+        <div class="rb-footer-qr">
+            <p class="rb-footer-title" style="margin-bottom:0">{{ public.content.footer_qr }}</p>
+            <img src="{{ site_settings.instagram_qr|imgsrc }}" alt="Instagram QR code">
         </div>
         {% endif %}
     </div>
-    <div class="max-w-7xl mx-auto mt-8 pt-6 border-t border-amber-700 text-amber-200 text-sm">
+
+    <div class="rb-footer-bottom">
         <p>{{ site_settings.footer_copyright }}</p>
     </div>
 </footer>
