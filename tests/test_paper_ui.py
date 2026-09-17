@@ -21,6 +21,22 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("--rb-font-cultural:var(--rb-heading-font", source)
         self.assertIn("--rb-font-body:var(--rb-body-font", source)
 
+    def test_hero_opening_film_owns_story_area_then_restores_larger_logo(self):
+        js = (ROOT / 'static/js/ri-burom-home-fixes.js').read_text(encoding='utf-8')
+        css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
+        landscape = (ROOT / 'templates/_paper_landscape.html').read_text(encoding='utf-8')
+
+        self.assertIn("video.classList.add('rb-hero-opening-film')", js)
+        self.assertIn("video.parentElement !== hero", js)
+        self.assertNotIn("stage.appendChild(video)", js)
+        self.assertIn("ri-burom-home-fixes.css?v=2", js)
+        self.assertIn("bottom:var(--rb-home-landscape-height)!important", css)
+        self.assertIn("object-fit:cover!important", css)
+        self.assertIn("rb-hero-video-playing .rb-hero-content", css)
+        self.assertIn("max-width:320px!important", css)
+        self.assertIn("max-height:200px!important", css)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=2", landscape)
+
     def test_tour_art_is_separate_from_dynamic_title(self):
         source = (ROOT / 'templates/tour_detail.html').read_text(encoding='utf-8')
         self.assertIn('<h1 class="rb-hero-title">{{ pkg.title }}</h1>', source)
