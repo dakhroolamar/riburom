@@ -2,10 +2,12 @@
   'use strict';
 
   function ensureHomeFixStyles() {
-    if (document.querySelector('link[data-rb-home-fixes-css]')) return;
+    const current = document.querySelector('link[data-rb-home-fixes-css]');
+    if (current && /[?&]v=3(?:&|$)/.test(current.href)) return;
+    if (current) current.remove();
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-home-fixes.css?v=2';
+    link.href = '/static/css/ri-burom-home-fixes.css?v=3';
     link.dataset.rbHomeFixesCss = '1';
     document.head.appendChild(link);
   }
@@ -15,14 +17,51 @@
     const stage = document.querySelector('[data-rb-hero-video-stage]');
     const video = document.querySelector('[data-rb-hero-animation-video]');
     const logo = document.querySelector('.rb-hero-permanent-logo');
+    const landscape = hero && hero.querySelector('.rb-paper-landscape');
 
     if (!hero || !stage || !video || !logo) return;
 
-    /* ri-burom-motion.js owns playback state. This layer only decides where
-       the film is presented: across the full white hero story area. */
+    /* ri-burom-motion.js owns playback state. This layer owns presentation:
+       the opening film fills the complete white hero area, stopping exactly
+       where the landscape begins. */
     if (video.parentElement !== hero) hero.appendChild(video);
     video.classList.remove('rb-hero-animation-video--background');
     video.classList.add('rb-hero-opening-film');
+
+    const sizeOpeningFilm = () => {
+      const heroHeight = hero.getBoundingClientRect().height;
+      const landscapeHeight = landscape ? landscape.getBoundingClientRect().height : 0;
+      const whiteAreaHeight = Math.max(280, Math.round(heroHeight - landscapeHeight));
+      video.style.setProperty('position', 'absolute', 'important');
+      video.style.setProperty('top', '0', 'important');
+      video.style.setProperty('right', '0', 'important');
+      video.style.setProperty('bottom', 'auto', 'important');
+      video.style.setProperty('left', '0', 'important');
+      video.style.setProperty('width', '100%', 'important');
+      video.style.setProperty('height', whiteAreaHeight + 'px', 'important');
+      video.style.setProperty('max-width', 'none', 'important');
+      video.style.setProperty('max-height', 'none', 'important');
+      video.style.setProperty('object-fit', 'cover', 'important');
+      video.style.setProperty('object-position', 'center center', 'important');
+      video.style.setProperty('z-index', '18', 'important');
+    };
+
+    sizeOpeningFilm();
+    window.addEventListener('resize', sizeOpeningFilm, { passive: true });
+
+    /* Make the post-animation logo exactly 2x the CMS-configured width. Store
+       the original value so repeated load/resize hooks never double it again. */
+    if (!logo.dataset.rbOriginalHeroWidth) {
+      const configuredWidth = parseFloat(logo.style.width) || Math.round(logo.getBoundingClientRect().width) || 80;
+      logo.dataset.rbOriginalHeroWidth = String(configuredWidth);
+    }
+    const originalWidth = parseFloat(logo.dataset.rbOriginalHeroWidth) || 80;
+    const doubledWidth = Math.min(originalWidth * 2, 320);
+    logo.style.setProperty('width', doubledWidth + 'px', 'important');
+    logo.style.setProperty('max-width', 'min(86vw, 320px)', 'important');
+    logo.style.setProperty('max-height', '220px', 'important');
+    stage.style.setProperty('width', 'auto', 'important');
+    stage.style.setProperty('max-width', '86vw', 'important');
   }
 
   function applyHomeAboutFrame() {
