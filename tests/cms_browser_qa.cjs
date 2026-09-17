@@ -49,6 +49,16 @@ async function assertPublicCmsRendering(page, label) {
   assert.ok(await page.locator('.rb-river-gallery-slide').count() >= 3, `${label}: CMS river gallery was not rendered`);
 }
 
+async function assertHeroAutoplay(page) {
+  const track = page.locator('.cms-hero-gallery .cms-gallery-track');
+  await track.scrollIntoViewIfNeeded();
+  const before = await track.evaluate((node) => node.scrollLeft);
+  await page.waitForFunction((start) => {
+    const node = document.querySelector('.cms-hero-gallery .cms-gallery-track');
+    return node && Math.abs(node.scrollLeft - start) > Math.max(60, node.clientWidth * 0.45);
+  }, before, { timeout: 8500 });
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -65,6 +75,8 @@ async function assertPublicCmsRendering(page, label) {
   await page.locator('h1').waitFor();
   assert.equal((await page.locator('h1').textContent()).trim(), 'Home');
   assert.equal(await page.locator('meta[name="csrf-token"]').count(), 1);
+  assert.equal(await page.getByText('Choose a section', { exact: true }).count(), 1, 'CMS workflow hierarchy is missing');
+  assert.equal(await page.getByText('Advanced settings', { exact: true }).count(), 1, 'CMS primary navigation is missing advanced settings');
   await assertNoHorizontalOverflow(page, 'CMS desktop');
 
   await page.locator('button[data-section="hero"]').click();
@@ -109,6 +121,7 @@ async function assertPublicCmsRendering(page, label) {
   assert.ok((publicMedia.media_details.home_gallery || []).length >= 3, 'Public homepage did not expose CMS river gallery media');
   assert.ok((publicMedia.media_details.home_about_gallery || []).length >= 3, 'Public homepage did not expose CMS About gallery media');
   await assertPublicCmsRendering(page, 'desktop');
+  await assertHeroAutoplay(page);
   await scrollThrough(page);
   await page.screenshot({ path: `${OUT}/home-desktop.png`, fullPage: true });
 
@@ -126,7 +139,7 @@ async function assertPublicCmsRendering(page, label) {
 
   assert.deepEqual(errors, [], `Browser errors detected:\n${errors.join('\n')}`);
   await browser.close();
-  console.log('CMS browser QA passed: editor, collection persistence, logo placement, media library, rendered public galleries, desktop and 390px layouts.');
+  console.log('CMS browser QA passed: simplified editor, collection persistence, logo placement, media library, public galleries, autoplay, desktop and 390px layouts.');
 })().catch(async (error) => {
   console.error(error.stack || error);
   process.exit(1);
