@@ -9,6 +9,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18
@@ -29,53 +30,101 @@ jobs:
       ADMIN_PASSWORD: ci-only-password
       DATABASE_URL: sqlite:///ci.db
       MARKETPLACE_TEST_DATABASE_URL: postgresql+psycopg2://ci:ci-password@127.0.0.1:5432/riburom_test
+      CMS_TEST_DATABASE_URL: postgresql+psycopg2://ci:ci-password@127.0.0.1:5432/riburom_test
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14.3'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
+
       - name: Verify PostgreSQL 18 service
         run: |
           python - <<'PY'
           import os
           from sqlalchemy import create_engine, text
 
-          url = os.environ['MARKETPLACE_TEST_DATABASE_URL']
+          url = os.environ['CMS_TEST_DATABASE_URL']
           engine = create_engine(url)
           with engine.connect() as connection:
               version = connection.execute(text('SELECT version()')).scalar_one()
               print(version)
               if 'PostgreSQL 18.' not in version:
                   raise SystemExit(f'Expected PostgreSQL 18, got: {version}')
-          print('POSTGRESQL 18 READY')
+          print('POSTGRESQL 18 READY FOR CMS MIGRATION QA')
           PY
+
       - name: Compile Python
-        run: python -m py_compile app.py application_modules.py config_concurrency.py media_lifecycle.py scripts/debug_migration.py models.py marketplace_models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py notifications.py seo.py wsgi.py migrations/env.py migrations/versions/8d1f2c4a9b01_add_marketplace_foundation.py migrations/versions/3f7a9c2d1e64_add_package_items.py migrations/versions/c1d4e6f8a210_harden_sessions_and_inquiry_ids.py migrations/versions/d5e8f0a2b341_add_notification_outbox.py scripts/process_notification_outbox.py tests/test_application_composition.py tests/test_public_config_concurrency.py tests/test_marketplace_media_lifecycle.py tests/test_repository_hygiene.py tests/test_notifications.py tests/test_notification_outbox.py tests/test_seo.py tests/test_deploy_bootstrap.py tests/test_production_config.py tests/test_session_revocation.py tests/test_marketplace_models.py tests/test_marketplace_migration.py tests/test_marketplace_postgres_reconciliation.py tests/test_package_items.py tests/test_package_item_migration.py tests/test_package_item_postgres.py tests/test_package_compatibility.py
+        run: >-
+          python -m py_compile
+          app.py application_modules.py config_concurrency.py media_lifecycle.py scripts/debug_migration.py
+          models.py marketplace_models.py storage.py cms_routes.py cms_typography.py cms_backgrounds.py
+          cms_pages.py cms_media_models.py notifications.py seo.py wsgi.py migrations/env.py
+          migrations/versions/8d1f2c4a9b01_add_marketplace_foundation.py
+          migrations/versions/3f7a9c2d1e64_add_package_items.py
+          migrations/versions/c1d4e6f8a210_harden_sessions_and_inquiry_ids.py
+          migrations/versions/d5e8f0a2b341_add_notification_outbox.py
+          migrations/versions/e6f7a8b9c012_add_cms_media_collections.py
+          scripts/process_notification_outbox.py tests/test_application_composition.py
+          tests/test_public_config_concurrency.py tests/test_marketplace_media_lifecycle.py
+          tests/test_repository_hygiene.py tests/test_notifications.py tests/test_notification_outbox.py
+          tests/test_seo.py tests/test_deploy_bootstrap.py tests/test_production_config.py
+          tests/test_session_revocation.py tests/test_marketplace_models.py tests/test_marketplace_migration.py
+          tests/test_marketplace_postgres_reconciliation.py tests/test_package_items.py
+          tests/test_package_item_migration.py tests/test_package_item_postgres.py
+          tests/test_package_compatibility.py tests/test_cms_pages.py tests/test_cms_media_migration.py
+          tests/cms_preview.py
+
+      - name: Check CMS JavaScript syntax
+        run: |
+          node --check static/js/cms-pages.js
+          node --check static/js/cms-public-media.js
+          node --check static/js/ri-burom-home-fixes.js
+          node --check tests/cms_browser_qa.cjs
 
       - name: Validate public UI utility coverage
         run: python scripts/check_ui_utility_coverage.py
+
       - name: Run complete test suite
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Require CMS migration upgrade and downgrade on PostgreSQL 18
+        run: python -m unittest tests.test_cms_media_migration.CmsPostgresMigrationTests -v
+
       - name: Run marketplace model tests
         run: python -m unittest discover -s tests -p 'test_marketplace_models.py' -v
+
       - name: Run marketplace migration tests
         run: python -m unittest discover -s tests -p 'test_marketplace_migration.py' -v
+
       - name: Run PackageItem model tests
         run: python -m unittest discover -s tests -p 'test_package_items.py' -v
+
       - name: Run PackageItem migration tests
         run: python -m unittest discover -s tests -p 'test_package_item_migration.py' -v
+
       - name: Run Package compatibility tests
         run: python -m unittest discover -s tests -p 'test_package_compatibility.py' -v
+
       - name: Run PostgreSQL marketplace reconciliation tests
         run: python -m unittest discover -s tests -p 'test_marketplace_postgres_reconciliation.py' -v
+
       - name: Run PostgreSQL PackageItem migration tests
         run: python -m unittest discover -s tests -p 'test_package_item_postgres.py' -v
+
       - name: Run notification tests
         run: python -m unittest discover -s tests -p 'test_notifications.py' -v
+
       - name: Run SEO tests
         run: python -m unittest discover -s tests -p 'test_seo.py' -v
+
       - name: Import WSGI app and inspect routes
         run: |
           python - <<'PY'
@@ -88,6 +137,11 @@ jobs:
               '/workspace/cms/structure',
               '/workspace/cms/backgrounds',
               '/workspace/cms/backgrounds/save',
+              '/workspace/pages',
+              '/workspace/library',
+              '/workspace/media-api/assets',
+              '/workspace/media-api/collections/<key>',
+              '/workspace/media-api/hero-placement',
               '/api/public-section-backgrounds',
               '/workspace/cms/save-content',
               '/workspace/cms/save-sections',
@@ -106,7 +160,49 @@ jobs:
           if wsgi.app.view_functions.get('send_message', lambda: None).__name__ != 'send_message':
               raise SystemExit('Public enquiry view wrapper is not preserving send_message naming')
           print('WSGI IMPORT OK')
-          print('WORKSPACE ROUTES OK')
+          print('WORKSPACE AND CMS ROUTES OK')
           print('SEO ROUTES OK')
           print('ENQUIRY NOTIFICATION WRAPPER OK')
           PY
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start isolated CMS browser fixture
+        env:
+          APP_ENV: testing
+          TESTING: '1'
+          DATABASE_URL: sqlite://
+          PYTHON_DOTENV_DISABLED: '1'
+          RATELIMIT_STORAGE_URI: memory://
+        run: |
+          python -m tests.cms_preview > /tmp/riburom-cms-preview.log 2>&1 &
+          echo $! > /tmp/riburom-cms-preview.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:5055/healthz > /dev/null; then
+              echo "CMS preview ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "CMS preview failed to start"
+          cat /tmp/riburom-cms-preview.log
+          exit 1
+
+      - name: Run CMS desktop and 390px browser QA
+        run: node tests/cms_browser_qa.cjs
+
+      - name: Show CMS preview log on failure
+        if: failure()
+        run: cat /tmp/riburom-cms-preview.log || true
+
+      - name: Upload CMS browser QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riburom-cms-release-qa
+          path: /tmp/riburom-cms-qa
+          if-no-files-found: warn
+          retention-days: 7

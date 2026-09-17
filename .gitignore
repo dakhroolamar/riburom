@@ -8,3 +8,6 @@ riburom
 *.db
 
 static/uploads/
+.test-tmp/
+cms-test-results.txt
+cms-migration-results.txt

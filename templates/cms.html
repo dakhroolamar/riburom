@@ -15,6 +15,8 @@ body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,s
 <header class="cms-top">
   <div><div class="cms-brand">RI BUROM</div><div style="color:#94a3b8;font-size:12px">Website CMS · {{ current_user.full_name }}</div></div>
   <nav class="cms-nav">
+    <a href="{{ url_for('cms_pages') }}">Pages</a>
+    <a href="{{ url_for('cms_library') }}">Media Library</a>
     <a href="{{ url_for('workspace_operations') }}">Operations</a>
     <a class="active" href="{{ url_for('workspace_cms') }}">Content & Appearance</a>
     {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_media') }}">Media & Assets</a>{% endif %}

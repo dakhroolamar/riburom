@@ -16,7 +16,9 @@
         <div class="rb-hero-meta">{% if pkg.location %}<span>{{ pkg.location }}</span>{% endif %}{% if pkg.duration %}<span>{{ pkg.duration }}</span>{% endif %}{% if pkg.difficulty %}<span>{{ pkg.difficulty }}</span>{% endif %}</div>
         <div class="rb-hero-actions"><a class="rb-button text-white" href="#trip-details">{{ public.content.tour_detail_overview }} <span aria-hidden="true">&nbsp;↓</span></a><a class="rb-custom-link" href="#tour-enquiry">{{ public.content.tour_detail_enquiry }}</a></div>
     </div>
-    <figure class="rb-tour-art"><img src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" fetchpriority="high" decoding="async"></figure>
+    {% set gallery_images = cms_collection_media('tour-' ~ pkg.id, false) if cms_collection_media is defined else [] %}
+    {% if gallery_images %}<div class="rb-tour-art">{% set gallery_label = pkg.title ~ ' photographs' %}{% set gallery_eager = true %}{% include '_cms_gallery.html' %}</div>
+    {% else %}<figure class="rb-tour-art"><img src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" fetchpriority="high" decoding="async"></figure>{% endif %}
 </header>
 <main id="trip-details" class="rb-tour-content max-w-6xl mx-auto px-6 py-12">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
