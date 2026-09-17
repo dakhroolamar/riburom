@@ -117,7 +117,9 @@
       ticking = false;
       const rect = gallery.getBoundingClientRect();
       const exit = Math.max(0, Math.min(1, -rect.top / Math.max(rect.height * 0.72, 1)));
-      gallery.style.setProperty('--rb-gallery-exit', exit.toFixed(3));
+      gallery.style.setProperty('--rb-gallery-zoom', (1 + exit * 0.045).toFixed(4));
+      gallery.style.setProperty('--rb-gallery-opacity', (1 - exit * 0.14).toFixed(3));
+      gallery.style.setProperty('--rb-gallery-saturate', (1 - exit * 0.08).toFixed(3));
     };
     const requestUpdate = () => {
       if (ticking) return;
