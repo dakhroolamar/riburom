@@ -12,6 +12,8 @@
     <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/ScrollTrigger.min.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/ri-burom-waterfall.js') }}?v=17" defer></script>
     {% include '_public_theme.html' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=4" data-rb-home-fixes-css>
+    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=4" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -53,14 +55,34 @@
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
-        <div class="rb-paper-landscape" data-rb-water-source>{% include '_paper_landscape.html' %}{% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}</div>
+        <div class="rb-paper-landscape rb-river-gallery-host" data-rb-water-source data-rb-river-gallery-host>
+            <div class="rb-river-gallery-fallback" data-rb-river-gallery-fallback>
+                {% include '_paper_landscape.html' %}
+                {% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}
+            </div>
+            <div class="rb-river-gallery" data-rb-river-gallery data-rb-rail-shell aria-label="RI BUROM photo gallery" hidden>
+                <div class="rb-river-gallery-track" data-rb-rail-track></div>
+                <div class="rb-rail-controls" aria-label="Photo gallery controls">
+                    <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous gallery images">‹</button>
+                    <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next gallery images">›</button>
+                </div>
+            </div>
+        </div>
     </header>
     {% endif %}
 
     {% if public.home.visibility.about %}
     <section id="rb-home-about" style="order:{{ home_order_index.about }};" class="rb-story">
       <div class="rb-story-grid">
-        <div class="rb-story-art rb-paper-pin" data-rb-water-shield>{% include '_paper_falls.html' %}</div>
+        <div class="rb-story-art rb-paper-pin rb-about-gallery-host" data-rb-water-shield data-rb-about-gallery>
+            <div class="rb-about-gallery-fallback" data-rb-about-gallery-fallback>{% include '_paper_falls.html' %}</div>
+            <div class="rb-about-flip" data-rb-about-flip hidden>
+                <div class="rb-about-flip-page" data-rb-about-flip-page><img src="" alt="" loading="lazy" decoding="async"></div>
+                <span class="rb-about-flip-counter" data-rb-about-counter aria-live="polite"></span>
+                <button type="button" class="rb-about-flip-button rb-about-flip-button--prev" data-rb-about-prev aria-label="Previous About image">‹</button>
+                <button type="button" class="rb-about-flip-button rb-about-flip-button--next" data-rb-about-next aria-label="Next About image">›</button>
+            </div>
+        </div>
         <div class="rb-water-shield" data-rb-water-shield>
         <p class="text-green-800 font-bold uppercase tracking-wider mb-3">{{ public.content.home_about_eyebrow }}</p>
         <h2 class="text-3xl md:text-4xl font-bold text-amber-900 mb-5">{{ public.content.home_about_title }}</h2>
@@ -72,7 +94,7 @@
     {% endif %}
 
     {% if public.home.visibility.tours %}
-    <section id="rb-home-tours" data-reveal style="order:{{ home_order_index.tours }};" class="rb-story">
+    <section id="rb-home-tours" data-reveal style="order:{{ home_order_index.tours }};" class="rb-story rb-horizontal-story">
         <span id="tours"></span>
         <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 rb-water-shield" data-rb-water-shield>
             <div>
@@ -81,47 +103,52 @@
             </div>
             <a href="/all_tours" class="rb-custom-link font-bold hover:opacity-80">{{ public.content.home_tours_all }}</a>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
-            {% for pkg in packages %}
-            <article data-reveal class="rb-card rb-paper-card flex flex-col" data-rb-water-shield>
-                <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
-                    <img class="rb-card-media" src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
-                </a>
-                <div class="p-6 flex-grow">
-                    <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
-                        {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
-                        {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
+        <div class="rb-experience-shell" data-rb-rail-shell>
+            <div class="rb-experience-rail rb-stagger" data-rb-rail-track aria-label="Signature Experiences">
+                {% for pkg in packages %}
+                <article data-reveal class="rb-card rb-paper-card rb-experience-card flex flex-col" data-rb-water-shield>
+                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
+                        <img class="rb-card-media" src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
+                    </a>
+                    <div class="p-6 flex-grow">
+                        <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
+                            {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
+                            {% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}
+                        </div>
+                        <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
+                        <p class="rb-card-excerpt text-gray-600 mb-4">{{ pkg.description }}</p>
+                        {% if pkg.price %}<p class="font-bold mb-4">{{ public.content.tours_price_prefix }} {{ pkg.price }}</p>{% endif %}
+                        {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
                     </div>
-                    <h3 class="font-bold text-xl mb-2 text-amber-900">{{ pkg.title }}</h3>
-                    <p class="rb-card-excerpt text-gray-600 mb-4">{{ pkg.description }}</p>
-                    {% if pkg.price %}<p class="font-bold mb-4">{{ public.content.tours_price_prefix }} {{ pkg.price }}</p>{% endif %}
-                    {% if pkg.location %}<p class="text-sm text-gray-500 mb-4">📍 {{ pkg.location }}</p>{% endif %}
-                </div>
-                <div class="p-6 pt-0">
-                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center text-white font-bold py-3 rounded transition">{{ public.content.home_tour_button }}</a>
-                </div>
-            </article>
-            {% else %}
-            <div class="rb-empty md:col-span-3"><p>{{ public.content.home_tours_empty }}</p><a href="/marketplace" class="rb-action-outline rb-custom-link mt-6">Marketplace</a></div>
-            {% endfor %}
+                    <div class="p-6 pt-0">
+                        <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" class="rb-button block text-center text-white font-bold py-3 rounded transition">{{ public.content.home_tour_button }}</a>
+                    </div>
+                </article>
+                {% else %}
+                <div class="rb-empty"><p>{{ public.content.home_tours_empty }}</p><a href="/marketplace" class="rb-action-outline rb-custom-link mt-6">Marketplace</a></div>
+                {% endfor %}
+            </div>
+            <div class="rb-rail-controls" aria-label="Signature Experiences controls">
+                <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous experiences">‹</button>
+                <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next experiences">›</button>
+            </div>
         </div>
     </section>
     {% endif %}
 
     {% if public.home.visibility.why %}
-    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="rb-story rb-paper-edge bg-green-900 text-white rb-section-space">
-        <div data-rb-roots>{% include '_paper_roots.html' %}</div>
+    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="rb-story rb-aged-paper-tear rb-section-space">
         <div class="max-w-7xl mx-auto px-6">
-            <div class="max-w-3xl mb-10 rb-water-shield rb-water-shield--dark" data-rb-water-shield>
-                <p class="text-amber-300 font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
-                <h2 class="text-3xl md:text-4xl font-bold mb-4">{{ public.content.home_why_title }}</h2>
-                <p class="text-green-100 text-lg">{{ public.content.home_why_text }}</p>
+            <div class="max-w-3xl mb-10 rb-water-shield" data-rb-water-shield>
+                <p class="rb-aged-eyebrow font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
+                <h2 class="rb-aged-title text-3xl md:text-4xl font-bold mb-4">{{ public.content.home_why_title }}</h2>
+                <p class="rb-aged-copy text-lg">{{ public.content.home_why_text }}</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 rb-stagger">
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p class="text-green-100">{{ public.content.why1_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p class="text-green-100">{{ public.content.why2_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p class="text-green-100">{{ public.content.why3_text }}</p></div>
-                <div data-reveal="scale" class="bg-white/10 rounded-xl p-6 rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p class="text-green-100">{{ public.content.why4_text }}</p></div>
+            <div class="rb-aged-paper-grid rb-stagger">
+                <div data-reveal="scale" class="rb-aged-note rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why1_title }}</h3><p>{{ public.content.why1_text }}</p></div>
+                <div data-reveal="scale" class="rb-aged-note rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why2_title }}</h3><p>{{ public.content.why2_text }}</p></div>
+                <div data-reveal="scale" class="rb-aged-note rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why3_title }}</h3><p>{{ public.content.why3_text }}</p></div>
+                <div data-reveal="scale" class="rb-aged-note rb-card" data-rb-water-shield><h3 class="font-bold text-xl mb-2">{{ public.content.why4_title }}</h3><p>{{ public.content.why4_text }}</p></div>
             </div>
         </div>
     </section>

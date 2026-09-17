@@ -21,24 +21,59 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("--rb-font-cultural:var(--rb-heading-font", source)
         self.assertIn("--rb-font-body:var(--rb-body-font", source)
 
-    def test_hero_opening_film_owns_story_area_then_restores_larger_logo(self):
+    def test_hero_opening_film_keeps_landscape_gap_and_larger_logo(self):
         js = (ROOT / 'static/js/ri-burom-home-fixes.js').read_text(encoding='utf-8')
         css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
+        home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
         landscape = (ROOT / 'templates/_paper_landscape.html').read_text(encoding='utf-8')
 
         self.assertIn("video.classList.add('rb-hero-opening-film')", js)
         self.assertIn("video.parentElement !== hero", js)
         self.assertNotIn("stage.appendChild(video)", js)
-        self.assertIn("ri-burom-home-fixes.css?v=3", js)
-        self.assertIn("heroHeight - landscapeHeight", js)
+        self.assertIn("ri-burom-home-fixes.css?v=4", js)
+        self.assertIn("landscapeRect.top - heroRect.top - configuredGap", js)
         self.assertIn("originalWidth * 2", js)
-        self.assertIn("height:calc(100% - var(--rb-home-landscape-height))!important", css)
+        self.assertIn("--rb-hero-landscape-gap", css)
+        self.assertIn("var(--rb-home-landscape-height) - var(--rb-hero-landscape-gap)", css)
         self.assertIn("object-fit:cover!important", css)
         self.assertIn("rb-hero-video-playing .rb-hero-content", css)
         self.assertIn("max-width:min(86vw,320px)!important", css)
         self.assertIn("max-height:220px!important", css)
-        self.assertIn("ri-burom-home-fixes.css') }}?v=3", landscape)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=3", landscape)
+        self.assertIn("ri-burom-home-fixes.css') }}?v=4", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=4", home)
+        self.assertNotIn('ri-burom-home-fixes', landscape)
+
+    def test_home_gallery_interactions_are_cms_driven(self):
+        home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
+        js = (ROOT / 'static/js/ri-burom-home-fixes.js').read_text(encoding='utf-8')
+        css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
+        cms = (ROOT / 'cms_backgrounds.py').read_text(encoding='utf-8')
+        cms_template = (ROOT / 'templates/cms_backgrounds.html').read_text(encoding='utf-8')
+
+        for contract in ('data-rb-river-gallery-host', 'data-rb-river-gallery',
+                         'data-rb-about-gallery', 'data-rb-about-flip',
+                         'rb-experience-rail', 'data-rb-rail-track'):
+            self.assertIn(contract, home)
+        for contract in ('home_gallery', 'home_about_gallery', 'bindGalleryExitZoom',
+                         'scrollBy', 'is-flipping-next', 'requestAnimationFrame'):
+            self.assertIn(contract, js)
+        for contract in ('scroll-snap-type:x mandatory', '.rb-experience-rail',
+                         '.rb-about-flip', '@keyframes rb-calendar-flip-next'):
+            self.assertIn(contract, css)
+        self.assertIn('GALLERY_LIMIT = 10', cms)
+        self.assertIn("request.files.getlist('images')", cms)
+        self.assertIn("/workspace/cms/galleries/save", cms)
+        self.assertIn('multiple required', cms_template)
+
+    def test_why_section_uses_torn_aged_paper_not_flat_green_panel(self):
+        home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
+        css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
+        self.assertIn('rb-aged-paper-tear', home)
+        self.assertNotIn('class="rb-story rb-paper-edge bg-green-900 text-white rb-section-space"', home)
+        self.assertIn('clip-path:polygon(', css)
+        self.assertIn('repeating-linear-gradient', css)
+        self.assertIn('repeating-radial-gradient', css)
+        self.assertIn('drop-shadow', css)
 
     def test_tour_art_is_separate_from_dynamic_title(self):
         source = (ROOT / 'templates/tour_detail.html').read_text(encoding='utf-8')
