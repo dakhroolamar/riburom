@@ -38,9 +38,6 @@
 
     if (!video) return;
 
-    /* ri-burom-motion.js owns playback state. This layer owns presentation:
-       the opening film fills the hero story area but deliberately stops before
-       the landscape/gallery so the transition has visible breathing room. */
     if (video.parentElement !== hero) hero.appendChild(video);
     video.classList.remove('rb-hero-animation-video--background');
     video.classList.add('rb-hero-opening-film');
@@ -132,6 +129,104 @@
     gallery.dataset.rbExitZoomBound = '1';
   }
 
+  function railSlideLeft(track, slide) {
+    const trackRect = track.getBoundingClientRect();
+    const slideRect = slide.getBoundingClientRect();
+    return Math.max(0, track.scrollLeft + slideRect.left - trackRect.left);
+  }
+
+  function closestRailIndex(track) {
+    const slides = [...track.children];
+    if (!slides.length) return 0;
+    const trackRect = track.getBoundingClientRect();
+    const center = trackRect.left + trackRect.width / 2;
+    let best = 0;
+    let distance = Infinity;
+    slides.forEach((slide, index) => {
+      const rect = slide.getBoundingClientRect();
+      const nextDistance = Math.abs(rect.left + rect.width / 2 - center);
+      if (nextDistance < distance) {
+        best = index;
+        distance = nextDistance;
+      }
+    });
+    return best;
+  }
+
+  function markActiveRiverSlide(track, index) {
+    [...track.children].forEach((slide, slideIndex) => {
+      slide.classList.toggle('is-active', slideIndex === index);
+    });
+  }
+
+  function scrollRiverTo(track, index) {
+    const slides = [...track.children];
+    if (!slides.length) return;
+    const normalized = (index + slides.length) % slides.length;
+    track.scrollTo({
+      left: railSlideLeft(track, slides[normalized]),
+      behavior: reducedMotion.matches ? 'auto' : 'smooth'
+    });
+    markActiveRiverSlide(track, normalized);
+  }
+
+  function bindRiverAutoplay(gallery, track) {
+    if (!gallery || !track || gallery.dataset.rbAutoplayBound === '1' || track.children.length < 2) return;
+
+    let visible = false;
+    let focused = false;
+    let timer = null;
+    let resumeAt = 0;
+    let frame = 0;
+
+    const syncActive = () => {
+      frame = 0;
+      markActiveRiverSlide(track, closestRailIndex(track));
+    };
+
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = null;
+      if (!visible || focused || document.hidden || reducedMotion.matches) return;
+      const delay = Math.max(5200, resumeAt - Date.now());
+      timer = window.setTimeout(() => {
+        scrollRiverTo(track, closestRailIndex(track) + 1);
+        schedule();
+      }, delay);
+    };
+
+    const interaction = () => {
+      resumeAt = Date.now() + 9000;
+      schedule();
+    };
+
+    for (const event of ['pointerdown', 'wheel', 'keydown']) {
+      gallery.addEventListener(event, interaction, { passive: event !== 'keydown' });
+    }
+    gallery.addEventListener('focusin', () => {
+      focused = true;
+      schedule();
+    });
+    gallery.addEventListener('focusout', event => {
+      focused = gallery.contains(event.relatedTarget);
+      schedule();
+    });
+    track.addEventListener('scroll', () => {
+      if (frame) return;
+      frame = requestAnimationFrame(syncActive);
+    }, { passive: true });
+    document.addEventListener('visibilitychange', schedule);
+    reducedMotion.addEventListener('change', schedule);
+
+    new IntersectionObserver(entries => {
+      visible = entries[0].isIntersecting;
+      schedule();
+    }, { threshold: .3 }).observe(gallery);
+
+    markActiveRiverSlide(track, 0);
+    gallery.dataset.rbAutoplayBound = '1';
+  }
+
   function renderRiverGallery(payload) {
     const host = document.querySelector('[data-rb-river-gallery-host]');
     const gallery = host && host.querySelector('[data-rb-river-gallery]');
@@ -166,6 +261,7 @@
     host.classList.add('has-river-gallery');
     bindRailControls(gallery);
     bindGalleryExitZoom(gallery);
+    bindRiverAutoplay(gallery, track);
   }
 
   function clearHomeAboutSectionBackground(section) {
@@ -204,6 +300,10 @@
 
     let index = 0;
     let flipping = false;
+    let visible = false;
+    let timer = null;
+    let resumeAt = 0;
+
     const sync = () => {
       image.src = images[index];
       const detail = payload.media_details?.home_about_gallery?.[index];
@@ -220,6 +320,7 @@
       caption.hidden = !caption.textContent;
       if (counter) counter.textContent = (index + 1) + ' / ' + images.length;
     };
+
     const move = (direction) => {
       if (flipping || images.length < 2) return;
       const target = (index + direction + images.length) % images.length;
@@ -242,6 +343,22 @@
       }, 560);
     };
 
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = null;
+      if (!visible || images.length < 2 || document.hidden || reducedMotion.matches) return;
+      timer = window.setTimeout(() => {
+        move(1);
+        schedule();
+      }, Math.max(6500, resumeAt - Date.now()));
+    };
+
+    const manualMove = direction => {
+      resumeAt = Date.now() + 10000;
+      move(direction);
+      schedule();
+    };
+
     sync();
     fallback.hidden = true;
     flip.hidden = false;
@@ -250,8 +367,14 @@
       if (prev) prev.hidden = true;
       if (next) next.hidden = true;
     } else {
-      if (prev) prev.addEventListener('click', () => move(-1));
-      if (next) next.addEventListener('click', () => move(1));
+      if (prev) prev.addEventListener('click', () => manualMove(-1));
+      if (next) next.addEventListener('click', () => manualMove(1));
+      new IntersectionObserver(entries => {
+        visible = entries[0].isIntersecting;
+        schedule();
+      }, { threshold: .3 }).observe(flip);
+      document.addEventListener('visibilitychange', schedule);
+      reducedMotion.addEventListener('change', schedule);
     }
   }
 
