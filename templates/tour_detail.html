@@ -14,7 +14,7 @@
         <p class="rb-hero-eyebrow">{{ pkg.category or public.content.tour_detail_category_fallback }}</p>
         <h1 class="rb-hero-title">{{ pkg.title }}</h1>
         <div class="rb-hero-meta">{% if pkg.location %}<span>{{ pkg.location }}</span>{% endif %}{% if pkg.duration %}<span>{{ pkg.duration }}</span>{% endif %}{% if pkg.difficulty %}<span>{{ pkg.difficulty }}</span>{% endif %}</div>
-        <div class="rb-hero-actions"><a class="rb-button text-white" href="#trip-details">{{ public.content.tour_detail_overview }} <span aria-hidden="true">&nbsp;↓</span></a><a class="rb-custom-link" href="/#contact">{{ public.content.tour_detail_enquiry }}</a></div>
+        <div class="rb-hero-actions"><a class="rb-button text-white" href="#trip-details">{{ public.content.tour_detail_overview }} <span aria-hidden="true">&nbsp;↓</span></a><a class="rb-custom-link" href="#tour-enquiry">{{ public.content.tour_detail_enquiry }}</a></div>
     </div>
     <figure class="rb-tour-art"><img src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" fetchpriority="high" decoding="async"></figure>
 </header>
@@ -30,10 +30,31 @@
             {% if pkg.price %}<p class="text-sm text-gray-500">{{ public.content.tour_detail_starting }}</p><p class="text-3xl font-bold text-green-800 mb-5">{{ pkg.price }}</p>{% endif %}
             {% if pkg.best_season %}<div class="mb-4"><p class="font-bold text-amber-900">{{ public.content.tour_detail_best_season }}</p><p class="text-gray-600">{{ pkg.best_season }}</p></div>{% endif %}
             <a href="{{ whatsapp_url('Hello RI BUROM, I am interested in the ' ~ pkg.title ~ ' experience. Please share availability and pricing.') }}" target="_blank" rel="noopener noreferrer" class="rb-button block text-center bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded mb-3">{{ public.content.tour_detail_whatsapp }}</a>
-            <a href="/#contact" class="rb-action-outline rb-custom-link w-full text-center">{{ public.content.tour_detail_enquiry }}</a>
+            <a href="#tour-enquiry" class="rb-action-outline rb-custom-link w-full text-center">{{ public.content.tour_detail_enquiry }}</a>
             {% if pkg.pdf_file %}<a href="{{ pkg.pdf_file|imgsrc }}" target="_blank" rel="noopener noreferrer" class="block text-center mt-3 text-blue-700 hover:underline font-semibold">{{ public.content.tour_detail_pdf }}</a>{% endif %}
         </aside>
     </div>
+
+    <section id="tour-enquiry" class="mt-8 max-w-4xl mx-auto scroll-mt-28">
+        <div class="bg-white rounded-xl shadow-lg p-8 md:p-10 border-t-4 border-green-700">
+            <p class="text-green-800 font-bold uppercase tracking-wider mb-2">{{ public.content.tour_detail_enquiry }}</p>
+            <h2 class="text-3xl font-bold text-amber-900 mb-3">Enquire about {{ pkg.title }}</h2>
+            <p class="text-gray-600 mb-8">Send an enquiry for this specific experience. The experience name is attached automatically.</p>
+            <form action="/send_message" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="tour_interest" value="{{ pkg.title }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div><label for="tour-enquiry-name" class="block text-gray-700 font-bold mb-2">{{ public.content.form_name }}</label><input id="tour-enquiry-name" type="text" name="name" maxlength="120" autocomplete="name" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label for="tour-enquiry-email" class="block text-gray-700 font-bold mb-2">{{ public.content.form_email }}</label><input id="tour-enquiry-email" type="email" name="email" maxlength="254" autocomplete="email" class="w-full border border-gray-300 p-3 rounded" required></div>
+                    <div><label for="tour-enquiry-phone" class="block text-gray-700 font-bold mb-2">{{ public.content.form_phone }}</label><input id="tour-enquiry-phone" type="text" name="phone" maxlength="40" autocomplete="tel" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div><label for="tour-enquiry-travellers" class="block text-gray-700 font-bold mb-2">{{ public.content.form_travellers }}</label><input id="tour-enquiry-travellers" type="number" name="travellers" min="1" max="999" class="w-full border border-gray-300 p-3 rounded"></div>
+                    <div class="md:col-span-2"><label for="tour-enquiry-dates" class="block text-gray-700 font-bold mb-2">{{ public.content.form_dates }}</label><input id="tour-enquiry-dates" type="text" name="travel_dates" maxlength="120" placeholder="{{ public.content.form_dates_placeholder }}" class="w-full border border-gray-300 p-3 rounded"></div>
+                </div>
+                <div class="mt-5 mb-6"><label for="tour-enquiry-message" class="block text-gray-700 font-bold mb-2">{{ public.content.form_message }}</label><textarea id="tour-enquiry-message" name="message" rows="5" maxlength="5000" class="w-full border border-gray-300 p-3 rounded" required></textarea></div>
+                <button type="submit" class="rb-button w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded transition">{{ public.content.tour_detail_enquiry }}</button>
+            </form>
+        </div>
+    </section>
 </main>
 {% include '_footer.html' %}
 </body>

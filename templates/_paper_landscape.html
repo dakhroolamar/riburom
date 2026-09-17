@@ -1,4 +1,5 @@
 {# Original decorative cut-paper geometry, not a representation of a specific site. #}
+{% if not hero_image %}
 <svg viewBox="0 0 1000 360" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
   <defs><linearGradient id="rb-paper-sky" x2="0" y2="1"><stop stop-color="#dbe6df"/><stop offset="1" stop-color="#f7f4e9"/></linearGradient></defs>
   <path fill="url(#rb-paper-sky)" d="M0 0h1000v360H0z"/>
@@ -12,3 +13,5 @@
   <path fill="#234d39" d="m0 312 91-34 86 32 89-13 103 43 52-2 55 22H0Zm613 48 82-51 78 2 60-30 56 11 111-38v106Z"/>
   <g fill="#183e30"><path d="m30 330 22-70 23 70H61v30H44v-30Zm104 18 19-66 23 66h-15v12h-16v-12Zm717-26 24-76 23 76h-16v38h-17v-38Zm65-14 20-72 26 72h-16v52h-17v-52Z"/></g>
 </svg>
+{% endif %}
+<script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=1" defer></script>
