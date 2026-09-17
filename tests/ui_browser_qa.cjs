@@ -35,7 +35,18 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
           const r = el.getBoundingClientRect();
           return r.width && r.height;
         }) : [];
-        return {title: heading.textContent.trim(), overflow: document.documentElement.scrollWidth > innerWidth,
+        let riverBlocked = 0;
+        const route = waterRoot?.querySelector('.rb-water-route');
+        if (route) {
+          const matrix = route.getScreenCTM(), length = route.getTotalLength();
+          const masks = [...waterRoot.querySelectorAll('[data-rb-water-shield]')].map(el => el.getBoundingClientRect());
+          for (let i = 0; i < 600; i++) {
+            const p = route.getPointAtLength(length * i / 600);
+            const x = matrix.a * p.x + matrix.e, y = matrix.d * p.y + matrix.f;
+            if (masks.some(r => x > r.left - 16 && x < r.right + 16 && y > r.top - 16 && y < r.bottom + 16)) riverBlocked++;
+          }
+        }
+        return {riverBlocked, title: heading.textContent.trim(), overflow: document.documentElement.scrollWidth > innerWidth,
           headingOverflow: heading.scrollWidth > heading.clientWidth + 1,
           safe: rect.left >= 0 && rect.right <= innerWidth && rect.top >= nav.getBoundingClientRect().bottom,
           visible: getComputedStyle(heading).visibility !== 'hidden' && getComputedStyle(heading).opacity !== '0',
@@ -44,6 +55,7 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
             protectedContent.every(el => !!el.closest('[data-rb-water-shield]'))
           )};
       });
+      assert.ok(metrics.riverBlocked < 6, `disconnected river at ${width}px: ${metrics.riverBlocked} masked samples`);
       assert.equal(metrics.overflow, false, `overflow ${route} ${width}`);
       assert.equal(metrics.headingOverflow, false, `title overflow ${route} ${width}`);
       assert.ok(metrics.safe && metrics.visible && metrics.streamClear, JSON.stringify({route,width,metrics}));
@@ -93,6 +105,34 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   assert.ok(waterLayers.canvas > 0 && waterLayers.shield > waterLayers.canvas,
     `invalid water stacking order: ${JSON.stringify(waterLayers)}`);
   const journey = page.locator('[data-rb-waterfall]');
+  const source = await page.evaluate(() => {
+    const river = document.querySelector('.rb-water-route');
+    const matrix = river.getScreenCTM();
+    const start = river.getPointAtLength(0);
+    const hero = document.querySelector('[data-rb-water-source]').getBoundingClientRect();
+    return {x:matrix.a * start.x + matrix.e, y:matrix.d * start.y + matrix.f,
+      center:(hero.left + hero.right) / 2, top:hero.top, bottom:hero.bottom};
+  });
+  assert.ok(Math.abs(source.x - source.center) < 2 && source.y > source.top && source.y < source.bottom,
+    'river source must be centred behind the hero artwork');
+
+  // The route must fit the content, not rely on masks cutting it into fragments.
+  const continuity = await page.evaluate(() => {
+    const route = document.querySelector('.rb-water-route');
+    const matrix = route.getScreenCTM(), length = route.getTotalLength();
+    const shields = [...document.querySelectorAll('[data-rb-water-shield]')].map(el => el.getBoundingClientRect());
+    let blocked = 0;
+    for (let i = 0; i < 1000; i++) {
+      const p = route.getPointAtLength(length * i / 1000);
+      const x = matrix.a * p.x + matrix.e, y = matrix.d * p.y + matrix.f;
+      if (shields.some(r => x > r.left - 16 && x < r.right + 16 && y > r.top - 16 && y < r.bottom + 16)) blocked++;
+    }
+    return blocked / 1000;
+  });
+  assert.ok(continuity < .01, `river is cut by content masks along ${continuity * 100}% of its route`);
+
+  assert.ok(Number(await journey.getAttribute('data-water-width')) >= 100, 'desktop water must have substantial width');
+  assert.ok(Number(await journey.getAttribute('data-water-band-count')) >= 6, 'water needs layered currents');
   const before = Number(await journey.getAttribute('data-water-progress') || 0);
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
   await page.waitForTimeout(1400);
@@ -155,13 +195,33 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
     document.querySelector('[data-rb-waterfall]')?.dataset.waterInteractive === 'true'
   );
   assert.equal(await journey.getAttribute('data-water-interactive'), 'true');
+  const hoverSplashes = Number(await journey.getAttribute('data-water-splash-total'));
+  assert.ok(hoverSplashes >= 2, 'pointer movement must emit a few gentle droplets');
+  // At this settled scroll position the revealed front is visible within the viewport.
+  await page.waitForTimeout(700);
+  const front = await page.evaluate(() => {
+    const root = document.querySelector('[data-rb-waterfall]');
+    const route = root.querySelector('.rb-water-route'), matrix = route.getScreenCTM();
+    const p = route.getPointAtLength(route.getTotalLength() * Number(root.dataset.waterProgress));
+    return {y:matrix.d * p.y + matrix.f, height:innerHeight};
+  });
+  assert.ok(front.y > front.height * .65 && front.y < front.height * .92, 'scroll reveal should visibly advance within the viewport');
 
+  const pixelsBefore = await page.locator('[data-rb-water-canvas]').evaluate(el => el.toDataURL());
+  await page.waitForTimeout(350);
+  const pixelsAfter = await page.locator('[data-rb-water-canvas]').evaluate(el => el.toDataURL());
+  assert.notEqual(pixelsAfter, pixelsBefore, 'visible water pixels must animate without scrolling');
+  await page.mouse.click(interactionPoint.x, interactionPoint.y);
+  assert.ok(Number(await journey.getAttribute('data-water-splash-total')) >= hoverSplashes + 4,
+    'click must produce a small touch response');
+  await page.screenshot({path: path.join(output, 'live-water.png')});
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForFunction(() => {
     const root = document.querySelector('[data-rb-waterfall]');
     return root?.dataset.waterProgress === '1.000' && !root.classList.contains('rb-water-live');
   });
   assert.equal(await page.locator('[data-rb-water-canvas]').evaluate(el => getComputedStyle(el).display), 'none');
+  assert.equal(await journey.getAttribute('data-water-splash-count'), '0');
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(output,'results.json'), JSON.stringify(results,null,2));
   await browser.close();

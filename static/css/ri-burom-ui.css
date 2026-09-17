@@ -702,3 +702,48 @@ body.rb-public-site .rb-hero-title{font-size:clamp(2.45rem,5.5vw,5.5rem);line-he
  .rb-paper-photo,.rb-story-art{transform:none}
  .rb-hero-content>*{animation:none!important;opacity:1!important;transform:none!important}
 }
+
+/* Give the river real banks and open crossings, shared by every CMS section. */
+#rbHomeSections{--rb-river-gutter:120px}
+#rbHomeSections > section{
+  max-width:none!important;
+  padding-inline:var(--rb-river-gutter);
+  padding-block:180px;
+}
+#rbHomeSections > section[data-reveal]{transform:none!important}
+.rb-waterfall .rb-water-route{stroke-width:54;stroke:#245d75;opacity:.85;filter:none}
+.rb-water-static{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke;pointer-events:none}
+.rb-water-static--mid{stroke:#438fa8;stroke-width:36}
+.rb-water-static--light{stroke:#8bcdd8;stroke-width:17}
+.rb-water-static--shine{stroke:#d9eeea;stroke-width:3}
+.rb-water-live .rb-water-static{opacity:0}
+@media(max-width:1100px){
+  #rbHomeSections{--rb-river-gutter:84px}
+  #rbHomeSections > section{padding-block:150px}
+  #rb-home-tours .rb-stagger{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #rb-home-why .rb-stagger{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #rb-home-about .rb-story-grid{grid-template-columns:1fr}
+  #rb-home-about .rb-story-art{max-width:460px;width:100%;margin-inline:auto;aspect-ratio:5/3}
+  .rb-waterfall .rb-water-route{stroke-width:36}
+  .rb-water-static--mid{stroke-width:25}
+  .rb-water-static--light{stroke-width:12}
+}
+@media(max-width:640px){
+  #rbHomeSections{--rb-river-gutter:48px}
+  #rbHomeSections > section{padding-block:120px}
+  #rbHomeSections > section > .px-6{padding-inline:0}
+  #rb-home-why .rb-stagger{grid-template-columns:1fr}
+  #rb-home-blog > .grid{grid-template-columns:1fr}
+  #rb-home-contact form{padding:1.15rem}
+  .rb-waterfall .rb-water-route{stroke-width:24}
+  .rb-water-static--mid{stroke-width:16}
+  .rb-water-static--light{stroke-width:8}
+}
+
+@media(max-width:760px){#rb-home-tours .rb-stagger{grid-template-columns:1fr}}
+
+#rbHomeSections > header + section{padding-top:220px}
+@media(max-width:640px){#rbHomeSections > header + section{padding-top:170px}}
+
+/* The water source is hidden by the hero artwork, including static mode. */
+.rb-paper-landscape[data-rb-water-source]{z-index:2}

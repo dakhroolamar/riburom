@@ -10,7 +10,7 @@
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=8" defer></script>
     <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/gsap.min.js') }}" defer></script>
     <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/ScrollTrigger.min.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/ri-burom-waterfall.js') }}?v=12" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-waterfall.js') }}?v=17" defer></script>
     {% include '_public_theme.html' %}
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
@@ -26,7 +26,10 @@
                 <stop offset="1" stop-color="#8fd3ee"/>
             </linearGradient>
         </defs>
-        <path class="rb-water-route" fill="none" stroke="url(#rb-water-fallback-gradient)" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path id="rb-water-centerline" class="rb-water-route" fill="none" stroke="url(#rb-water-fallback-gradient)" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--mid" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--light" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
+        <path class="rb-water-static rb-water-static--shine" fill="none" d="M70 0 C65 120 125 185 250 245 C520 375 835 270 900 430 C955 565 785 650 610 705 C345 790 115 735 100 900 C85 1045 295 1110 505 1170 C770 1245 925 1305 890 1445 C855 1575 625 1605 455 1655 C285 1705 150 1760 100 1800"/>
     </svg>
     {% if public.home.visibility.hero %}
     {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
@@ -50,7 +53,7 @@
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
-        <div class="rb-paper-landscape">{% include '_paper_landscape.html' %}{% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}</div>
+        <div class="rb-paper-landscape" data-rb-water-source>{% include '_paper_landscape.html' %}{% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}</div>
     </header>
     {% endif %}
 

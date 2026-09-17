@@ -14,6 +14,16 @@ import dotenv
 dotenv.load_dotenv = lambda *args, **kwargs: False
 
 from app import app, db
+
+# Visual edits must be visible without restarting this isolated preview.
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
+
+@app.after_request
+def visual_no_cache(response):
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 import wsgi  # Compose the same feature modules as production, on the local DB.
 from flask import Response, render_template
 from models import Package, SiteSettings, seed_defaults

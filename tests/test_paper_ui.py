@@ -50,9 +50,9 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn('data-rb-water-canvas', home)
         self.assertIn('data-rb-water-shield', home)
         self.assertIn('class="rb-water-route" fill="none"', home)
-        self.assertIn("ri-burom-waterfall.js') }}?v=12", home)
+        self.assertIn("ri-burom-waterfall.js') }}?v=17", home)
         theme = (ROOT / 'templates/_public_theme.html').read_text(encoding='utf-8')
-        self.assertIn("ri-burom-ui.css') }}?v=12", theme)
+        self.assertIn("ri-burom-ui.css') }}?v=16", theme)
 
     def test_marketplace_form_and_shared_footer_remain(self):
         provider = (ROOT / 'templates/marketplace_provider.html').read_text(encoding='utf-8')
