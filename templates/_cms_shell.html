@@ -43,10 +43,8 @@
       </nav>
       <details>
         <summary>Design</summary>
-        {% if can_content %}
-        <a href="{{ url_for('workspace_cms') }}#global-typography">Typography & colors</a>
-        <a href="{{ url_for('workspace_cms') }}#public-text">Navigation & labels</a>
-        {% endif %}
+        {% if can_media %}<a href="{{ url_for('workspace_cms') }}#global-typography">Typography & colors</a>{% endif %}
+        {% if can_content %}<a href="{{ url_for('workspace_cms') }}#public-text">Navigation & labels</a>{% endif %}
         {% if can_media %}<a href="{{ url_for('workspace_cms_backgrounds') }}">Section backgrounds</a>{% endif %}
       </details>
       <details>

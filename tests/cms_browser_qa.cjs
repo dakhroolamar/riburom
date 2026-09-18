@@ -15,6 +15,80 @@ async function changed(page, start, timeout=8500) {
   await page.waitForFunction(start => document.querySelector('[data-rb-river-gallery]').dataset.galleryIndex !== start, start, {timeout});
   await page.waitForTimeout(500);
 }
+async function captureRealPhotoEvidence(page) {
+  const source = 'https://riburomtours.com/api/public-section-backgrounds';
+  const capturedProductionFallback = [
+    {src:'https://res.cloudinary.com/gpxpatvk/image/upload/f_auto,q_auto,w_1200,c_limit/v1789490948/riburom/cq6nxuy3izhsk8zwhuzz.png', focal_x:50, focal_y:50},
+    {src:'https://res.cloudinary.com/gpxpatvk/image/upload/f_auto,q_auto,w_1200,c_limit/v1789674265/riburom/piyz6gmoinvywqaeaq9q.jpg', focal_x:44, focal_y:49},
+    {src:'https://res.cloudinary.com/gpxpatvk/image/upload/f_auto,q_auto,w_1200,c_limit/v1789625689/riburom/l7itacgglomuk98r6ayg.png', focal_x:50, focal_y:50},
+    {src:'https://res.cloudinary.com/gpxpatvk/image/upload/f_auto,q_auto,w_1200,c_limit/v1789578684/riburom/fjca4qv7ue8wcnzpizag.jpg', focal_x:46, focal_y:68}
+  ];
+  try {
+    let photos = [];
+    let sourceMode = 'live-production-api';
+    let sourceWarning = null;
+    try {
+      const response = await fetch(source, {headers:{'user-agent':'RI-BUROM-CMS-QA/1.0'}});
+      if (!response.ok) throw new Error(`production media API returned ${response.status}`);
+      const payload = await response.json();
+      const raw = payload?.media_details?.home_gallery;
+      photos = (Array.isArray(raw) ? raw : []).map(item => ({
+        src: item?.src ? new URL(item.src, 'https://riburomtours.com').href : '',
+        focal_x: Number.isFinite(Number(item?.focal_x)) ? Number(item.focal_x) : 50,
+        focal_y: Number.isFinite(Number(item?.focal_y)) ? Number(item.focal_y) : 50
+      })).filter(item => item.src).slice(0, 4);
+      if (photos.length < 4) throw new Error(`expected four production gallery photos, found ${photos.length}`);
+    } catch (error) {
+      photos = capturedProductionFallback;
+      sourceMode = 'captured-production-fallback';
+      sourceWarning = error.message;
+    }
+    fs.writeFileSync(OUT+'/real-photo-evidence.json', JSON.stringify({
+      source,
+      source_mode:sourceMode,
+      source_warning:sourceWarning,
+      fallback_capture_date:'2026-09-18',
+      photos
+    }, null, 2));
+
+    for (const viewport of [
+      {label:'desktop', width:1440, height:1000},
+      {label:'mobile-390', width:390, height:844}
+    ]) {
+      await page.setViewportSize({width:viewport.width, height:viewport.height});
+      await page.goto(BASE+'/', {waitUntil:'networkidle'});
+      await page.locator(river+'[data-gallery-ready="true"]').waitFor();
+      await page.locator(river).scrollIntoViewIfNeeded();
+      const pause = page.locator(river+' [data-gallery-pause]');
+      if (await pause.isVisible()) {
+        const pressed = await pause.getAttribute('aria-pressed');
+        if (pressed !== 'true') await pause.click();
+      }
+      for (let index=0; index<photos.length; index++) {
+        const photo = photos[index];
+        await page.locator(river+' figure img').first().evaluate((img, value) => {
+          img.removeAttribute('data-src');
+          img.src = value.src;
+          img.alt = 'Real production gallery photograph';
+          img.style.objectPosition = value.focal_x+'% '+value.focal_y+'%';
+        }, photo);
+        await page.waitForFunction(sel => {
+          const img = document.querySelector(sel);
+          return !!img && img.complete && img.naturalWidth > 0;
+        }, river+' figure img');
+        await page.waitForTimeout(150);
+        await page.locator(river).screenshot({path:OUT+`/final-real-photo-${viewport.label}-${index+1}.png`});
+        if (index === 0) {
+          await page.screenshot({path:OUT+`/final-real-photo-${viewport.label}.png`, fullPage:true});
+        }
+      }
+    }
+  } catch (error) {
+    fs.writeFileSync(OUT+'/real-photo-evidence.txt', 'Real-photo evidence unavailable: '+error.message+'\n');
+    console.warn('Real-photo evidence unavailable:', error.message);
+  }
+}
+
 (async () => {
  const browser = await chromium.launch({headless:true});
  try {
@@ -106,6 +180,7 @@ async function changed(page, start, timeout=8500) {
   await page.locator(river+' .cms-gallery-track').hover();
   await page.mouse.wheel(390,0); await changed(page,beforeScroll,2500);
   assert.deepEqual(errors,[]);
+  await captureRealPhotoEvidence(page);
   console.log('PASS: CMS content/media/design, saved ordering and metadata, picker, library, desktop/390px; production river autoplay, hover, manual resume, explicit pause, offscreen, reduced motion and keyboard.');
  } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

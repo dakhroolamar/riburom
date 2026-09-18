@@ -347,7 +347,7 @@
   }
   .rb-rail-button{width:42px;height:42px}
   .rb-experience-rail{grid-auto-columns:min(84vw,340px);gap:16px!important;padding-bottom:1rem}
-  #rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem 1.3rem!important}
+  #rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem var(--rb-river-gutter)!important}
   .rb-aged-paper-grid{grid-template-columns:1fr}
 }
 

@@ -6,11 +6,11 @@
 
   function ensureHomeFixStyles() {
     const current = document.querySelector('link[data-rb-home-fixes-css]');
-    if (current && /[?&]v=5(?:&|$)/.test(current.href)) return;
+    if (current && /[?&]v=6(?:&|$)/.test(current.href)) return;
     if (current) current.remove();
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-home-fixes.css?v=5';
+    link.href = '/static/css/ri-burom-home-fixes.css?v=6';
     link.dataset.rbHomeFixesCss = '1';
     document.head.appendChild(link);
   }

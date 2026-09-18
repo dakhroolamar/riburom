@@ -180,11 +180,11 @@ def register_cms_pages(app):
 
     @app.route('/workspace/media-api/design/<section>', methods=['GET', 'POST'])
     def cms_section_design(section):
-        from cms_routes import cms_content_required, SECTION_STYLE_DEFAULTS
+        from cms_routes import SECTION_STYLE_DEFAULTS
         from app import get_public_config
         from config_concurrency import public_config_token, public_config_token_matches
 
-        @cms_content_required
+        @cms_media_required
         def handle():
             style_key = {'home_about_gallery': 'home_about', 'footer_partners': 'footer',
                          'about': 'about_header', 'contact': 'home_contact'}.get(section, section)

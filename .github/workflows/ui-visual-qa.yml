@@ -2,7 +2,7 @@ name: RI BUROM Visual UI QA
 
 on:
   push:
-    branches: [ui/visual-refresh]
+    branches: [ui/visual-refresh, feat/cms-restructure-v3]
   workflow_dispatch:
 
 jobs:

@@ -30,7 +30,7 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("video.classList.add('rb-hero-opening-film')", js)
         self.assertIn("video.parentElement !== hero", js)
         self.assertNotIn("stage.appendChild(video)", js)
-        self.assertIn("ri-burom-home-fixes.css?v=5", js)
+        self.assertIn("ri-burom-home-fixes.css?v=6", js)
         self.assertIn("landscapeRect.top - heroRect.top - configuredGap", js)
         self.assertIn("originalWidth * 2", js)
         self.assertIn("--rb-hero-landscape-gap", css)
@@ -39,8 +39,8 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("rb-hero-video-playing .rb-hero-content", css)
         self.assertIn("max-width:min(86vw,320px)!important", css)
         self.assertIn("max-height:220px!important", css)
-        self.assertIn("ri-burom-home-fixes.css') }}?v=5", home)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=5", home)
+        self.assertIn("ri-burom-home-fixes.css') }}?v=6", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=6", home)
         self.assertNotIn('ri-burom-home-fixes', landscape)
 
     def test_home_gallery_interactions_are_cms_driven(self):
@@ -49,7 +49,17 @@ class PaperUiContractTests(unittest.TestCase):
         css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
         cms = (ROOT / 'cms_backgrounds.py').read_text(encoding='utf-8')
         cms_template = (ROOT / 'templates/cms_backgrounds.html').read_text(encoding='utf-8')
+        gallery_template = (ROOT / 'templates/_cms_gallery.html').read_text(encoding='utf-8')
 
+        self.assertIn('data-rb-water-shield data-gallery-prev', gallery_template)
+        self.assertIn('data-rb-water-shield data-gallery-next', gallery_template)
+        self.assertIn('data-rb-water-shield data-gallery-pause', gallery_template)
+        self.assertIn('data-rb-water-shield data-gallery-prev', home)
+        self.assertIn('data-rb-water-shield data-gallery-next', home)
+        self.assertIn('data-rb-water-shield data-gallery-pause', home)
+        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-prev', home)
+        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-next', home)
+        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem var(--rb-river-gutter)!important}', css)
         for contract in ('data-rb-river-gallery-host', 'data-rb-river-gallery',
                          'data-rb-about-gallery', 'data-rb-about-flip',
                          'rb-experience-rail', 'data-rb-rail-track'):
@@ -105,6 +115,7 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn('data-rb-water-shield', home)
         self.assertIn('class="rb-water-route" fill="none"', home)
         self.assertIn("ri-burom-waterfall.js') }}?v=17", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=6", home)
         theme = (ROOT / 'templates/_public_theme.html').read_text(encoding='utf-8')
         self.assertIn("ri-burom-ui.css') }}?v=16", theme)
 

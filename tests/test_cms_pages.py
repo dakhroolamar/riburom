@@ -136,11 +136,26 @@ class CmsPagesTests(unittest.TestCase):
         with client.session_transaction() as session:
             session['user_id'] = user.id
             session['session_version'] = user.session_version
-        self.assertEqual(client.get('/workspace/media-api/design/hero').status_code, 403)
+        self.assertEqual(client.get('/workspace/media-api/design/hero').status_code, 200)
         self.assertEqual(client.get('/workspace/media-api/gallery-design/hero').status_code, 200)
         html = client.get('/workspace/pages').get_data(as_text=True)
         self.assertNotIn('data-panel="content"', html)
         self.assertIn('data-panel="media"', html)
+        self.assertIn('Typography & colors', html)
+        self.assertNotIn('Navigation & labels', html)
+
+        content_user = User(username='content-only', full_name='Content editor', password_hash='disabled',
+                            role='content_manager', permissions_json='["manage_about"]')
+        self.db.session.add(content_user); self.db.session.commit()
+        content_client = self.app.test_client()
+        with content_client.session_transaction() as session:
+            session['user_id'] = content_user.id
+            session['session_version'] = content_user.session_version
+        self.assertEqual(content_client.get('/workspace/media-api/design/hero').status_code, 403)
+        content_html = content_client.get('/workspace/pages').get_data(as_text=True)
+        self.assertIn('Navigation & labels', content_html)
+        self.assertNotIn('Typography & colors', content_html)
+
         self.app.config['WTF_CSRF_ENABLED'] = True
         try:
             rejected = client.post('/workspace/media-api/gallery-design/hero', json={})
