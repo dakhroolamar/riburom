@@ -51,15 +51,17 @@ class PaperUiContractTests(unittest.TestCase):
         cms_template = (ROOT / 'templates/cms_backgrounds.html').read_text(encoding='utf-8')
         gallery_template = (ROOT / 'templates/_cms_gallery.html').read_text(encoding='utf-8')
 
-        self.assertIn('data-rb-water-shield data-gallery-prev', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-next', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-pause', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-prev', home)
-        self.assertIn('data-rb-water-shield data-gallery-next', home)
-        self.assertIn('data-rb-water-shield data-gallery-pause', home)
-        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-prev', home)
-        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-next', home)
-        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem var(--rb-river-gutter)!important}', css)
+        self.assertIn('data-gallery-prev', gallery_template)
+        self.assertIn('data-gallery-next', gallery_template)
+        self.assertIn('data-gallery-pause', gallery_template)
+        self.assertIn('data-gallery-prev', home)
+        self.assertIn('data-gallery-next', home)
+        self.assertIn('data-gallery-pause', home)
+        self.assertIn('class="rb-rail-button" type="button" data-rb-rail-prev', home)
+        self.assertIn('class="rb-rail-button" type="button" data-rb-rail-next', home)
+        self.assertNotIn('data-rb-water-shield', gallery_template)
+        self.assertNotIn('data-rb-water-shield', home)
+        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem 1.3rem!important}', css)
         for contract in ('data-rb-river-gallery-host', 'data-rb-river-gallery',
                          'data-rb-about-gallery', 'data-rb-about-flip',
                          'rb-experience-rail', 'data-rb-rail-track'):
