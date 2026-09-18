@@ -1,113 +1,83 @@
+/* Shared by server galleries and the asynchronously rendered river gallery. */
 (() => {
   'use strict';
-
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-
-  document.querySelectorAll('[data-cms-gallery]').forEach((gallery) => {
+  function init(gallery) {
     const track = gallery.querySelector('.cms-gallery-track');
-    if (!track) return;
-
+    if (!track?.children.length || gallery.dataset.galleryReady) return;
+    gallery.dataset.galleryReady = 'true';
     const slides = [...track.children];
-    if (!slides.length) return;
-
+    const interval = [5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
     const count = gallery.querySelector('[data-gallery-count]');
-    const pauseButton = gallery.querySelector('[data-gallery-pause]');
-    const connection = navigator.connection;
-
-    const load = (index) => {
-      const image = slides[index]?.querySelector('img');
-      if (image?.dataset.src) {
-        image.src = image.dataset.src;
-        delete image.dataset.src;
+    const pause = gallery.querySelector('[data-gallery-pause]');
+    let visible = false, paused = false, held = false, timer, resumeAt = 0;
+    const offset = slide => slide.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
+    const index = () => slides.reduce((best, slide, n) =>
+      Math.abs(offset(slide) - track.scrollLeft) < Math.abs(offset(slides[best]) - track.scrollLeft) ? n : best, 0);
+    const load = n => {
+      const img = slides[n]?.querySelector('img');
+      if (img?.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
+    };
+    const sync = () => {
+      const n = index();
+      if (count) count.textContent = `${n + 1} / ${slides.length}`;
+      gallery.dataset.galleryIndex = String(n);
+      gallery.style.setProperty('--gallery-progress', `${(n + 1) / slides.length * 100}%`);
+      load(n);
+    };
+    function go(n) {
+      n = (n + slides.length) % slides.length;
+      load(n);
+      track.scrollTo({left: offset(slides[n]), behavior: reduced.matches ? 'auto' : 'smooth'});
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (!visible || paused || held || document.hidden || reduced.matches || navigator.connection?.saveData ||
+          !gallery.hasAttribute('data-gallery-autoplay') || slides.length < 2) return;
+      timer = setTimeout(() => {go(index() + 1); schedule();}, Math.max(interval, resumeAt - Date.now()));
+    }
+    function manual() { resumeAt = Date.now() + 12000; schedule(); }
+    for (const [selector, direction] of [['[data-gallery-prev]', -1], ['[data-gallery-next]', 1]]) {
+      const button = gallery.querySelector(selector);
+      if (button) {
+        button.disabled = slides.length < 2;
+        button.addEventListener('click', () => {manual(); go(index() + direction);});
       }
-    };
-
-    const indexFromScroll = () => {
-      const width = Math.max(track.clientWidth, 1);
-      return Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / width)));
-    };
-
-    const syncCount = () => {
-      if (count) count.textContent = `${indexFromScroll() + 1} / ${slides.length}`;
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) load(slides.indexOf(entry.target));
-      });
-    }, { root: track, rootMargin: '0px 80px' });
-    slides.forEach((slide) => observer.observe(slide));
-
-    function goTo(index, behavior = reduced.matches ? 'auto' : 'smooth') {
-      const target = ((index % slides.length) + slides.length) % slides.length;
-      load(target);
-      track.scrollTo({ left: target * track.clientWidth, behavior });
     }
-
-    function move(direction) {
-      goTo(indexFromScroll() + direction);
-    }
-
-    gallery.querySelector('[data-gallery-prev]')?.addEventListener('click', () => move(-1));
-    gallery.querySelector('[data-gallery-next]')?.addEventListener('click', () => move(1));
-    track.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        event.preventDefault();
-        move(event.key === 'ArrowLeft' ? -1 : 1);
+    track.addEventListener('keydown', event => {
+      if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault(); manual(); go(index() + (event.key === 'ArrowLeft' ? -1 : 1));
       }
     });
-    track.addEventListener('scroll', syncCount, { passive: true });
-    syncCount();
-
-    if (gallery.hasAttribute('data-gallery-autoplay') && slides.length > 1) {
-      let visible = false;
-      let paused = false;
-      let timer = null;
-      let resumeAt = 0;
-
-      const schedule = () => {
-        clearTimeout(timer);
-        timer = null;
-
-        if (!visible || paused || document.hidden || reduced.matches || connection?.saveData) return;
-
-        const wait = Math.max(6000, resumeAt - Date.now());
-        timer = setTimeout(() => {
-          goTo(indexFromScroll() + 1);
-          schedule();
-        }, wait);
-      };
-
-      const temporarilyPause = () => {
-        resumeAt = Date.now() + 12000;
+    track.addEventListener('scroll', sync, {passive:true});
+    track.addEventListener('wheel', manual, {passive:true});
+    track.addEventListener('pointerdown', () => {held = true; manual();}, {passive:true});
+    for (const event of ['pointerup', 'pointercancel']) window.addEventListener(event, () => {
+      if (held) {held = false; manual();}
+    }, {passive:true});
+    if (pause) {
+      pause.hidden = slides.length < 2 || !gallery.hasAttribute('data-gallery-autoplay');
+      pause.addEventListener('click', () => {
+        paused = !paused;
+        pause.textContent = paused ? '▶' : 'Ⅱ';
+        pause.setAttribute('aria-label', paused ? 'Resume automatic photographs' : 'Pause automatic photographs');
+        pause.setAttribute('aria-pressed', String(paused));
         schedule();
-      };
-
-      // Manual interaction pauses briefly, then autoplay resumes. Merely hovering no longer
-      // freezes the gallery, which made autoplay appear broken on desktop.
-      for (const event of ['pointerdown', 'wheel', 'keydown', 'touchstart']) {
-        gallery.addEventListener(event, temporarilyPause, { passive: event !== 'keydown' });
-      }
-
-      gallery.querySelector('[data-gallery-prev]')?.addEventListener('click', temporarilyPause);
-      gallery.querySelector('[data-gallery-next]')?.addEventListener('click', temporarilyPause);
-      document.addEventListener('visibilitychange', schedule);
-      reduced.addEventListener('change', schedule);
-      connection?.addEventListener('change', schedule);
-
-      new IntersectionObserver((entries) => {
-        visible = Boolean(entries[0]?.isIntersecting);
-        schedule();
-      }, { threshold: 0.2 }).observe(gallery);
-
-      if (pauseButton) {
-        pauseButton.addEventListener('click', () => {
-          paused = !paused;
-          pauseButton.textContent = paused ? '▶' : 'Ⅱ';
-          pauseButton.setAttribute('aria-label', paused ? 'Resume automatic photographs' : 'Pause automatic photographs');
-          schedule();
-        });
-      }
+      });
     }
-  });
+    new IntersectionObserver(entries => {
+      const next = entries[0].intersectionRatio >= 0.2;
+      if (next !== visible) {visible = next; schedule();}
+    }, {threshold:[0, 0.2]}).observe(gallery);
+    const loader = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) load(slides.indexOf(entry.target));
+    }), {root:track});
+    slides.forEach(slide => loader.observe(slide));
+    document.addEventListener('visibilitychange', schedule);
+    reduced.addEventListener('change', schedule);
+    navigator.connection?.addEventListener('change', schedule);
+    load(0); sync();
+  }
+  window.RiBuromGallery = {init};
+  document.querySelectorAll('[data-cms-gallery]').forEach(init);
 })();

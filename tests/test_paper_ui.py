@@ -30,7 +30,7 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("video.classList.add('rb-hero-opening-film')", js)
         self.assertIn("video.parentElement !== hero", js)
         self.assertNotIn("stage.appendChild(video)", js)
-        self.assertIn("ri-burom-home-fixes.css?v=4", js)
+        self.assertIn("ri-burom-home-fixes.css?v=5", js)
         self.assertIn("landscapeRect.top - heroRect.top - configuredGap", js)
         self.assertIn("originalWidth * 2", js)
         self.assertIn("--rb-hero-landscape-gap", css)
@@ -39,8 +39,8 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("rb-hero-video-playing .rb-hero-content", css)
         self.assertIn("max-width:min(86vw,320px)!important", css)
         self.assertIn("max-height:220px!important", css)
-        self.assertIn("ri-burom-home-fixes.css') }}?v=4", home)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=4", home)
+        self.assertIn("ri-burom-home-fixes.css') }}?v=5", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=5", home)
         self.assertNotIn('ri-burom-home-fixes', landscape)
 
     def test_home_gallery_interactions_are_cms_driven(self):
@@ -54,8 +54,8 @@ class PaperUiContractTests(unittest.TestCase):
                          'data-rb-about-gallery', 'data-rb-about-flip',
                          'rb-experience-rail', 'data-rb-rail-track'):
             self.assertIn(contract, home)
-        for contract in ('home_gallery', 'home_about_gallery', 'bindGalleryExitZoom',
-                         'scrollBy', 'is-flipping-next', 'requestAnimationFrame'):
+        for contract in ('home_gallery', 'home_about_gallery', 'window.RiBuromGallery.init',
+                         'scrollBy', 'is-flipping-next'):
             self.assertIn(contract, js)
         for contract in ('scroll-snap-type:x mandatory', '.rb-experience-rail',
                          '.rb-about-flip', '@keyframes rb-calendar-flip-next'):

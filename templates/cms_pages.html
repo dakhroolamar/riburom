@@ -1,117 +1,36 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{{ pages[page] }} — RI BUROM Page Editor</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cms-pages.css') }}">
-  <script src="{{ url_for('static', filename='js/cms-pages.js') }}" defer></script>
-</head>
-<body>
-<header class="cms-editor-header">
-  <div class="cms-editor-brand">
-    <strong>RI BUROM</strong>
-    <span>Page Editor</span>
-  </div>
-  <nav class="cms-primary-nav" aria-label="CMS navigation">
-    <a href="{{ url_for('cms_pages') }}" aria-current="page">Pages</a>
-    <a href="{{ url_for('cms_library') }}">Media</a>
-    <a href="{{ url_for('workspace_operations') }}">Operations</a>
-    <a href="{{ url_for('workspace_cms') }}">Advanced settings</a>
-    <a href="/" target="_blank" rel="noopener">View site</a>
+{% extends '_cms_shell.html' %}
+{% block title %}{{ pages[page] }}{% endblock %}
+{% block content %}
+<main data-cms-page="{{ page }}" data-can-content="{{ 'true' if can_content else 'false' }}" data-can-media="{{ 'true' if can_media else 'false' }}">
+  <div class="page-heading-row"><div><p class="eyebrow">Site / Pages</p><h1>{{ pages[page] }}</h1><p class="lede">Make this page your own.</p></div><a class="button secondary" href="{{ preview_url }}" target="_blank" rel="noopener">View page ↗</a></div>
+  <nav class="sections" aria-label="Page sections">
+  {% for key,title in sections %}<button type="button" data-section="{{ key }}" data-collection="{{ key if key in collections else '' }}">{{ title }}</button>{% endfor %}
+  {% if page == 'footer' %}<button type="button" data-section="footer_partners" data-collection="footer_partners">Partners & certifications</button>{% endif %}
+  {% if page == 'tour-detail' %}{% for package in packages %}<button type="button" data-section="tour-{{ package.id }}" data-collection="tour-{{ package.id }}">{{ package.title }}</button>{% endfor %}{% endif %}
   </nav>
-</header>
-
-<div class="editor-layout">
-  <aside aria-label="Website pages">
-    <div class="aside-heading">
-      <span class="eyebrow">Website pages</span>
-      <h2>Choose a page</h2>
+  <section id="section-panel" class="editor-surface">
+    <div class="section-heading"><div><h2 id="section-title">{{ pages[page] }}</h2></div><span class="live-label">Published page</span></div>
+    <nav class="tabs" aria-label="Editing panels">
+      {% if can_content %}<button type="button" data-panel="content" aria-pressed="true">Content</button>{% endif %}
+      {% if can_media %}<button type="button" data-panel="media">Media</button>{% endif %}
+      {% if can_content or can_media %}<button type="button" data-panel="appearance">Design</button>{% endif %}
+    </nav>
+    <div data-tab="content" {% if not can_content %}hidden{% endif %}>
+      <form id="section-content"><div id="content-fields"></div><button type="submit">Save text</button></form>
+      <p id="content-empty" hidden>This section has no page text to edit.</p>
+      {% if page in ['marketplace','provider'] %}<p>Manage provider profiles and their listings in Business.</p><a class="button" href="{{ url_for('workspace_marketplace') }}">Manage marketplace</a>{% endif %}
     </div>
-    {% for key,title in pages.items() %}
-      <a href="{{ url_for('cms_pages', page=key) }}" {% if page == key %}aria-current="page"{% endif %}>{{ title }}</a>
-    {% endfor %}
-  </aside>
-
-  <main data-cms-page="{{ page }}">
-    <div class="page-heading-row">
-      <div>
-        <span class="eyebrow">Editing page</span>
-        <h1>{{ pages[page] }}</h1>
-        <p class="lede">Work through this page from top to bottom. Pick a section, then change its content, photographs or appearance.</p>
-      </div>
-      <a class="button secondary" href="/" target="_blank" rel="noopener">Open live page ↗</a>
-    </div>
-
-    <p class="notice"><strong>Changes are live after saving.</strong> Gallery selections and logo movement remain previews until you press their save button.</p>
-
-    {% if sections %}
-    <section class="workflow-block" aria-labelledby="section-step-title">
-      <div class="step-heading"><span>1</span><div><h2 id="section-step-title">Choose a section</h2><p>Select the part of the page you want to change.</p></div></div>
-      <nav class="sections" aria-label="Page sections">
-        {% for key,title in sections %}
-          <button type="button" data-section="{{ key }}" data-collection="{{ key if key in collections else '' }}"><span>{{ '%02d'|format(loop.index) }}</span>{{ title }}</button>
-        {% endfor %}
-      </nav>
-    </section>
-    {% endif %}
-
-    {% if page == 'footer' %}
-    <section class="workflow-block">
-      <div class="step-heading"><span>1</span><div><h2>Choose footer content</h2><p>Edit partner and certification media used across the site.</p></div></div>
-      <button type="button" data-section="footer_partners" data-collection="footer_partners">Partners & Certifications</button>
-    </section>
-    {% endif %}
-
-    {% if page == 'tour-detail' %}
-    <section class="workflow-block">
-      <div class="step-heading"><span>1</span><div><h2>Choose an experience</h2><p>Each experience can have its own cover and gallery.</p></div></div>
-      <div class="experience-picker">
-      {% for package in packages %}
-        <button type="button" data-section="tour-{{ package.id }}" data-collection="tour-{{ package.id }}">{{ package.title }}</button>
-      {% else %}
-        <p>Create an experience in Operations first.</p>
-      {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
-    <section id="section-panel" class="workflow-block">
-      <div class="step-heading"><span>2</span><div><h2 id="section-title">Edit the selected section</h2><p>Use only the panel you need. Most day-to-day edits should happen in Content or Media.</p></div></div>
-
-      <nav class="tabs" aria-label="Editing panels">
-        <button type="button" data-panel="content">Content</button>
-        <button type="button" data-panel="media">Media</button>
-        <button type="button" data-panel="appearance">Appearance</button>
-        <button type="button" data-panel="advanced">Advanced</button>
-      </nav>
-
-      <div data-tab="content">
-        <form id="section-content">
-          <div id="content-fields"></div>
-          <button type="submit">Save text</button>
-        </form>
-        <div class="handoff-card">
-          <strong>Need the complete text catalogue?</strong>
-          <p>The legacy settings screen still contains every site-wide label and fallback phrase.</p>
-          <a href="{{ url_for('workspace_cms') }}">Open advanced text settings</a>
-          {% if page in ['marketplace','provider'] %}<a href="{{ url_for('workspace_marketplace') }}">Open marketplace control room</a>{% endif %}
-        </div>
-      </div>
-
-      <div data-tab="media" hidden>
-        {% include '_cms_media_editor.html' %}
-        <div id="other-media" class="handoff-card"><a href="{{ url_for('workspace_cms_backgrounds') }}">Edit legacy section background photographs</a></div>
-      </div>
-
-      <div data-tab="appearance" hidden>
-        <div class="handoff-card">
-          <strong>Appearance controls</strong>
-          <p>Use the simple controls here first. Site-wide typography and detailed colour settings remain in Advanced settings.</p>
-          <a href="{{ url_for('workspace_cms') }}">Open advanced appearance settings</a>
-        </div>
-        <section id="logo-editor" hidden>
+    <div data-tab="media" hidden>{% include '_cms_media_editor.html' %}<p id="other-media">This section uses its existing background. Background images are available under Design in the sidebar.</p></div>
+    <div data-tab="appearance" hidden>
+      {% if can_media %}<form id="gallery-design" hidden>
+        <h3>Gallery presentation</h3><p class="lede">Photographs pause briefly after a visitor interacts. Reduced-motion and data-saving preferences are respected.</p>
+        <label>Play photographs automatically<input type="checkbox" id="gallery-autoplay"></label>
+        <div class="toolbar"><label>Time per photograph<select id="gallery-interval"><option value="5000">5 seconds</option><option value="6000">6 seconds</option><option value="7000">7 seconds</option></select></label>
+        <label>Desktop image proportions<select id="gallery-ratio"><option value="16/9">Wide · 16:9</option><option value="3/2">Classic · 3:2</option><option value="4/3">Standard · 4:3</option></select></label></div>
+        <p class="lede">Mobile photographs use 4:3 to keep the subject clear.</p><button type="submit">Save gallery design</button>
+      </form>{% endif %}
+      {% if can_content %}<form id="section-design"><div id="design-fields"></div><button type="submit">Save design</button></form><p id="design-empty" hidden>This section follows the site’s global style.</p>{% endif %}
+      {% if can_media %}        <section id="logo-editor" hidden>
           <h3>Hero logo placement</h3>
           <label>Preview size
             <select id="logo-device"><option value="desktop">Desktop</option><option value="tablet">Tablet</option><option value="mobile">Mobile</option></select>
@@ -122,20 +41,9 @@
           <label>Move up ↕ down<input type="range" id="logo-y" min="0" max="100" value="50"></label>
           <div class="toolbar"><button type="button" id="logo-reset">Reset</button><button type="button" id="logo-save">Save logo placement</button></div>
         </section>
-      </div>
-
-      <div data-tab="advanced" hidden>
-        <div class="handoff-card">
-          <strong>Advanced page controls</strong>
-          <p>Use these only when you need structural changes rather than ordinary editing.</p>
-          <a href="{{ url_for('workspace_cms_structure') }}">Section order & visibility</a>
-        </div>
-        <p>Focal points are available on each selected photograph. Click the important subject to control how the image is cropped.</p>
-      </div>
-    </section>
-
-    <p id="editor-status" role="status" aria-live="polite"></p>
-  </main>
-</div>
-</body>
-</html>
+{% endif %}
+    </div>
+  </section>
+  <p id="editor-status" role="status" aria-live="polite"></p>
+</main>
+{% endblock %}

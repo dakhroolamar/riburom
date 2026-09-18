@@ -1,5 +1,7 @@
 {% if gallery_images %}
-<div class="cms-public-gallery" data-cms-gallery {% if gallery_autoplay %}data-gallery-autoplay{% endif %} aria-label="{{ gallery_label }}">
+{% set gallery_design = cms_gallery_settings(gallery_key) %}
+{% set gallery_autoplay = gallery_design.autoplay %}
+<div class="cms-public-gallery" data-cms-gallery data-gallery-interval="{{ gallery_design.interval }}" style="--gallery-ratio:{{ gallery_design.ratio }}" {% if gallery_autoplay %}data-gallery-autoplay{% endif %} aria-label="{{ gallery_label }}">
   <div class="cms-gallery-track" tabindex="0" aria-label="Swipe or use arrow keys to browse photographs">
     {% for item in gallery_images %}<figure>
     <img {% if loop.first %}src="{{ item.src }}"{% else %}data-src="{{ item.src }}"{% endif %} alt="{{ item.alt }}" style="object-position:{{ item.focal_x }}% {{ item.focal_y }}%" decoding="async" {% if loop.first and gallery_eager %}fetchpriority="high"{% else %}loading="lazy"{% endif %}>

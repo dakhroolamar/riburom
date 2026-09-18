@@ -17,7 +17,7 @@
         <div class="rb-hero-actions"><a class="rb-button text-white" href="#trip-details">{{ public.content.tour_detail_overview }} <span aria-hidden="true">&nbsp;↓</span></a><a class="rb-custom-link" href="#tour-enquiry">{{ public.content.tour_detail_enquiry }}</a></div>
     </div>
     {% set gallery_images = cms_collection_media('tour-' ~ pkg.id, false) if cms_collection_media is defined else [] %}
-    {% if gallery_images %}<div class="rb-tour-art">{% set gallery_label = pkg.title ~ ' photographs' %}{% set gallery_eager = true %}{% include '_cms_gallery.html' %}</div>
+    {% if gallery_images %}<div class="rb-tour-art">{% set gallery_label = pkg.title ~ ' photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'tour-' ~ pkg.id %}{% include '_cms_gallery.html' %}</div>
     {% else %}<figure class="rb-tour-art"><img src="{{ pkg.image_file|imgsrc }}" alt="{{ pkg.title }}" fetchpriority="high" decoding="async"></figure>{% endif %}
 </header>
 <main id="trip-details" class="rb-tour-content max-w-6xl mx-auto px-6 py-12">

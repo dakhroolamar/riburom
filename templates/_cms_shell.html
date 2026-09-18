@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Media library{% endblock %} — RI BUROM CMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cms-pages.css') }}?v=3">
+  <script src="{{ url_for('static', filename='js/cms-pages.js') }}?v=3" defer></script>
+</head>
+<body>
+{% set owner = current_user.role == 'owner' %}
+{% set can_content = owner or current_user.has_permission('manage_about') %}
+{% set can_media = owner or current_user.has_permission('manage_media') %}
+{% set can_structure = owner or current_user.has_permission('manage_structure') %}
+<header class="cms-editor-header">
+  <a class="cms-editor-brand" href="{{ url_for('cms_pages') }}"><strong>RI BUROM</strong><span>CMS</span></a>
+  <div><a href="/" target="_blank" rel="noopener">View site ↗</a><span class="user-badge">{{ current_user.full_name or current_user.username }}</span></div>
+</header>
+<div class="editor-layout">
+  <aside class="cms-sidebar" aria-label="Workspace navigation">
+    <details class="mobile-navigation" open>
+      <summary>Workspace menu</summary>
+      <nav aria-label="Site pages">
+        <h2>Site</h2>
+        {% for key,title in cms_pages_nav.items() %}
+        <a href="{{ url_for('cms_pages',page=key) }}" {% if page|default('') == key %}aria-current="page"{% endif %}>{{ title }}</a>
+        {% endfor %}
+      </nav>
+      {% if can_media %}
+      <nav aria-label="Media">
+        <h2>Media</h2>
+        <a href="{{ url_for('cms_library') }}" {% if request.endpoint == 'cms_library' %}aria-current="page"{% endif %}>Library</a>
+        <a href="{{ url_for('cms_pages',page='home') }}#home_gallery">Collections</a>
+      </nav>
+      {% endif %}
+      <nav aria-label="Business">
+        <h2>Business</h2>
+        <a href="{{ url_for('workspace_operations') }}">Experiences & enquiries</a>
+        {% if owner or current_user.has_permission('view_marketplace') or current_user.has_permission('manage_marketplace') %}
+        <a href="{{ url_for('workspace_marketplace') }}">Providers & marketplace</a>
+        {% endif %}
+      </nav>
+      <details>
+        <summary>Design</summary>
+        {% if can_content %}
+        <a href="{{ url_for('workspace_cms') }}#global-typography">Typography & colors</a>
+        <a href="{{ url_for('workspace_cms') }}#public-text">Navigation & labels</a>
+        {% endif %}
+        {% if can_media %}<a href="{{ url_for('workspace_cms_backgrounds') }}">Section backgrounds</a>{% endif %}
+      </details>
+      <details>
+        <summary>Settings</summary>
+        {% if can_structure %}<a href="{{ url_for('workspace_cms_structure') }}">Page structure</a>{% endif %}
+        <a href="{{ url_for('workspace_cms') }}">Advanced settings</a>
+        {% if owner %}<a href="{{ url_for('workspace_administration') }}">Administration</a>{% endif %}
+      </details>
+    </details>
+  </aside>
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

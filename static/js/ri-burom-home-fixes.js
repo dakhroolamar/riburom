@@ -6,11 +6,11 @@
 
   function ensureHomeFixStyles() {
     const current = document.querySelector('link[data-rb-home-fixes-css]');
-    if (current && /[?&]v=4(?:&|$)/.test(current.href)) return;
+    if (current && /[?&]v=5(?:&|$)/.test(current.href)) return;
     if (current) current.remove();
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/css/ri-burom-home-fixes.css?v=4';
+    link.href = '/static/css/ri-burom-home-fixes.css?v=5';
     link.dataset.rbHomeFixesCss = '1';
     document.head.appendChild(link);
   }
@@ -110,28 +110,6 @@
     document.querySelectorAll('[data-rb-rail-shell]').forEach(bindRailControls);
   }
 
-  function bindGalleryExitZoom(gallery) {
-    if (!gallery || gallery.dataset.rbExitZoomBound === '1' || reducedMotion.matches) return;
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const rect = gallery.getBoundingClientRect();
-      const exit = Math.max(0, Math.min(1, -rect.top / Math.max(rect.height * 0.72, 1)));
-      gallery.style.setProperty('--rb-gallery-zoom', (1 + exit * 0.045).toFixed(4));
-      gallery.style.setProperty('--rb-gallery-opacity', (1 - exit * 0.14).toFixed(3));
-      gallery.style.setProperty('--rb-gallery-saturate', (1 - exit * 0.08).toFixed(3));
-    };
-    const requestUpdate = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
-    };
-    window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate, { passive: true });
-    update();
-    gallery.dataset.rbExitZoomBound = '1';
-  }
-
   function renderRiverGallery(payload) {
     const host = document.querySelector('[data-rb-river-gallery-host]');
     const gallery = host && host.querySelector('[data-rb-river-gallery]');
@@ -164,8 +142,8 @@
     fallback.hidden = true;
     gallery.hidden = false;
     host.classList.add('has-river-gallery');
-    bindRailControls(gallery);
-    bindGalleryExitZoom(gallery);
+    window.RiBuromGallery.init(gallery);
+    syncHeroOpeningFilm();
   }
 
   function clearHomeAboutSectionBackground(section) {

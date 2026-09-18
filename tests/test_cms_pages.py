@@ -97,6 +97,60 @@ class CmsPagesTests(unittest.TestCase):
         self.assertEqual(self.client.post(url,json={'token':token,'values':{'hero_title':'Updated hero'}}).status_code,200)
         self.assertEqual(self.client.post(url,json={'token':token,'values':{'hero_title':'Stale'}}).status_code,409)
 
+    def test_section_design_is_scoped_and_conflict_checked(self):
+        url = '/workspace/media-api/design/home_about_gallery'
+        original = self.client.get(url).get_json()
+        token = original['token']
+        self.assertEqual(len(original['fields']), 4)
+        self.assertEqual(self.client.post(url, json={'token':token, 'values':{'heading_color':'url(bad)'}}).status_code, 400)
+        self.assertEqual(self.client.post(url, json={'token':token, 'values':{'unrelated':'#123456'}}).status_code, 400)
+        saved = self.client.post(url, json={'token':token, 'values':{'heading_color':'#214b39'}})
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(self.client.post(url, json={'token':token, 'values':{'heading_color':'#123456'}}).status_code, 409)
+        fields = {field['name']:field['value'] for field in saved.get_json()['fields']}
+        self.assertEqual(fields['heading_color'], '#214b39')
+        self.assertEqual(self.app.test_client().get(url).status_code, 302)
+
+    def test_gallery_behavior_is_validated_and_rendered(self):
+        url = '/workspace/media-api/gallery-design/home_gallery'
+        token = self.client.get(url).get_json()['token']
+        values = {'autoplay':False, 'interval':7000, 'ratio':'3/2'}
+        self.assertEqual(self.client.post(url, json={'token':token, 'values':dict(values, interval=1)}).status_code, 400)
+        saved = self.client.post(url, json={'token':token, 'values':values})
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.get_json()['values'], values)
+        self.assertEqual(self.client.post(url, json={'token':token, 'values':values}).status_code, 409)
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertIn('data-gallery-interval="7000"', html)
+        self.assertIn('--gallery-ratio:3/2', html)
+        self.assertNotIn('data-cms-gallery data-gallery-autoplay', html)
+        # Restore the public defaults for other tests sharing the site settings row.
+        self.client.post(url, json={'token':saved.get_json()['token'], 'values':{'autoplay':True,'interval':6000,'ratio':'16/9'}})
+
+    def test_design_permissions_and_csrf_remain_enforced(self):
+        from models import User
+        user = User(username='media-only', full_name='Media editor', password_hash='disabled',
+                    role='content_manager', permissions_json='["manage_media"]')
+        self.db.session.add(user); self.db.session.commit()
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session['user_id'] = user.id
+            session['session_version'] = user.session_version
+        self.assertEqual(client.get('/workspace/media-api/design/hero').status_code, 403)
+        self.assertEqual(client.get('/workspace/media-api/gallery-design/hero').status_code, 200)
+        html = client.get('/workspace/pages').get_data(as_text=True)
+        self.assertNotIn('data-panel="content"', html)
+        self.assertIn('data-panel="media"', html)
+        self.app.config['WTF_CSRF_ENABLED'] = True
+        try:
+            rejected = client.post('/workspace/media-api/gallery-design/hero', json={})
+            self.assertEqual(rejected.status_code, 302)
+            self.assertEqual(rejected.location, '/')
+            with client.session_transaction() as session:
+                self.assertIn('form expired', session['_flashes'][-1][1])
+        finally:
+            self.app.config['WTF_CSRF_ENABLED'] = False
+
     def test_anonymous_cannot_write(self):
         response = self.app.test_client().post('/workspace/media-api/collections/hero',json={'version':0,'items':[]})
         self.assertEqual(response.status_code,302)
