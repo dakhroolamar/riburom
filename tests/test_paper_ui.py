@@ -51,15 +51,17 @@ class PaperUiContractTests(unittest.TestCase):
         cms_template = (ROOT / 'templates/cms_backgrounds.html').read_text(encoding='utf-8')
         gallery_template = (ROOT / 'templates/_cms_gallery.html').read_text(encoding='utf-8')
 
-        self.assertIn('data-rb-water-shield data-gallery-prev', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-next', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-pause', gallery_template)
-        self.assertIn('data-rb-water-shield data-gallery-prev', home)
-        self.assertIn('data-rb-water-shield data-gallery-next', home)
-        self.assertIn('data-rb-water-shield data-gallery-pause', home)
-        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-prev', home)
-        self.assertIn('class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-next', home)
-        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem var(--rb-river-gutter)!important}', css)
+        self.assertIn('data-gallery-prev', gallery_template)
+        self.assertIn('data-gallery-next', gallery_template)
+        self.assertIn('data-gallery-pause', gallery_template)
+        self.assertIn('data-gallery-prev', home)
+        self.assertIn('data-gallery-next', home)
+        self.assertIn('data-gallery-pause', home)
+        self.assertIn('class="rb-rail-button" type="button" data-rb-rail-prev', home)
+        self.assertIn('class="rb-rail-button" type="button" data-rb-rail-next', home)
+        self.assertNotIn('data-rb-water-shield', gallery_template)
+        self.assertNotIn('data-rb-water-shield', home)
+        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem 1.3rem!important}', css)
         for contract in ('data-rb-river-gallery-host', 'data-rb-river-gallery',
                          'data-rb-about-gallery', 'data-rb-about-flip',
                          'rb-experience-rail', 'data-rb-rail-track'):
@@ -94,30 +96,26 @@ class PaperUiContractTests(unittest.TestCase):
                       'excluded', 'price', 'best_season', 'pdf_file'):
             self.assertIn(f'pkg.{field}', source)
 
-    def test_waterfall_is_home_only_and_pinned(self):
-        pages = ('index', 'tour_detail', 'tours', 'marketplace_public', 'marketplace_provider', 'about')
-        for page in pages:
-            source = (ROOT / f'templates/{page}.html').read_text(encoding='utf-8')
-            self.assertEqual('js/ri-burom-waterfall.js' in source, page == 'index')
-        for name in ('gsap', 'ScrollTrigger'):
-            self.assertIn('3.12.5', (ROOT / f'static/vendor/gsap-3.12.5/{name}.min.js').read_text(encoding='utf-8')[:300])
-        source = (ROOT / 'static/js/ri-burom-waterfall.js').read_text(encoding='utf-8')
-        for feature in ('prefers-reduced-motion', 'gsap.registerPlugin(ScrollTrigger)',
-                        'ResizeObserver', 'dataset.initialized', 'pointermove',
-                        'nearestVisiblePoint', 'rippleContribution', 'data-rb-water-canvas'):
-            self.assertIn(feature, source)
-        css = (ROOT / 'static/css/ri-burom-ui.css').read_text(encoding='utf-8')
-        for feature in ('.rb-water-canvas', '.rb-water-route', '.rb-water-live', '.rb-water-shield'):
-            self.assertIn(feature, css)
+    def test_homepage_has_no_river_runtime_or_artwork(self):
         home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
-        self.assertIn('viewBox="0 0 1000 1800"', home)
-        self.assertIn('data-rb-water-canvas', home)
-        self.assertIn('data-rb-water-shield', home)
-        self.assertIn('class="rb-water-route" fill="none"', home)
-        self.assertIn("ri-burom-waterfall.js') }}?v=17", home)
+        css = (ROOT / 'static/css/ri-burom-ui.css').read_text(encoding='utf-8')
+        gallery = (ROOT / 'templates/_cms_gallery.html').read_text(encoding='utf-8')
+        for forbidden in ('ri-burom-waterfall.js', 'gsap.min.js', 'ScrollTrigger.min.js',
+                          'data-rb-waterfall', 'data-rb-water-canvas', 'rb-waterfall',
+                          'rb-water-route', 'rb-water-static', 'data-rb-water-shield',
+                          'data-rb-water-source'):
+            self.assertNotIn(forbidden, home)
+        for forbidden in ('.rb-water-canvas', '.rb-waterfall', '.rb-water-route',
+                          '.rb-water-static', '.rb-water-live', '.rb-water-shield',
+                          '--rb-river-gutter'):
+            self.assertNotIn(forbidden, css)
+        self.assertNotIn('data-rb-water-shield', gallery)
+        landscape = (ROOT / 'templates/_paper_landscape.html').read_text(encoding='utf-8')
+        about_fallback = (ROOT / 'templates/_paper_falls.html').read_text(encoding='utf-8')
+        for water_token in ('#4fa8c7', '#c4e9e9', '#85c4cf'):
+            self.assertNotIn(water_token, landscape)
+            self.assertNotIn(water_token, about_fallback)
         self.assertIn("ri-burom-home-fixes.js') }}?v=6", home)
-        theme = (ROOT / 'templates/_public_theme.html').read_text(encoding='utf-8')
-        self.assertIn("ri-burom-ui.css') }}?v=16", theme)
 
     def test_marketplace_form_and_shared_footer_remain(self):
         provider = (ROOT / 'templates/marketplace_provider.html').read_text(encoding='utf-8')
