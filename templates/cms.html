@@ -38,7 +38,7 @@ body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,s
 </section>
 
 <section class="panel">
-  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Public Text</h2><p class="muted">Every meaningful public-facing phrase is editable here, including section headings, labels and buttons.</p></div><span class="pill">Content</span></div>
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2 id="public-text">Public Text</h2><p class="muted">Every meaningful public-facing phrase is editable here, including section headings, labels and buttons.</p></div><span class="pill">Content</span></div>
   {% if current_user.has_permission('manage_about') or current_user.role=='owner' %}
   <form action="{{ url_for('workspace_cms_save_content') }}" method="POST" class="grid grid-2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -63,7 +63,7 @@ body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,s
 </section>
 
 <section class="panel">
-  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Global Typography</h2><p class="muted">Set the overall font families and base scale. Section-specific colours, weight and italic settings remain below.</p></div><span class="pill">Global</span></div>
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2 id="global-typography">Global Typography</h2><p class="muted">Set the overall font families and base scale. Section-specific colours, weight and italic settings remain below.</p></div><span class="pill">Global</span></div>
   {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}
   <form action="{{ url_for('workspace_cms_save_typography') }}" method="POST" class="grid grid-2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

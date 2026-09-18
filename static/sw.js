@@ -1,4 +1,4 @@
-const CACHE_NAME = 'riburom-v4';
+const CACHE_NAME = 'riburom-v5';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());

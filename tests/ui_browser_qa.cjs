@@ -134,7 +134,7 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   assert.ok(Number(await journey.getAttribute('data-water-width')) >= 100, 'desktop water must have substantial width');
   assert.ok(Number(await journey.getAttribute('data-water-band-count')) >= 6, 'water needs layered currents');
   const before = Number(await journey.getAttribute('data-water-progress') || 0);
-  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight, left:0, behavior:'instant'}));
   await page.waitForTimeout(1400);
   const after = Number(await journey.getAttribute('data-water-progress') || 0);
   assert.ok(after > before, `water progress did not advance: ${before} -> ${after}`);
@@ -165,7 +165,7 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
   // some crossings are intentionally hidden behind content shields.
   let interactionPoint = null;
   for (const fraction of [.16,.30,.44,.58,.72,.84]) {
-    await page.evaluate(f => scrollTo(0, Math.round(document.documentElement.scrollHeight * f)), fraction);
+    await page.evaluate(f => window.scrollTo({top:Math.round(document.documentElement.scrollHeight * f), left:0, behavior:'instant'}), fraction);
     await page.waitForTimeout(260);
     const revealed = Number(await journey.getAttribute('data-water-progress') || 0);
     interactionPoint = await page.evaluate(maxT => {

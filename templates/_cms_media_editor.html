@@ -1,22 +1,7 @@
 <section id="media-editor" hidden aria-labelledby="collection-title">
-  <h2 id="collection-title">Photographs</h2>
-  <p>The first photograph is the default / tour cover. Drag cards to reorder, or use Move earlier and Move later.</p>
+  <h3 id="collection-title" class="sr-only">Photographs</h3>
   <div id="legacy-media"></div>
-  <div class="toolbar">
-    <label class="button">Upload photographs<input id="upload-images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
-    <button type="button" id="choose-library">Choose from Media Library</button>
-    <button type="button" id="save-collection">Save gallery</button>
-  </div>
-  <p>Up to <span id="collection-limit">10</span> photographs; 12 MB each. Uploads go to your library. Save gallery to apply your selection to the website.</p>
-  <div id="upload-drop" tabindex="0">Drop photographs here, or use Upload photographs above.</div>
-  <progress id="upload-progress" max="100" value="0" hidden></progress>
-  <p id="upload-status" role="status"></p>
-  <div id="collection-items" class="media-grid"></div>
+  <div class="media-workbench"><div class="media-canvas"><div id="image-preview"></div><div id="collection-items" class="thumbnail-strip" aria-label="Gallery photographs"></div><div class="toolbar"><button type="button" id="choose-library" class="secondary">＋ Add from library</button><label class="button secondary">Upload<input id="upload-images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label></div><div id="upload-drop">Drop images here · Up to <span id="collection-limit">10</span> photographs, 12 MB each</div><progress id="upload-progress" max="100" value="0" hidden></progress><p id="upload-status" role="status"></p></div><div id="image-inspector" class="image-inspector"></div></div>
+  <div class="save-bar"><span id="gallery-summary">No changes</span><button type="button" id="save-collection">Save gallery</button></div>
 </section>
-<dialog id="library-picker" aria-labelledby="picker-title">
-  <h2 id="picker-title">Choose a photograph</h2>
-  <label>Search library<input id="picker-search" type="search"></label>
-  <button type="button" id="picker-find">Search</button>
-  <button type="button" id="picker-close">Close</button>
-  <div id="picker-results" class="media-grid"></div>
-</dialog>
+<dialog id="library-picker" aria-labelledby="picker-title"><div class="section-heading"><div><p class="eyebrow">Media library</p><h2 id="picker-title">Choose a photograph</h2></div><button type="button" id="picker-close" class="secondary">Close</button></div><div class="toolbar"><label>Search library<input id="picker-search" type="search"></label><button type="button" id="picker-find">Search</button></div><div id="picker-results" class="media-grid"></div></dialog>

@@ -1,6 +1,7 @@
 """Page-oriented media editing, with bounded uploads and legacy fallbacks."""
 import io
 import json
+import re
 from urllib.parse import urlsplit
 
 from flask import abort, jsonify, render_template, request, g
@@ -11,12 +12,12 @@ from models import db, Package, SiteSettings, AboutContent, TeamMember
 from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem, PageSection
 from storage import imgsrc, save_image
 
-COLLECTIONS = {'hero': 'Hero photographs', 'home_gallery': 'Hero / River Gallery',
+COLLECTIONS = {'hero': 'Hero photographs', 'home_gallery': 'Gallery',
                'home_about_gallery': 'About RI BUROM', 'footer_partners': 'Partners & Certifications'}
 PAGES = {'home': 'Home', 'tours': 'Explore All Tours', 'tour-detail': 'Tour Detail',
          'marketplace': 'Marketplace', 'provider': 'Provider Profile', 'about': 'About Us',
          'contact': 'Contact', 'footer': 'Footer / Global'}
-HOME = [('hero', 'Hero'), ('home_gallery', 'Hero / River Gallery'),
+HOME = [('hero', 'Hero'), ('home_gallery', 'Gallery'),
         ('home_about_gallery', 'About RI BUROM'), ('home_tours', 'Signature Experiences'),
         ('home_why', 'Why RI BUROM'), ('home_blog', 'Blog / Stories'),
         ('home_contact', 'Enquiry'), ('footer_partners', 'Footer')]
@@ -75,6 +76,16 @@ def collection_media(key, legacy=True):
             for p in legacy_paths(key) if p]
 
 
+def gallery_settings(key):
+    from app import get_public_config, get_site_settings
+    raw = get_public_config(get_site_settings()).get('theme', {}).get('gallery_behavior', {}).get(key, {})
+    defaults = {'autoplay': key in ('hero', 'home_gallery'), 'interval': 6000,
+                'ratio': '4/3' if key.startswith('tour-') else '16/9'}
+    return {name: raw.get(name) if type(raw.get(name)) is type(default) and raw.get(name) in allowed else default
+            for name, default, allowed in [('autoplay', defaults['autoplay'], (True, False)),
+                ('interval', 6000, (5000, 6000, 7000)), ('ratio', defaults['ratio'], ('16/9', '3/2', '4/3'))]}
+
+
 def tour_cover(package):
     if not hasattr(g, 'cms_tour_covers'):
         g.cms_tour_covers = {}
@@ -114,7 +125,7 @@ def register_cms_pages(app):
     from cms_routes import cms_access_required, cms_media_required
 
     app.config.setdefault('CMS_COLLECTION_LIMIT', 10)
-    app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_cover=tour_cover)
+    app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_cover=tour_cover, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
 
     @app.route('/workspace/pages')
     @app.route('/workspace/pages/<page>')
@@ -131,7 +142,7 @@ def register_cms_pages(app):
         return render_template('cms_pages.html', pages=PAGES, page=page,
                                sections=home_sections if page == 'home' else [],
                                collections=COLLECTIONS, packages=Package.query.order_by(Package.sort_order).all(),
-                               settings=get_site_settings())
+                               settings=get_site_settings(), preview_url={'home':'/', 'tours':'/all_tours', 'tour-detail':'/all_tours', 'marketplace':'/marketplace', 'provider':'/marketplace', 'about':'/about', 'contact':'/#contact', 'footer':'/#footer'}.get(page, '/'))
 
     @app.route('/workspace/library')
     @cms_media_required
@@ -166,6 +177,70 @@ def register_cms_pages(app):
                 return name.replace('_', ' ').capitalize()
             return jsonify(fields=[dict(name=name, label=label(name), value=cfg.get('content', {}).get(name, '')) for name in fields], token=public_config_token(settings))
         return handle()
+
+    @app.route('/workspace/media-api/design/<section>', methods=['GET', 'POST'])
+    def cms_section_design(section):
+        from cms_routes import SECTION_STYLE_DEFAULTS
+        from app import get_public_config
+        from config_concurrency import public_config_token, public_config_token_matches
+
+        @cms_media_required
+        def handle():
+            style_key = {'home_about_gallery': 'home_about', 'footer_partners': 'footer',
+                         'about': 'about_header', 'contact': 'home_contact'}.get(section, section)
+            defaults = SECTION_STYLE_DEFAULTS.get(style_key, {})
+            fields = ['background_color', 'heading_color', 'body_color', 'eyebrow_color'] if defaults else []
+            settings = get_site_settings()
+            cfg = get_public_config(settings)
+            styles = cfg.setdefault('theme', {}).setdefault('sections', {})
+            if request.method == 'POST':
+                data = request.get_json() or {}
+                if not isinstance(data, dict):
+                    abort(400)
+                if not public_config_token_matches(settings, data.get('token')):
+                    return jsonify(error='The site design changed. Reload before saving.'), 409
+                values = data.get('values')
+                if not fields or not isinstance(values, dict) or any(
+                    name not in fields or not isinstance(value, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', value)
+                    for name, value in values.items()
+                ):
+                    abort(400)
+                styles.setdefault(style_key, {}).update(values)
+                settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
+                add_audit('updated', 'cms_design', section, 'Section colors')
+                db.session.commit()
+            values = {**defaults, **styles.get(style_key, {})}
+            return jsonify(fields=[dict(name=name, label=name.replace('_color', '').capitalize(), value=values[name])
+                                   for name in fields], token=public_config_token(settings))
+        return handle()
+
+    @app.route('/workspace/media-api/gallery-design/<key>', methods=['GET', 'POST'])
+    @cms_media_required
+    def cms_gallery_design(key):
+        from app import get_public_config
+        from config_concurrency import public_config_token, public_config_token_matches
+        if key not in ('hero', 'home_gallery'):
+            if not key.startswith('tour-') or not key[5:].isdigit():
+                abort(404)
+            db.get_or_404(Package, int(key[5:]))
+        settings = get_site_settings()
+        if request.method == 'POST':
+            data = request.get_json() or {}
+            if not isinstance(data, dict):
+                abort(400)
+            if not public_config_token_matches(settings, data.get('token')):
+                return jsonify(error='The site design changed. Reload before saving.'), 409
+            values = data.get('values')
+            if (not isinstance(values, dict) or set(values) != {'autoplay', 'interval', 'ratio'} or
+                type(values.get('autoplay')) is not bool or type(values.get('interval')) is not int or
+                values.get('interval') not in (5000, 6000, 7000) or values.get('ratio') not in ('16/9', '3/2', '4/3')):
+                abort(400)
+            cfg = get_public_config(settings)
+            cfg.setdefault('theme', {}).setdefault('gallery_behavior', {})[key] = values
+            settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
+            add_audit('updated', 'cms_gallery_design', key, 'Gallery playback and proportions')
+            db.session.commit()
+        return jsonify(values=gallery_settings(key), token=public_config_token(settings))
 
     @app.route('/workspace/media-api/assets', methods=['GET', 'POST'])
     @cms_media_required
@@ -240,7 +315,7 @@ def register_cms_pages(app):
             return jsonify(version=collection.version if collection else 0,
                            limit=app.config['CMS_COLLECTION_LIMIT'],
                            legacy=[delivery(p, 400) for p in legacy_paths(key) if p],
-                           items=[dict(id=i.id, asset_id=i.asset_id, src=delivery(i.asset.path, 400),
+                           items=[dict(id=i.id, asset_id=i.asset_id, src=delivery(i.asset.path, 400), preview_src=delivery(i.asset.path, 1200),
                                        alt=i.asset.alt, caption=i.asset.caption, credit=i.asset.credit,
                                        focal_x=i.focal_x, focal_y=i.focal_y, organization=i.organization,
                                        url=i.url, label=i.label, visible=i.visible, new_tab=i.new_tab)

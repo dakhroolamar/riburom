@@ -12,8 +12,8 @@
     <script src="{{ url_for('static', filename='vendor/gsap-3.12.5/ScrollTrigger.min.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/ri-burom-waterfall.js') }}?v=17" defer></script>
     {% include '_public_theme.html' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=4" data-rb-home-fixes-css>
-    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=4" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=6" data-rb-home-fixes-css>
+    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=6" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -57,17 +57,20 @@
             </div>
         </div>
         {% set gallery_images = cms_collection_media('hero', false) %}
-        {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_autoplay = true %}{% include '_cms_gallery.html' %}</div>{% endif %}
+        {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'hero' %}{% include '_cms_gallery.html' %}</div>{% endif %}
+        {% set river_design = cms_gallery_settings('home_gallery') %}
         <div class="rb-paper-landscape rb-river-gallery-host" data-rb-water-source data-rb-river-gallery-host>
             <div class="rb-river-gallery-fallback" data-rb-river-gallery-fallback>
                 {% include '_paper_landscape.html' %}
                 {% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="" decoding="async">{% endif %}
             </div>
-            <div class="rb-river-gallery" data-rb-river-gallery data-rb-rail-shell aria-label="RI BUROM photo gallery" hidden>
-                <div class="rb-river-gallery-track" data-rb-rail-track></div>
-                <div class="rb-rail-controls" aria-label="Photo gallery controls">
-                    <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous gallery images">‹</button>
-                    <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next gallery images">›</button>
+            <div class="rb-river-gallery cms-public-gallery" data-rb-river-gallery data-cms-gallery {% if river_design.autoplay %}data-gallery-autoplay{% endif %} data-gallery-interval="{{ river_design.interval }}" style="--gallery-ratio:{{ river_design.ratio }}" aria-label="RI BUROM photo gallery" hidden>
+                <div class="rb-river-gallery-track cms-gallery-track" data-rb-rail-track tabindex="0" aria-label="Gallery photographs"></div>
+                <div class="cms-gallery-controls" aria-label="Photo gallery controls">
+                    <button type="button" data-rb-water-shield data-gallery-prev aria-label="Previous photograph">‹</button>
+                    <span data-gallery-count></span>
+                    <button type="button" data-rb-water-shield data-gallery-next aria-label="Next photograph">›</button>
+                    <button {% if not river_design.autoplay %}hidden{% endif %} type="button" data-rb-water-shield data-gallery-pause aria-label="Pause automatic photographs" aria-pressed="false">Ⅱ</button>
                 </div>
             </div>
         </div>
@@ -132,8 +135,8 @@
                 {% endfor %}
             </div>
             <div class="rb-rail-controls" aria-label="Signature Experiences controls">
-                <button class="rb-rail-button" type="button" data-rb-rail-prev aria-label="Previous experiences">‹</button>
-                <button class="rb-rail-button" type="button" data-rb-rail-next aria-label="Next experiences">›</button>
+                <button class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-prev aria-label="Previous experiences">‹</button>
+                <button class="rb-rail-button" data-rb-water-shield type="button" data-rb-rail-next aria-label="Next experiences">›</button>
             </div>
         </div>
     </section>
