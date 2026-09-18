@@ -51,7 +51,7 @@ const sizes = [[1440,900], [1280,800], [1024,768], [768,1024], [390,844]];
     'homepage must not render river artwork or animation hooks');
   assert.equal(await page.locator('script[src*="ri-burom-waterfall"], script[src*="gsap"], script[src*="ScrollTrigger"]').count(), 0,
     'homepage must not load the removed river animation runtime');
-  assert.ok(await page.locator('.rb-hero-permanent-logo').count(), 'permanent hero logo missing');
+  assert.ok(await page.locator('#rb-home-hero').count(), 'homepage hero missing');
   assert.ok(await page.locator('[data-rb-river-gallery]').count(), 'CMS homepage gallery missing');
   assert.ok(await page.locator('#rb-home-about').count(), 'About section missing');
   assert.ok(await page.locator('#rb-home-tours').count(), 'Signature Experiences section missing');
