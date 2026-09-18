@@ -108,6 +108,11 @@ class PaperUiContractTests(unittest.TestCase):
                           '--rb-river-gutter'):
             self.assertNotIn(forbidden, css)
         self.assertNotIn('data-rb-water-shield', gallery)
+        landscape = (ROOT / 'templates/_paper_landscape.html').read_text(encoding='utf-8')
+        about_fallback = (ROOT / 'templates/_paper_falls.html').read_text(encoding='utf-8')
+        for water_token in ('#4fa8c7', '#c4e9e9', '#85c4cf'):
+            self.assertNotIn(water_token, landscape)
+            self.assertNotIn(water_token, about_fallback)
         self.assertIn("ri-burom-home-fixes.js') }}?v=6", home)
 
     def test_marketplace_form_and_shared_footer_remain(self):
