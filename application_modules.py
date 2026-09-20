@@ -25,6 +25,7 @@ def register_application_modules(flask_app):
     from marketplace_appearance import register_marketplace_appearance
     from notifications import register_notifications
     from seo import register_seo
+    from indexnow import register_indexnow
     from hero_animation_routes import register_hero_animation_routes
     from cms_pages import register_cms_pages
 
@@ -46,6 +47,7 @@ def register_application_modules(flask_app):
     register_marketplace_appearance(flask_app)
     register_notifications(flask_app)
     register_seo(flask_app)
+    register_indexnow(flask_app)
     register_hero_animation_routes(flask_app)
     register_cms_pages(flask_app)
 
