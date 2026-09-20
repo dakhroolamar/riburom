@@ -11,6 +11,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from models import db, Package, SiteSettings, AboutContent, TeamMember
 from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem, PageSection
 from storage import imgsrc, save_image
+from indexnow import notify_indexnow_cms_change, notify_indexnow_paths, public_paths_for_cms_change
 
 COLLECTIONS = {'hero': 'Hero photographs', 'home_gallery': 'Gallery',
                'home_about_gallery': 'About RI BUROM', 'footer_partners': 'Partners & Certifications'}
@@ -170,6 +171,7 @@ def register_cms_pages(app):
                 settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
                 add_audit('updated', 'cms_content', section, 'Page section text')
                 db.session.commit()
+                notify_indexnow_cms_change(section)
             def label(name):
                 for prefix in ('home_about_', 'home_tours_', 'home_why_', 'tours_page_', 'about_page_', 'tour_detail_', 'hero_', 'footer_', 'contact_'):
                     if name.startswith(prefix):
@@ -209,6 +211,7 @@ def register_cms_pages(app):
                 settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
                 add_audit('updated', 'cms_design', section, 'Section colors')
                 db.session.commit()
+                notify_indexnow_cms_change(section)
             values = {**defaults, **styles.get(style_key, {})}
             return jsonify(fields=[dict(name=name, label=name.replace('_color', '').capitalize(), value=values[name])
                                    for name in fields], token=public_config_token(settings))
@@ -240,6 +243,7 @@ def register_cms_pages(app):
             settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
             add_audit('updated', 'cms_gallery_design', key, 'Gallery playback and proportions')
             db.session.commit()
+            notify_indexnow_cms_change(key)
         return jsonify(values=gallery_settings(key), token=public_config_token(settings))
 
     @app.route('/workspace/media-api/assets', methods=['GET', 'POST'])
@@ -284,6 +288,14 @@ def register_cms_pages(app):
     @cms_media_required
     def cms_asset(asset_id):
         asset = db.get_or_404(MediaAsset, asset_id)
+        affected_collection_keys = []
+        if request.method != 'DELETE':
+            affected_collection_keys = [
+                collection.key
+                for collection in MediaCollection.query.join(MediaCollectionItem)
+                .filter(MediaCollectionItem.asset_id == asset.id)
+                .all()
+            ]
         if request.method == 'DELETE':
             if asset_usage(asset):
                 return jsonify(error='This image is in use. Remove it from its collections first.'), 409
@@ -299,6 +311,12 @@ def register_cms_pages(app):
                     setattr(asset, field, data[field].strip())
         add_audit('updated', 'cms_media', asset_id, 'Media library updated')
         db.session.commit()
+        if affected_collection_keys:
+            paths = []
+            for key in affected_collection_keys:
+                paths.extend(public_paths_for_cms_change(key))
+            if paths:
+                notify_indexnow_paths(paths)
         return jsonify(ok=True)
 
     @app.route('/workspace/media-api/collections/<key>', methods=['GET', 'POST'])
@@ -364,6 +382,7 @@ def register_cms_pages(app):
         except StaleDataError:
             db.session.rollback()
             return jsonify(error='Another editor saved first. Reload before saving.'), 409
+        notify_indexnow_cms_change(key)
         return jsonify(ok=True, version=collection.version)
 
     @app.route('/workspace/media-api/hero-placement', methods=['GET', 'POST'])
@@ -392,6 +411,7 @@ def register_cms_pages(app):
         except StaleDataError:
             db.session.rollback()
             return jsonify(error='Another editor saved first. Reload before saving.'), 409
+        notify_indexnow_cms_change('home')
         return jsonify(ok=True, version=section.version)
 
     @app.context_processor
