@@ -159,7 +159,8 @@ class IndexNowTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("[indexnow-bootstrap]", workflow)
-        self.assertIn("https://riburomtours.com/sitemap.xml", workflow)
+        self.assertIn('base = "https://riburomtours.com"', workflow)
+        self.assertIn('sitemap_url = base + "/sitemap.xml"', workflow)
         self.assertIn("https://api.indexnow.org/indexnow", workflow)
 
     def test_publish_routes_are_wired_to_indexnow(self):
