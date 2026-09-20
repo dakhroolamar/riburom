@@ -89,7 +89,7 @@
       loader.id = 'rb-page-loader';
       const src = getBrandImage();
       loader.innerHTML = '<div class="rb-loader-core">' +
-        (src ? '<img class="rb-loader-mark" src="' + src + '" alt="" aria-hidden="true">' : '<div style="font-weight:800;letter-spacing:.08em">RI BUROM</div>') +
+        (src ? '<img class="rb-loader-mark" src="' + src + '" alt="RI BUROM Tours & Travels logo">' : '<div style="font-weight:800;letter-spacing:.08em">RI BUROM</div>') +
         '<div class="rb-loader-line" aria-hidden="true"></div></div>';
       document.body.prepend(loader);
     }
