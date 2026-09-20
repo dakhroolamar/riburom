@@ -223,6 +223,8 @@ def public_paths_for_cms_change(key):
 
 def notify_indexnow_cms_change(key, timeout=3):
     """Best-effort notification for one public CMS change."""
+    if not get_indexnow_key():
+        return {"ok": False, "skipped": True, "reason": "INDEXNOW_KEY not configured"}
     paths = public_paths_for_cms_change(key)
     if not paths:
         return {"ok": False, "skipped": True, "reason": "no public URLs"}
@@ -231,6 +233,8 @@ def notify_indexnow_cms_change(key, timeout=3):
 
 def notify_indexnow_public_site(timeout=8):
     """Submit every currently indexable canonical RI BUROM URL in one batch."""
+    if not get_indexnow_key():
+        return {"ok": False, "skipped": True, "reason": "INDEXNOW_KEY not configured"}
     return notify_indexnow_paths(current_public_paths(), timeout=timeout)
 
 
