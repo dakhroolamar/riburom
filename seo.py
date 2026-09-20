@@ -250,14 +250,12 @@ def _page_metadata(endpoint):
             if image:
                 tourist_trip["image"] = [image]
             if pkg.location:
-                tourist_trip["touristDestination"] = {
-                    "@type": "TouristDestination",
+                tourist_trip["itinerary"] = {
+                    "@type": "Place",
                     "name": pkg.location.strip(),
                 }
-            if pkg.duration:
-                tourist_trip["duration"] = pkg.duration.strip()
             if pkg.category:
-                tourist_trip["additionalType"] = pkg.category.strip()
+                tourist_trip["touristType"] = pkg.category.strip()
             extra_schemas.append(tourist_trip)
 
     elif endpoint == "marketplace_public_index":
