@@ -122,6 +122,46 @@ class IndexNowTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIsNone(result["status"])
 
+    def test_cms_change_mapping_for_static_pages(self):
+        self.assertEqual(indexnow.public_paths_for_cms_change("home"), ["/"])
+        self.assertEqual(indexnow.public_paths_for_cms_change("hero"), ["/"])
+        self.assertEqual(indexnow.public_paths_for_cms_change("about"), ["/about"])
+        self.assertEqual(indexnow.public_paths_for_cms_change("about_team"), ["/about"])
+        self.assertEqual(indexnow.public_paths_for_cms_change("tours"), ["/all_tours"])
+
+    def test_disabled_public_site_submit_skips_database_lookup(self):
+        with patch("indexnow.get_indexnow_key", return_value=None):
+            with patch("indexnow.current_public_paths") as current_paths:
+                result = indexnow.notify_indexnow_public_site()
+        self.assertTrue(result["skipped"])
+        current_paths.assert_not_called()
+
+    def test_cms_edit_routes_are_wired_to_indexnow(self):
+        root = Path(__file__).resolve().parents[1]
+        app_source = (root / "app.py").read_text(encoding="utf-8")
+        pages_source = (root / "cms_pages.py").read_text(encoding="utf-8")
+        routes_source = (root / "cms_routes.py").read_text(encoding="utf-8")
+        backgrounds_source = (root / "cms_backgrounds.py").read_text(encoding="utf-8")
+
+        self.assertIn("notify_indexnow_public_site()", app_source)
+        self.assertIn("notify_indexnow_cms_change('about')", app_source)
+        self.assertIn("notify_indexnow_cms_change('home')", app_source)
+        self.assertIn("notify_indexnow_cms_change(section)", pages_source)
+        self.assertIn("notify_indexnow_cms_change(key)", pages_source)
+        self.assertIn("notify_indexnow_cms_change(section_key)", backgrounds_source)
+        self.assertIn("notify_indexnow_cms_change(gallery_key)", backgrounds_source)
+        self.assertIn("notify_indexnow_public_site()", routes_source)
+        self.assertIn("notify_indexnow_cms_change('home')", routes_source)
+
+    def test_one_time_bootstrap_workflow_submits_live_sitemap(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github" / "workflows" / "indexnow-bootstrap.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("[indexnow-bootstrap]", workflow)
+        self.assertIn("https://riburomtours.com/sitemap.xml", workflow)
+        self.assertIn("https://api.indexnow.org/indexnow", workflow)
+
     def test_publish_routes_are_wired_to_indexnow(self):
         root = Path(__file__).resolve().parents[1]
         app_source = (root / "app.py").read_text(encoding="utf-8")
