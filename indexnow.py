@@ -6,6 +6,7 @@ as required by the IndexNow protocol.
 """
 
 import json
+import logging
 import os
 import re
 from urllib.error import HTTPError, URLError
@@ -13,6 +14,9 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from flask import Response
+
+
+logger = logging.getLogger(__name__)
 
 
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow"
@@ -140,6 +144,42 @@ def submit_indexnow_urls(urls, timeout=8):
 
 def submit_indexnow_url(url, timeout=8):
     return submit_indexnow_urls([url], timeout=timeout)
+
+
+def notify_indexnow_paths(paths, timeout=3):
+    """Best-effort notification for CMS publishing flows.
+
+    This function deliberately never raises. A search-engine outage must not
+    turn a successful RI BUROM content save into a failed CMS request.
+    """
+    if not get_indexnow_key():
+        return {"ok": False, "skipped": True, "reason": "INDEXNOW_KEY not configured"}
+
+    urls = []
+    for path in paths or []:
+        value = str(path or "").strip()
+        if not value:
+            continue
+        if value.startswith(("http://", "https://")):
+            urls.append(value)
+        else:
+            urls.append(PUBLIC_BASE_URL + (value if value.startswith("/") else "/" + value))
+
+    if not urls:
+        return {"ok": False, "skipped": True, "reason": "no URLs"}
+
+    try:
+        result = submit_indexnow_urls(urls, timeout=timeout)
+        if not result.get("ok"):
+            logger.warning(
+                "IndexNow submission failed status=%s body=%s",
+                result.get("status"),
+                result.get("body"),
+            )
+        return result
+    except Exception:
+        logger.exception("IndexNow submission failed unexpectedly")
+        return {"ok": False, "status": None, "submitted": 0}
 
 
 def register_indexnow(flask_app):

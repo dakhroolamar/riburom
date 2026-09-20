@@ -37,6 +37,7 @@ from storage import (
     STORAGE_BACKEND, ALLOWED_IMAGE_EXTENSIONS,
 )
 from marketplace_models import Provider, ProviderTypeAssignment, Service
+from indexnow import notify_indexnow_paths
 
 app = Flask(__name__)
 TRUST_PROXY_HEADERS = (
@@ -1039,6 +1040,8 @@ def add_package():
     db.session.add(pkg); db.session.flush()
     add_audit('created', 'package', pkg.id, pkg.title)
     db.session.commit()
+    if pkg.published:
+        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'])
     flash(f'"{title}" added.', 'success'); return redirect('/workspace')
 
 
@@ -1059,6 +1062,7 @@ def edit_package(id):
     if not title or not description:
         flash('Tour name and description are required.', 'error'); return redirect(url_for('edit_package_form', id=id))
     old_image, old_pdf = pkg.image_file, pkg.pdf_file
+    was_published = pkg.published
     try:
         new_image = save_image(request.files.get('photo')); new_pdf = save_pdf(request.files.get('pdf'))
     except ValueError as e:
@@ -1076,6 +1080,8 @@ def edit_package(id):
     if new_pdf: pkg.pdf_file = new_pdf
     elif request.form.get('remove_pdf'): pkg.pdf_file = ''
     db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title); db.session.commit()
+    if was_published or pkg.published:
+        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'])
     if (new_image or request.form.get('remove_image')) and old_image != pkg.image_file: delete_media(old_image)
     if (new_pdf or request.form.get('remove_pdf')) and old_pdf != pkg.pdf_file: delete_media(old_pdf)
     flash(f'"{title}" updated.', 'success'); return redirect('/workspace')
@@ -1086,8 +1092,10 @@ def edit_package(id):
 def delete_package(id):
     pkg = db.session.get(Package, id)
     if pkg is not None:
-        old_image, old_pdf, title = pkg.image_file, pkg.pdf_file, pkg.title
+        old_image, old_pdf, title, slug, was_published = pkg.image_file, pkg.pdf_file, pkg.title, pkg.slug, pkg.published
         db.session.delete(pkg); add_audit('deleted', 'package', id, title); db.session.commit(); delete_media(old_image); delete_media(old_pdf)
+        if was_published:
+            notify_indexnow_paths(['/', '/all_tours', f'/tours/{slug}'])
     flash('Package deleted.', 'success'); return redirect('/workspace')
 
 
