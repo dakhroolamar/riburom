@@ -37,7 +37,7 @@ from storage import (
     STORAGE_BACKEND, ALLOWED_IMAGE_EXTENSIONS,
 )
 from marketplace_models import Provider, ProviderTypeAssignment, Service
-from indexnow import notify_indexnow_paths
+from indexnow import notify_indexnow_paths, notify_indexnow_cms_change, notify_indexnow_public_site
 
 app = Flask(__name__)
 TRUST_PROXY_HEADERS = (
@@ -1128,6 +1128,7 @@ def update_about_structure():
 
     add_audit('updated', 'about_structure', 1, ', '.join(ordered_keys))
     db.session.commit()
+    notify_indexnow_cms_change('about')
     flash('About Us page structure updated.', 'success')
     return redirect('/workspace/cms/structure')
 
@@ -1153,6 +1154,7 @@ def update_team_order():
 
     add_audit('updated', 'team_order', 1, ', '.join(map(str, ordered_ids)))
     db.session.commit()
+    notify_indexnow_cms_change('about')
     flash('Team profile order updated.', 'success')
     return redirect('/workspace')
 
@@ -1166,6 +1168,7 @@ def update_mission():
     if about_row is None: about_row = AboutContent(id=1, mission=mission); db.session.add(about_row)
     else: about_row.mission = mission
     add_audit('updated', 'about', 1, 'mission'); db.session.commit()
+    notify_indexnow_cms_change('about')
     flash('Mission statement updated.', 'success'); return redirect('/workspace')
 
 
@@ -1226,6 +1229,7 @@ def update_about_content():
 
     add_audit('updated', 'about_content', 1, 'mission, pillars, editable sections, logo meaning')
     db.session.commit()
+    notify_indexnow_cms_change('about')
     if (new_pdf or request.form.get('remove_logo_meaning_pdf')) and old_pdf != settings.logo_meaning_pdf:
         delete_media(old_pdf)
     flash('About Us content updated.', 'success')
@@ -1262,6 +1266,7 @@ def update_branding():
 
     add_audit('updated', 'branding', 1, 'header and hero logos')
     db.session.commit()
+    notify_indexnow_public_site()
 
     for field, old_value in previous.items():
         new_value = getattr(settings, field)
@@ -1282,6 +1287,7 @@ def update_logo_sizes():
     settings.hero_logo_width = clamp_int(request.form.get('hero_logo_width'), settings.hero_logo_width, 120, 520)
     add_audit('updated', 'branding_sizes', 1, 'logo display sizes')
     db.session.commit()
+    notify_indexnow_public_site()
     flash('Logo sizes updated.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1297,6 +1303,7 @@ def reset_logo_sizes():
     settings.header_logo_position = 'left'
     add_audit('reset', 'branding_sizes', 1, 'logo display sizes and header position')
     db.session.commit()
+    notify_indexnow_public_site()
     flash('Logo sizes reset to the default values.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1315,6 +1322,7 @@ def update_header_layout():
     settings.hero_logo_width = clamp_int(request.form.get('hero_logo_width'), settings.hero_logo_width, 120, 560)
     add_audit('updated', 'header_layout', 1, f'position={position}')
     db.session.commit()
+    notify_indexnow_public_site()
     flash('Header and logo layout saved.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1339,6 +1347,7 @@ def update_typography():
             setattr(settings, field, value)
     add_audit('updated', 'typography', 1, f'body_font={body_font}; heading_font={heading_font}')
     db.session.commit()
+    notify_indexnow_public_site()
     flash('Typography settings saved.', 'success')
     return redirect('/workspace/cms')
 
@@ -1405,6 +1414,7 @@ def update_public_site():
     settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
     add_audit('updated', 'public_site', 1, 'global public content, theme, and homepage structure')
     db.session.commit()
+    notify_indexnow_public_site()
     flash('Public website settings saved.', 'success')
     return redirect('/workspace/cms')
 
@@ -1437,6 +1447,7 @@ def update_blog():
 
     add_audit('updated', 'blog', 1, 'featured external blog story')
     db.session.commit()
+    notify_indexnow_paths(['/', '/about'])
     if (new_image or request.form.get('remove_blog_image')) and old_image != settings.blog_image:
         delete_media(old_image)
     flash('Blog feature updated.', 'success')
@@ -1480,6 +1491,7 @@ def update_footer():
 
     add_audit('updated', 'footer', 1, 'footer and Instagram settings')
     db.session.commit()
+    notify_indexnow_public_site()
     if old_qr and old_qr != settings.instagram_qr:
         delete_media(old_qr)
     flash('Footer and Instagram settings updated.', 'success')
@@ -1498,6 +1510,7 @@ def add_team_member():
     max_order = db.session.query(db.func.max(TeamMember.sort_order)).scalar() or 0
     member = TeamMember(name=name, position=position, role_type=role_type, sort_order=max_order + 1, description=description, photo_file=photo_file)
     db.session.add(member); db.session.flush(); add_audit('created', 'team_member', member.id, f'{name} ({role_type})'); db.session.commit()
+    notify_indexnow_cms_change('about')
     flash(f'{name} added to the team.', 'success'); return redirect('/workspace')
 
 
@@ -1525,6 +1538,7 @@ def edit_team_member(id):
     if new_photo: member.photo_file = new_photo
     elif request.form.get('remove_photo'): member.photo_file = None
     db.session.flush(); add_audit('updated', 'team_member', member.id, name); db.session.commit()
+    notify_indexnow_cms_change('about')
     if (new_photo or request.form.get('remove_photo')) and old_photo != member.photo_file: delete_media(old_photo)
     flash(f'{name} updated.', 'success'); return redirect('/workspace')
 
@@ -1536,6 +1550,7 @@ def delete_team_member(id):
     if member is not None:
         old_photo, name = member.photo_file, member.name
         db.session.delete(member); add_audit('deleted', 'team_member', id, name); db.session.commit(); delete_media(old_photo)
+        notify_indexnow_cms_change('about')
     flash('Team member removed.', 'success'); return redirect('/workspace')
 
 
@@ -1570,6 +1585,7 @@ def upload_photo():
     if about_row is None: about_row = AboutContent(id=1); db.session.add(about_row)
     else: old_hero = about_row.hero_image
     about_row.hero_image = hero_image; add_audit('updated', 'hero_image', 1); db.session.commit()
+    notify_indexnow_cms_change('home')
     if old_hero and old_hero != hero_image: delete_media(old_hero)
     flash('Homepage background updated.', 'success'); return redirect('/workspace')
 
