@@ -125,6 +125,12 @@ class SeoFoundationTests(unittest.TestCase):
         self.assertIn("WebSite", types)
         self.assertIn("WebPage", types)
 
+    def test_homepage_key_images_have_descriptive_alt_text(self):
+        body = self.client.get("/").get_data(as_text=True)
+        self.assertIn('alt="RI BUROM Tours &amp; Travels logo"', body)
+        self.assertIn('alt="Meghalaya landscape featured by RI BUROM"', body)
+        self.assertIn('alt="RI BUROM Meghalaya travel gallery"', body)
+
     def test_tours_collection_exposes_item_list_schema(self):
         body = self.client.get("/all_tours").get_data(as_text=True)
         data = self._json_ld(body)
