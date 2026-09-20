@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unittest
+from pathlib import Path
 from xml.etree import ElementTree
 
 from tests.test_bootstrap import configure_isolated_sqlite
@@ -124,6 +125,21 @@ class SeoFoundationTests(unittest.TestCase):
         )
         self.assertIn("WebSite", types)
         self.assertIn("WebPage", types)
+
+    def test_homepage_key_images_have_descriptive_alt_text(self):
+        body = self.client.get("/").get_data(as_text=True)
+        self.assertIn('alt="RI BUROM Meghalaya travel gallery"', body)
+
+        root = Path(__file__).resolve().parents[1]
+        nav_source = (root / "templates" / "_nav.html").read_text(encoding="utf-8")
+        home_source = (root / "templates" / "index.html").read_text(encoding="utf-8")
+        footer_source = (root / "templates" / "_footer.html").read_text(encoding="utf-8")
+        motion_source = (root / "static" / "js" / "ri-burom-motion.js").read_text(encoding="utf-8")
+
+        self.assertIn('alt="RI BUROM Tours & Travels logo"', nav_source)
+        self.assertIn('alt="Meghalaya landscape featured by RI BUROM"', home_source)
+        self.assertIn("RI BUROM partner or certification logo", footer_source)
+        self.assertIn('alt="RI BUROM Tours & Travels logo"', motion_source)
 
     def test_tours_collection_exposes_item_list_schema(self):
         body = self.client.get("/all_tours").get_data(as_text=True)
