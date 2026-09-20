@@ -47,7 +47,7 @@ class SeoFoundationTests(unittest.TestCase):
 
     def _json_ld(self, body):
         match = re.search(
-            r'<script type="application/ld\\+json">(.*?)</script>',
+            r'<script type="application/ld\+json">(.*?)</script>',
             body,
             flags=re.DOTALL,
         )
