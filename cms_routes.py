@@ -19,6 +19,7 @@ from app import (
     get_site_settings,
 )
 from config_concurrency import public_config_token, public_config_token_matches
+from indexnow import notify_indexnow_cms_change, notify_indexnow_public_site
 from models import AuditLog, AboutContent, AboutSection, Message, Package, TeamMember, User, db
 from marketplace_models import (
     PROVIDER_STATUSES,
@@ -332,6 +333,7 @@ def register_workspace(flask_app):
                 cfg['content'][field] = value
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
         add_audit('updated','cms_content',1,'Public-facing text content'); db.session.commit()
+        notify_indexnow_public_site()
         flash('Public website text saved.', 'success'); return redirect(url_for('workspace_cms'))
 
     @flask_app.route('/workspace/cms/save-sections', methods=['POST'])
@@ -354,6 +356,7 @@ def register_workspace(flask_app):
                 current[field] = number
             current['heading_italic'] = bool(request.form.get(f'{key}__heading_italic')); current['body_italic'] = bool(request.form.get(f'{key}__body_italic'))
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_section_styles',1,'Section-specific colours, weight and italic settings'); db.session.commit()
+        notify_indexnow_public_site()
         flash('Section appearance settings saved.', 'success'); return redirect(url_for('workspace_cms'))
 
     @flask_app.route('/workspace/cms/save-home-structure', methods=['POST'])
@@ -371,4 +374,5 @@ def register_workspace(flask_app):
         except (TypeError, ValueError, json.JSONDecodeError): visibility = {}
         cfg.setdefault('home', {}); cfg['home']['order'] = order; cfg['home']['visibility'] = {key: bool(visibility.get(key, True)) for key in valid}
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_home_structure',1,', '.join(order)); db.session.commit()
+        notify_indexnow_cms_change('home')
         flash('Homepage structure saved.', 'success'); return redirect(url_for('workspace_cms_structure'))
