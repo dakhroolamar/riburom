@@ -157,7 +157,7 @@ class SeoFoundationTests(unittest.TestCase):
         self.assertEqual(len(tourist_trips), 1)
         self.assertEqual(tourist_trips[0]["name"], "SEO Test Experience")
         self.assertEqual(
-            tourist_trips[0]["touristDestination"]["name"],
+            tourist_trips[0]["itinerary"]["name"],
             "Meghalaya",
         )
 
