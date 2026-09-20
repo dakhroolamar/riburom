@@ -7,6 +7,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, url
 
 from app import add_audit, get_current_user, get_public_config, get_site_settings
 from config_concurrency import public_config_token, public_config_token_matches
+from indexnow import notify_indexnow_cms_change
 from models import db
 from storage import delete_media, imgsrc, save_image
 
@@ -134,6 +135,7 @@ def register_section_backgrounds(flask_app):
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
         add_audit('updated', 'cms_section_background', 1, action_detail)
         db.session.commit()
+        notify_indexnow_cms_change(section_key)
         new_value = backgrounds.get(section_key)
         if old_value and old_value != new_value:
             delete_media(old_value)
@@ -186,6 +188,7 @@ def register_section_backgrounds(flask_app):
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
         add_audit('updated', 'cms_gallery', 1, f'updated {gallery_key} with {len(new_values)} images')
         db.session.commit()
+        notify_indexnow_cms_change(gallery_key)
 
         if replace_gallery:
             for value in old_values:
@@ -225,6 +228,7 @@ def register_section_backgrounds(flask_app):
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
         add_audit('updated', 'cms_gallery', 1, f'removed image {image_index + 1} from {gallery_key}')
         db.session.commit()
+        notify_indexnow_cms_change(gallery_key)
         delete_media(removed)
         flash(f'Image removed from {GALLERY_LABELS[gallery_key]}.', 'success')
         return redirect(url_for('workspace_cms_backgrounds'))

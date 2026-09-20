@@ -146,6 +146,98 @@ def submit_indexnow_url(url, timeout=8):
     return submit_indexnow_urls([url], timeout=timeout)
 
 
+PUBLIC_PROVIDER_STATUSES = {"APPROVED", "PUBLISHED", "ACTIVE"}
+
+_HOME_CMS_KEYS = {
+    "home", "hero", "home_gallery", "home_about", "home_about_gallery",
+    "home_tours", "home_why", "home_blog", "home_contact", "contact",
+}
+_ABOUT_CMS_KEYS = {
+    "about", "about_header", "about_belief", "about_pillars",
+    "about_extra1", "about_extra2", "about_team", "about_logo", "about_blog",
+}
+_GLOBAL_CMS_KEYS = {"global", "site", "footer", "footer_partners", "branding"}
+
+
+def current_public_paths():
+    """Return all canonical public RI BUROM paths currently eligible for indexing."""
+    from marketplace_models import Provider
+    from models import Package
+
+    paths = ["/", "/about", "/all_tours", "/marketplace"]
+
+    packages = Package.query.filter_by(published=True).order_by(Package.id.asc()).all()
+    paths.extend(f"/tours/{pkg.slug}" for pkg in packages if pkg.slug)
+
+    providers = Provider.query.filter(
+        Provider.is_active.is_(True),
+        Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+    ).order_by(Provider.id.asc()).all()
+    paths.extend(
+        f"/marketplace/providers/{provider.slug}"
+        for provider in providers
+        if provider.slug
+    )
+    return list(dict.fromkeys(paths))
+
+
+def public_paths_for_cms_change(key):
+    """Map a CMS/public-content change to the canonical pages it affects."""
+    from models import Package
+    from marketplace_models import Provider
+
+    value = str(key or "").strip()
+    if not value:
+        return []
+
+    if value in _GLOBAL_CMS_KEYS:
+        return current_public_paths()
+    if value in _HOME_CMS_KEYS:
+        return ["/"]
+    if value in _ABOUT_CMS_KEYS:
+        return ["/about"]
+    if value == "tours":
+        return ["/all_tours"]
+    if value == "tour-detail":
+        packages = Package.query.filter_by(published=True).order_by(Package.id.asc()).all()
+        return ["/all_tours"] + [f"/tours/{pkg.slug}" for pkg in packages if pkg.slug]
+    if value == "marketplace":
+        return ["/marketplace"]
+    if value == "provider":
+        providers = Provider.query.filter(
+            Provider.is_active.is_(True),
+            Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
+        ).order_by(Provider.id.asc()).all()
+        return ["/marketplace"] + [
+            f"/marketplace/providers/{provider.slug}"
+            for provider in providers
+            if provider.slug
+        ]
+    if value.startswith("tour-") and value[5:].isdigit():
+        pkg = Package.query.get(int(value[5:]))
+        if pkg and pkg.published and pkg.slug:
+            return ["/all_tours", f"/tours/{pkg.slug}"]
+        return ["/all_tours"]
+    return []
+
+
+def notify_indexnow_cms_change(key, timeout=3):
+    """Best-effort notification for one public CMS change."""
+    if not get_indexnow_key():
+        return {"ok": False, "skipped": True, "reason": "INDEXNOW_KEY not configured"}
+    paths = public_paths_for_cms_change(key)
+    if not paths:
+        return {"ok": False, "skipped": True, "reason": "no public URLs"}
+    return notify_indexnow_paths(paths, timeout=timeout)
+
+
+def notify_indexnow_public_site(timeout=8):
+    """Submit every currently indexable canonical RI BUROM URL in one batch."""
+    if not get_indexnow_key():
+        return {"ok": False, "skipped": True, "reason": "INDEXNOW_KEY not configured"}
+    return notify_indexnow_paths(current_public_paths(), timeout=timeout)
+
+
 def notify_indexnow_paths(paths, timeout=3):
     """Best-effort notification for CMS publishing flows.
 

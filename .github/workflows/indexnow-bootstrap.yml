@@ -1,0 +1,68 @@
+name: IndexNow One-Time Bootstrap
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  submit-current-sitemap:
+    if: contains(github.event.head_commit.message, '[indexnow-bootstrap]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Submit current RI BUROM sitemap URLs to IndexNow
+        env:
+          # IndexNow verification keys are intentionally public and must be
+          # hosted on the verified site. This matches the live key file.
+          INDEXNOW_KEY: fd53e26ca8264926889f4cd2237f5b53
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from urllib.request import Request, urlopen
+          from xml.etree import ElementTree
+
+          base = "https://riburomtours.com"
+          sitemap_url = base + "/sitemap.xml"
+          key = os.environ["INDEXNOW_KEY"]
+
+          with urlopen(sitemap_url, timeout=20) as response:
+              xml = response.read()
+
+          root = ElementTree.fromstring(xml)
+          namespace = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+          urls = [
+              node.text.strip()
+              for node in root.findall("sm:url/sm:loc", namespace)
+              if node.text and node.text.strip()
+          ]
+          urls = list(dict.fromkeys(urls))
+          if not urls:
+              raise SystemExit("No URLs found in sitemap.")
+
+          payload = {
+              "host": "riburomtours.com",
+              "key": key,
+              "keyLocation": f"{base}/{key}.txt",
+              "urlList": urls,
+          }
+          request = Request(
+              "https://api.indexnow.org/indexnow",
+              data=json.dumps(payload).encode("utf-8"),
+              method="POST",
+              headers={
+                  "Content-Type": "application/json; charset=utf-8",
+                  "User-Agent": "RI-BUROM-IndexNow-Bootstrap/1.0",
+              },
+          )
+          with urlopen(request, timeout=20) as response:
+              status = response.getcode()
+              body = response.read().decode("utf-8", errors="replace")
+
+          print(f"IndexNow status={status} submitted={len(urls)}")
+          if body:
+              print(body[:1000])
+          if status not in (200, 202):
+              raise SystemExit(f"Unexpected IndexNow status: {status}")
+          PY
