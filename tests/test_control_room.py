@@ -1,0 +1,209 @@
+"""Authorization, persistence and publishing regressions for Control Room."""
+import io
+import json
+import os
+import unittest
+from tests.test_bootstrap import configure_isolated_sqlite
+
+
+class ControlRoomTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.path = configure_isolated_sqlite('control_room')
+        import wsgi
+        from app import app, db, run_deploy_bootstrap
+        cls.app, cls.db = app, db
+        app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+        run_deploy_bootstrap()
+        cls.context = app.app_context()
+        cls.context.push()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.db.session.remove()
+        cls.db.engine.dispose()
+        cls.context.pop()
+        try:
+            os.remove(cls.path)
+        except FileNotFoundError:
+            pass
+
+    def setUp(self):
+        from models import User, SiteSettings, Message, Package
+        from marketplace_models import Provider
+        self.fixture_models = (Message,Package,Provider,User)
+        self.original_ids = {model:{row[0] for row in self.db.session.query(model.id).all()} for model in self.fixture_models}
+        self.settings = SiteSettings.query.first()
+        self.original_config = self.settings.public_config_json
+        self.client = self.app.test_client()
+        self.owner = User.query.filter_by(role='owner').first()
+        self.login(self.owner)
+
+    def tearDown(self):
+        self.db.session.rollback()
+        # These are disposable unittest fixtures in the named isolated test DB.
+        for table in reversed(self.db.metadata.sorted_tables):
+            if table.name.startswith('control_'):
+                self.db.session.execute(table.delete())
+        for model in self.fixture_models:
+            model.query.filter(model.id.notin_(self.original_ids[model])).delete(synchronize_session=False)
+        self.settings.public_config_json = self.original_config
+        self.db.session.commit()
+        self.db.session.expire_all()
+
+    def login(self, user):
+        with self.client.session_transaction() as state:
+            state.clear()
+            state['user_id'] = user.id
+            state['session_version'] = user.session_version
+
+    def test_all_screens_and_legacy_entry_points(self):
+        for section in ('overview','enquiries','trips','marketplace','partners','website','media','settings'):
+            with self.subTest(section=section):
+                response = self.client.get('/workspace/control/'+section)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(b'cr-sidebar', response.data)
+        for route in ('/workspace','/workspace/cms','/workspace/marketplace','/workspace/administration'):
+            self.assertEqual(self.client.get(route).status_code, 302)
+
+    def test_quote_and_trip_conversion_preserve_source_enquiry(self):
+        from models import Message
+        from control_room_models import LeadWorkspace, Quote, Trip
+        message = Message(name='Workflow Traveller', email='workflow@example.com', message='Original enquiry')
+        self.db.session.add(message); self.db.session.commit()
+        base = f'/workspace/control/quotes/website/{message.id}'
+        response = self.client.post(base, data={'amount':'12500.50','summary':'Four day guided trip','valid_until':'2026-11-01'})
+        self.assertEqual(response.status_code, 302)
+        lead = LeadWorkspace.query.filter_by(source='website',source_id=message.id).one()
+        quote = Quote.query.filter_by(lead_id=lead.id).one()
+        self.assertEqual(str(quote.amount), '12500.50')
+        self.assertIn(b'Four day guided trip', self.client.get(f'/workspace/control/quotes/{quote.id}').data)
+        values = dict(name='Workflow Traveller', destination='Shillong', start_date='2026-10-12', end_date='2026-10-15',
+                      travellers='4', status='CONFIRMED', guide='Guide', driver='Driver', vehicle='Car',
+                      source='website', source_id=str(message.id), itinerary='Arrival\nForest walk', accommodation='Shillong homestay')
+        self.assertEqual(self.client.post('/workspace/control/trips/save',data=values).status_code,302)
+        trip = Trip.query.filter_by(lead_id=lead.id).one()
+        self.assertEqual(json.loads(trip.itinerary_json), ['Arrival','Forest walk'])
+        self.assertEqual(message.message,'Original enquiry')
+        self.assertEqual(self.client.post('/workspace/control/trips/save',data=values).status_code,409)
+        self.db.session.rollback()
+
+    def test_drafts_preview_publish_and_reject_stale_revision(self):
+        from app import get_site_settings, get_public_config
+        from config_concurrency import public_config_token
+        from control_room_models import WebsiteRevision
+        settings = get_site_settings()
+        before = get_public_config(settings)['content']['site_title']
+        values = {'token':public_config_token(settings),'site_title':'Reviewed new site title'}
+        self.assertEqual(self.client.post('/workspace/control/website/home/draft',data=values).status_code,302)
+        revision = WebsiteRevision.query.order_by(WebsiteRevision.id.desc()).first()
+        self.assertEqual(get_public_config(settings)['content']['site_title'], before)
+        preview = self.client.get(f'/workspace/control/website/revisions/{revision.id}/preview')
+        self.assertEqual(preview.status_code,200)
+        self.assertEqual(get_public_config(settings)['content']['site_title'],before)
+        self.assertEqual(self.client.post(f'/workspace/control/website/revisions/{revision.id}/publish').status_code,302)
+        self.assertEqual(get_public_config(settings)['content']['site_title'],'Reviewed new site title')
+        self.assertEqual(self.client.post(f'/workspace/control/website/revisions/{revision.id}/publish').status_code,409)
+        self.db.session.rollback()
+
+    def test_partner_documents_are_private_and_reviewable(self):
+        from marketplace_models import Provider
+        from control_room_models import PartnerDocument
+        from models import User
+        partner = Provider(name='Private Document Partner',slug='private-document-partner',status='SUBMITTED')
+        self.db.session.add(partner); self.db.session.commit()
+        response = self.client.post(f'/workspace/control/partners/{partner.id}/documents', data={
+            'kind':'Registration','document':(io.BytesIO(b'%PDF-1.4\nPrivate test document'),'registration.pdf')})
+        self.assertEqual(response.status_code,302)
+        document = PartnerDocument.query.filter_by(provider_id=partner.id).one()
+        url = f'/workspace/control/partners/documents/{document.id}'
+        # Locate the endpoint path from the registered rule to avoid a false test URL.
+        rule = next(r for r in self.app.url_map.iter_rules() if r.endpoint=='control_document')
+        url = str(rule).replace('<int:document_id>',str(document.id))
+        response = self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        self.assertIn('no-store',response.headers['Cache-Control'])
+        self.assertEqual(self.client.post(url,data={'status':'VERIFIED','review_note':'Checked'}).status_code,302)
+        self.assertEqual(document.status,'VERIFIED')
+        viewer = User(username='private-doc-viewer',full_name='Viewer',password_hash='disabled',role='enquiries')
+        self.db.session.add(viewer);self.db.session.commit();self.login(viewer)
+        self.assertEqual(self.client.get(url).status_code,403)
+        self.assertEqual(self.client.get('/workspace/control/settings').status_code,403)
+
+    def test_invoice_validation_and_paid_record(self):
+        from control_room_models import Invoice
+        url='/workspace/control/invoices'
+        self.assertEqual(self.client.post(url,data={'customer':'Guest','description':'Trip','amount':'NaN','due_date':'2026-11-01'}).status_code,400)
+        self.db.session.rollback()
+        self.assertEqual(self.client.post(url,data={'customer':'Guest','description':'Trip','amount':'15000','due_date':'2026-11-01'}).status_code,302)
+        invoice=Invoice.query.order_by(Invoice.id.desc()).first()
+        self.assertEqual(self.client.post(f'{url}/{invoice.id}',data={'status':'PAID'}).status_code,302)
+        self.assertEqual(invoice.status,'PAID')
+
+    def test_read_only_user_cannot_mutate_workflows(self):
+        from models import User
+        viewer=User(username='workflow-viewer',full_name='Workflow Viewer',password_hash='disabled',role='enquiries',permissions_json='["view_messages"]')
+        self.db.session.add(viewer);self.db.session.commit();self.login(viewer)
+        self.assertEqual(self.client.get('/workspace/control/enquiries').status_code,200)
+        self.assertEqual(self.client.post('/workspace/control/trips/save').status_code,403)
+        self.assertEqual(self.client.post('/workspace/control/quotes/website/1').status_code,403)
+        self.assertEqual(self.client.post('/workspace/control/website/home/draft').status_code,403)
+        self.assertEqual(self.client.post('/workspace/control/media/metadata/1').status_code,403)
+
+    def test_media_metadata_and_replacement_update_current_references(self):
+        from unittest.mock import patch
+        from PIL import Image
+        from models import Package
+        from cms_media_models import MediaAsset
+        asset=MediaAsset(path='uploads/control-original.jpg',title='Original')
+        package=Package(title='Media reference tour',slug='media-reference-tour',description='Preserved',image_file=asset.path)
+        self.db.session.add_all([asset,package]);self.db.session.commit()
+        response=self.client.post(f'/workspace/control/media/metadata/{asset.id}',data={'title':'Updated title','alt':'Accessible description','location':'Shillong','category':'Landscape','tags':'nature'})
+        self.assertEqual(response.status_code,200)
+        self.assertTrue(response.json['ok'])
+        image=io.BytesIO();Image.new('RGB',(32,32),(20,60,35)).save(image,format='PNG');image.seek(0)
+        with patch('storage.save_image',return_value='uploads/control-replacement.jpg'):
+            response=self.client.post(f'/workspace/control/media/assets/{asset.id}/replace',data={'image':(image,'replacement.png')})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(package.image_file,asset.path)
+        self.assertEqual(asset.path,'uploads/control-replacement.jpg')
+        self.assertEqual(self.client.delete(f'/workspace/media-api/assets/{asset.id}').status_code,409)
+
+    def test_linked_records_are_preserved_by_old_delete_actions(self):
+        from models import Message
+        from marketplace_models import Provider
+        from control_room_models import LeadWorkspace,PartnerDocument
+        message=Message(name='Preserved lead',email='preserve@example.com',message='Retain history')
+        partner=Provider(name='Preserved partner',slug='preserved-partner',status='DRAFT')
+        self.db.session.add_all([message,partner]);self.db.session.flush()
+        self.db.session.add_all([LeadWorkspace(source='website',source_id=message.id),PartnerDocument(provider_id=partner.id,kind='Registration',file_name='private.pdf',file_data=b'%PDF-1.4')]);self.db.session.commit()
+        self.assertEqual(self.client.post(f'/delete_message/{message.id}').status_code,302)
+        self.assertIsNotNone(self.db.session.get(Message,message.id))
+        self.assertEqual(self.client.post(f'/workspace/marketplace/providers/{partner.id}/delete').status_code,302)
+        self.assertIsNotNone(self.db.session.get(Provider,partner.id))
+
+    def test_global_search_respects_module_permissions(self):
+        from datetime import date
+        from models import User,Message
+        from control_room_models import Trip
+        message=Message(name='Search fixture guest',email='search@example.com',message='Search enquiry')
+        trip=Trip(name='Search fixture private trip',destination='Shillong',start_date=date.today(),end_date=date.today())
+        viewer=User(username='search-viewer',full_name='Search Viewer',password_hash='disabled',role='enquiries',permissions_json='["view_messages"]')
+        self.db.session.add_all([message,trip,viewer]);self.db.session.commit();self.login(viewer)
+        response=self.client.get('/workspace/control/search?q=Search%20fixture')
+        self.assertEqual(response.status_code,200)
+        self.assertIn(b'Search fixture guest',response.data)
+        self.assertNotIn(b'Search fixture private trip',response.data)
+
+    def test_media_search_finds_records_beyond_recent_window(self):
+        from cms_media_models import MediaAsset
+        from datetime import datetime,timedelta
+        for index in range(205):
+            self.db.session.add(MediaAsset(path=f'uploads/search-fixture-{index}.jpg',title=f'Search asset {index}',created_at=datetime(2020,1,1)+timedelta(days=index)))
+        self.db.session.commit()
+        response=self.client.get('/workspace/control/media/assets?q=Search%20asset%200')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual([item['title'] for item in response.json['items']],['Search asset 0'])
+
+if __name__ == '__main__':
+    unittest.main()

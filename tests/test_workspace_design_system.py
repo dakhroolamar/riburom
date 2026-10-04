@@ -25,19 +25,18 @@ class WorkspaceDesignSystemTests(unittest.TestCase):
         for filename in WORKSPACE_TEMPLATES:
             source = (root / 'templates' / filename).read_text(encoding='utf-8')
             with self.subTest(template=filename):
-                self.assertIn("css/ri-burom-workspace.css", source)
-                self.assertIn('rb-workspace', source)
+                self.assertIn("extends 'control_room/base.html'", source)
 
     def test_workspace_css_exposes_core_primitives(self):
         root = Path(__file__).resolve().parents[1]
-        css = (root / 'static' / 'css' / 'ri-burom-workspace.css').read_text(encoding='utf-8')
+        css = (root / 'static' / 'css' / 'control-room.css').read_text(encoding='utf-8')
         for token in (
-            '--rbw-brand',
-            '--rbw-surface',
-            '.rbw-page-frame',
-            '.rbw-page-heading',
-            '.rbw-toolbar',
-            '.rbw-status',
+            '--cr-forest',
+            '--cr-canvas',
+            '.cr-shell',
+            '.cr-page-heading',
+            '.cr-toolbar',
+            '.cr-badge',
         ):
             self.assertIn(token, css)
 

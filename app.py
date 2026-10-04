@@ -37,6 +37,8 @@ from storage import (
     STORAGE_BACKEND, ALLOWED_IMAGE_EXTENSIONS,
 )
 from marketplace_models import Provider, ProviderTypeAssignment, Service
+import cms_media_models
+import control_room_models
 from indexnow import notify_indexnow_paths, notify_indexnow_cms_change, notify_indexnow_public_site
 
 app = Flask(__name__)
@@ -208,6 +210,8 @@ def _deep_merge(base, incoming):
 
 
 def get_public_config(settings=None):
+    if has_request_context() and getattr(g, 'control_public_preview', None) is not None:
+        return g.control_public_preview
     settings = settings or get_site_settings()
     try:
         raw = json.loads(settings.public_config_json or '{}') if settings.public_config_json else {}
@@ -957,6 +961,7 @@ def admin_login():
             session.clear()
             session['user_id'] = user.id
             session['session_version'] = user.session_version
+            session.permanent = request.form.get('remember') == '1'
             user.last_login = datetime.utcnow()
             add_audit('login', 'user', user.id)
             db.session.commit()
@@ -1566,6 +1571,10 @@ def mark_message_read(id):
 @app.route('/delete_message/<int:id>', methods=['POST'])
 @permission_required('manage_messages')
 def delete_message(id):
+    from control_room_models import LeadWorkspace
+    if LeadWorkspace.query.filter_by(source='website',source_id=id).first():
+        flash('This enquiry has operational records. Close the enquiry to preserve its history.', 'error')
+        return redirect(url_for('control_room',section='enquiries',selected=f'website-{id}'))
     msg = db.session.get(Message, id)
     if msg is not None:
         db.session.delete(msg); add_audit('deleted', 'message', id); db.session.commit()

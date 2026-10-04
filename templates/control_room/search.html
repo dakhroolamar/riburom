@@ -1,0 +1,3 @@
+{% extends 'control_room/base.html' %}
+{% from 'control_room/macros.html' import empty with context %}
+{% block content %}<div class="cr-page-heading"><div><h1>Search Results</h1><p>{{ results|length }} results for “{{ term }}” across your available areas.</p></div></div><section class="cr-panel">{% for result in results %}<a class="cr-settings-row" href="{{ result.href }}"><div><strong>{{ result.label }}</strong><small>{{ result.area }} · {{ result.detail }}</small></div><span>→</span></a>{% else %}{{ empty('No matching records','Try a traveller, trip, partner, experience or page name.') }}{% endfor %}</section>{% endblock %}

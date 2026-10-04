@@ -1,32 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
-    <title>Marketplace Enquiries | RI BUROM Workspace</title>
-    <style>
-        :root{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--panel:#fff;--soft:#f8fafc;--brand:#166534;}
-        body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif}
-        .shell{max-width:1600px;margin:0 auto;padding:28px}
-        .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
-        h1{margin:0;font-size:32px}.muted{color:var(--muted);font-size:13px}
-        .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-        .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:9px 12px;font-weight:800;text-decoration:none;cursor:pointer}.btn-green{background:#166534;color:#fff}.btn-gray{background:#e5e7eb;color:#111827}
-        .stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:18px}.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}.stat .n{font-size:24px;font-weight:800}.stat .l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
-        .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}
-        .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px}.field label{display:block;font-weight:800;font-size:12px;margin-bottom:6px}.field input,.field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff;color:#111827}
-        .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}.table tbody tr:hover{background:#fafafa}
-        .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.status-NEW{background:#dcfce7;color:#166534}.status-CONTACTED{background:#dbeafe;color:#1d4ed8}.status-IN_PROGRESS{background:#fef3c7;color:#92400e}.status-QUOTED{background:#ede9fe;color:#6d28d9}.status-CONFIRMED{background:#dcfce7;color:#166534}.status-DECLINED{background:#fee2e2;color:#991b1b}.status-CLOSED{background:#e5e7eb;color:#374151}
-        .empty{padding:50px 20px;text-align:center;color:var(--muted)}
-        @media(max-width:1100px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}.filters{grid-template-columns:1fr 1fr}}
-        @media(max-width:760px){.shell{padding:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:1fr}.top h1{font-size:27px}}
-    </style>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-workspace.css') }}">
-</head>
-<body class="rb-workspace">
+{% extends 'control_room/base.html' %}
+{% set section='enquiries' %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+<style>.cr-legacy{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--panel:#fff;--soft:#f8fafc;--brand:#166534;}.cr-legacy{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.cr-legacy .shell{max-width:1600px;margin:0 auto;padding:28px}.cr-legacy .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}.cr-legacy h1{margin:0;font-size:32px}.cr-legacy .muted{color:var(--muted);font-size:13px}.cr-legacy .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cr-legacy .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:9px 12px;font-weight:800;text-decoration:none;cursor:pointer}.cr-legacy .btn-green{background:#166534;color:#fff}.cr-legacy .btn-gray{background:#e5e7eb;color:#111827}.cr-legacy .stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:18px}.cr-legacy .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}.cr-legacy .stat .n{font-size:24px;font-weight:800}.cr-legacy .stat .l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}.cr-legacy .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}.cr-legacy .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px}.cr-legacy .field label{display:block;font-weight:800;font-size:12px;margin-bottom:6px}.cr-legacy .field input,.cr-legacy .field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff;color:#111827}.cr-legacy .table-wrap{overflow:auto}.cr-legacy .table{width:100%;border-collapse:collapse}.cr-legacy .table th,.cr-legacy .table td{padding:11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.cr-legacy .table th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}.cr-legacy .table tbody tr:hover{background:#fafafa}.cr-legacy .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.cr-legacy .status-NEW{background:#dcfce7;color:#166534}.cr-legacy .status-CONTACTED{background:#dbeafe;color:#1d4ed8}.cr-legacy .status-IN_PROGRESS{background:#fef3c7;color:#92400e}.cr-legacy .status-QUOTED{background:#ede9fe;color:#6d28d9}.cr-legacy .status-CONFIRMED{background:#dcfce7;color:#166534}.cr-legacy .status-DECLINED{background:#fee2e2;color:#991b1b}.cr-legacy .status-CLOSED{background:#e5e7eb;color:#374151}.cr-legacy .empty{padding:50px 20px;text-align:center;color:var(--muted)}
+        @media(max-width:1100px){.cr-legacy .stats{grid-template-columns:repeat(4,minmax(0,1fr))}.cr-legacy .filters{grid-template-columns:1fr 1fr}}
+        @media(max-width:760px){.cr-legacy .shell{padding:16px}.cr-legacy .stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cr-legacy .filters{grid-template-columns:1fr}.cr-legacy .top h1{font-size:27px}}
+    </style>{% endblock %}
+{% block content %}<div class="cr-legacy">
 <div class="shell">
-{% include '_flash.html' %}
+
 <div class="top">
     <div>
         <h1>Marketplace Enquiries</h1>
@@ -96,5 +77,4 @@
     {% endif %}
 </section>
 </div>
-</body>
-</html>
+</div>{% endblock %}

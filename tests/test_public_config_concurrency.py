@@ -51,7 +51,7 @@ class PublicConfigConcurrencyTests(unittest.TestCase):
         self.db.session.commit()
 
     def test_cms_form_contains_public_config_token(self):
-        response = self.client.get('/workspace/cms')
+        response = self.client.get('/workspace/cms/advanced')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'name="public_config_token"', response.data)
 

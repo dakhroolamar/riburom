@@ -121,7 +121,7 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
         return provider, provider_type, category
 
     def test_unauthenticated_user_is_redirected_to_login(self):
-        response = self.client.get('/workspace/marketplace')
+        response = self.client.get('/workspace/marketplace/editor')
         self.assertEqual(response.status_code, 302)
         self.assertIn('/admin/login', response.headers['Location'])
 
@@ -129,7 +129,7 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
         user = self._create_user('marketplace-no-access', [])
         self._login_as(user)
 
-        response = self.client.get('/workspace/marketplace')
+        response = self.client.get('/workspace/marketplace/editor')
         self.assertEqual(response.status_code, 403)
 
     def test_view_marketplace_permission_can_render_page(self):
@@ -147,7 +147,7 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
         self.db.session.add(service)
         self.db.session.commit()
 
-        response = self.client.get('/workspace/marketplace')
+        response = self.client.get('/workspace/marketplace/editor')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Marketplace', response.data)
         self.assertIn(b'Test Guide', response.data)
@@ -156,7 +156,7 @@ class MarketplaceAdminAccessTests(unittest.TestCase):
 
     def test_manage_marketplace_permission_can_render_page(self):
         self._manager()
-        response = self.client.get('/workspace/marketplace')
+        response = self.client.get('/workspace/marketplace/editor')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'id="marketplace-gallery-manager"', response.data)
 

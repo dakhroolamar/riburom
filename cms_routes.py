@@ -269,11 +269,16 @@ def register_workspace(flask_app):
     @flask_app.route('/workspace')
     @login_required
     def workspace_operations():
-        return render_template('workspace.html', **_get_context('operations'))
+        return redirect(url_for('control_room', section='overview'))
 
     @flask_app.route('/workspace/cms')
     @cms_access_required
     def workspace_cms():
+        return redirect(url_for('control_room', section='website'))
+
+    @flask_app.route('/workspace/cms/advanced')
+    @cms_access_required
+    def workspace_cms_advanced():
         settings = get_site_settings(); public = _with_defaults(get_public_config(settings))
         context = _get_context('cms'); context.update({
             'public': public,
@@ -304,12 +309,17 @@ def register_workspace(flask_app):
     @flask_app.route('/workspace/marketplace')
     @marketplace_view_required
     def workspace_marketplace():
+        return redirect(url_for('control_room', section='marketplace'))
+
+    @flask_app.route('/workspace/marketplace/editor')
+    @marketplace_view_required
+    def workspace_marketplace_editor():
         return render_template('marketplace.html', **_marketplace_context())
 
     @flask_app.route('/workspace/administration')
     @owner_required
     def workspace_administration():
-        return render_template('workspace.html', **_get_context('administration'))
+        return redirect(url_for('control_room', section='settings'))
 
     @flask_app.route('/workspace/developer')
     @owner_required

@@ -297,6 +297,9 @@ def register_cms_pages(app):
                 .all()
             ]
         if request.method == 'DELETE':
+            from control_room_models import AssetMetadata
+            if AssetMetadata.query.filter_by(asset_id=asset.id).first():
+                return jsonify(error='This image has Control Room metadata. Keep its library record to preserve those details.'), 409
             if asset_usage(asset):
                 return jsonify(error='This image is in use. Remove it from its collections first.'), 409
             # Keep the blob: legacy screens may still reference media outside this registry.

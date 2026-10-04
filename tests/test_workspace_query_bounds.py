@@ -56,19 +56,19 @@ class WorkspaceQueryBoundTests(unittest.TestCase):
         self.db.session.commit()
 
     def test_operations_inbox_is_paginated(self):
-        page_one = self.client.get('/workspace')
+        page_one = self.client.get('/workspace/control/enquiries')
         self.assertEqual(page_one.status_code, 200)
         body_one = page_one.get_data(as_text=True)
         self.assertIn('75 total', body_one)
         self.assertIn('Page 1 of 2', body_one)
-        self.assertIn('Enquiry 74', body_one)
-        self.assertNotIn('Enquiry 00', body_one)
+        self.assertIn('Customer 74', body_one)
+        self.assertNotIn('Customer 00', body_one)
 
-        page_two = self.client.get('/workspace?message_page=2')
+        page_two = self.client.get('/workspace/control/enquiries?page=2')
         self.assertEqual(page_two.status_code, 200)
         body_two = page_two.get_data(as_text=True)
         self.assertIn('Page 2 of 2', body_two)
-        self.assertIn('Enquiry 00', body_two)
+        self.assertIn('Customer 00', body_two)
 
 
 if __name__ == '__main__':

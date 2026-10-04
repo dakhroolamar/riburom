@@ -1,36 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
-    <title>Marketplace | RI BUROM Workspace</title>
-    <style>
-        :root{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--panel:#fff;--soft:#f8fafc;--brand:#166534;--danger:#b91c1c;--amber:#92400e;}
-        body{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif}
-        .shell{max-width:1600px;margin:0 auto;padding:28px}
-        .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
-        h1{margin:0;font-size:32px}.muted{color:var(--muted);font-size:13px}
-        .grid{display:grid;gap:16px}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-        .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}
-        .panel h2{margin-top:0}.stat{padding:18px;border-radius:12px;background:#fff;border:1px solid var(--line)}.stat .n{font-size:30px;font-weight:800}.stat .l{color:var(--muted);font-size:13px;margin-top:3px}
-        .field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff;color:#111827}.field textarea{min-height:90px;resize:vertical}.field input[type=checkbox]{width:auto}
-        .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:9px 12px;font-weight:800;text-decoration:none;cursor:pointer}.btn-green{background:#166534;color:#fff}.btn-blue{background:#1d4ed8;color:#fff}.btn-red{background:#b91c1c;color:#fff}.btn-gray{background:#e5e7eb;color:#111827}
-        .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-        .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}
-        .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.danger-note{padding:12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:9px}
-        .section-note{padding:12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:9px;margin-bottom:14px}
-        .stack{display:grid;gap:12px}.small{font-size:12px}
-        .appearance-panel{background:linear-gradient(135deg,#f8faf8,#ffffff);border-color:#cfe4d4}.appearance-panel h2{color:#173b1d}
-        @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
-        @media(max-width:760px){.shell{padding:16px}.grid-4,.grid-2{grid-template-columns:1fr}}
-    </style>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-workspace.css') }}">
-</head>
-<body class="rb-workspace">
+{% extends 'control_room/base.html' %}
+{% set section='marketplace' %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+<style>.cr-legacy{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--panel:#fff;--soft:#f8fafc;--brand:#166534;--danger:#b91c1c;--amber:#92400e;}.cr-legacy{margin:0;background:#f4f6f8;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.cr-legacy .shell{max-width:1600px;margin:0 auto;padding:28px}.cr-legacy .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}.cr-legacy h1{margin:0;font-size:32px}.cr-legacy .muted{color:var(--muted);font-size:13px}.cr-legacy .grid{display:grid;gap:16px}.cr-legacy .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.cr-legacy .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.cr-legacy .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}.cr-legacy .panel h2{margin-top:0}.cr-legacy .stat{padding:18px;border-radius:12px;background:#fff;border:1px solid var(--line)}.cr-legacy .stat .n{font-size:30px;font-weight:800}.cr-legacy .stat .l{color:var(--muted);font-size:13px;margin-top:3px}.cr-legacy .field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.cr-legacy .field input,.cr-legacy .field textarea,.cr-legacy .field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;background:#fff;color:#111827}.cr-legacy .field textarea{min-height:90px;resize:vertical}.cr-legacy .field input[type=checkbox]{width:auto}.cr-legacy .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:9px 12px;font-weight:800;text-decoration:none;cursor:pointer}.cr-legacy .btn-green{background:#166534;color:#fff}.cr-legacy .btn-blue{background:#1d4ed8;color:#fff}.cr-legacy .btn-red{background:#b91c1c;color:#fff}.cr-legacy .btn-gray{background:#e5e7eb;color:#111827}.cr-legacy .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cr-legacy .between{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.cr-legacy .table-wrap{overflow:auto}.cr-legacy .table{width:100%;border-collapse:collapse}.cr-legacy .table th,.cr-legacy .table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.cr-legacy .table th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}.cr-legacy .pill{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.cr-legacy .danger-note{padding:12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:9px}.cr-legacy .section-note{padding:12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:9px;margin-bottom:14px}.cr-legacy .stack{display:grid;gap:12px}.cr-legacy .small{font-size:12px}.cr-legacy .appearance-panel{background:linear-gradient(135deg,#f8faf8,#ffffff);border-color:#cfe4d4}.cr-legacy .appearance-panel h2{color:#173b1d}
+        @media(max-width:1100px){.cr-legacy .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:760px){.cr-legacy .shell{padding:16px}.cr-legacy .grid-4,.cr-legacy .grid-2{grid-template-columns:1fr}}
+    </style>{% endblock %}
+{% block content %}<div class="cr-legacy">
 <div class="shell">
 
-{% include '_flash.html' %}
+
 
 <div class="top">
     <div>
@@ -318,5 +296,4 @@
 {% if current_user and current_user.has_permission('manage_marketplace') %}
 {% include 'marketplace_service_gallery_fragment.html' %}
 {% endif %}
-</body>
-</html>
+</div>{% endblock %}

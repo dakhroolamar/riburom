@@ -284,6 +284,10 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
     @manage_required
     def marketplace_provider_delete(id):
         provider = _provider_target(id)
+        from control_room_models import PartnerDocument
+        if PartnerDocument.query.filter_by(provider_id=id).first():
+            flash('This partner has verification documents. Deactivate the partner to preserve its records.', 'error')
+            return redirect(url_for('workspace_marketplace'))
 
         if provider.services:
             flash('Provider cannot be deleted while it has services. Deactivate it instead.', 'error')
@@ -582,6 +586,10 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
     @manage_required
     def marketplace_service_delete(id):
         service = _service_target(id)
+        from control_room_models import ServiceInventory
+        if ServiceInventory.query.filter_by(service_id=id).first():
+            flash('This service has inventory records. Deactivate it to preserve pricing and availability.', 'error')
+            return redirect(url_for('workspace_marketplace'))
 
         package_item_count = PackageItem.query.filter_by(service_id=service.id).count()
         if package_item_count:

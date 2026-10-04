@@ -21,7 +21,7 @@ class CmsMigrationTests(unittest.TestCase):
                 with db.engine.begin() as connection:
                     connection.execute(text('DROP SCHEMA public CASCADE'))
                     connection.execute(text('CREATE SCHEMA public'))
-            legacy = [table for table in db.metadata.sorted_tables if not table.name.startswith('cms_')]
+            legacy = [table for table in db.metadata.sorted_tables if not table.name.startswith(('cms_', 'control_'))]
             db.metadata.create_all(db.engine, tables=legacy)
             settings = SiteSettings(id=1, hero_logo='uploads/legacy-logo.png',
                 public_config_json='{"theme":{"galleries":{"home_gallery":["uploads/river.jpg"]}}}')

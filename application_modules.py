@@ -50,6 +50,8 @@ def register_application_modules(flask_app):
     register_indexnow(flask_app)
     register_hero_animation_routes(flask_app)
     register_cms_pages(flask_app)
+    from control_room import register_control_room
+    register_control_room(flask_app)
 
     # Mark successful composition only after every feature registered cleanly.
     flask_app._ri_burom_feature_modules_registered = True

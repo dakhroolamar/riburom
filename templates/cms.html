@@ -1,33 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
-<title>RI BUROM Website CMS</title>
-<style>
-body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.cms-shell{min-height:100vh}.cms-top{background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.cms-brand{font-size:21px;font-weight:900;letter-spacing:.08em}.cms-nav{display:flex;gap:8px;flex-wrap:wrap}.cms-nav a{color:#cbd5e1;text-decoration:none;padding:9px 11px;border-radius:8px;font-weight:800}.cms-nav a.active,.cms-nav a:hover{background:#1e293b;color:#fff}.cms-main{max-width:1280px;margin:0 auto;padding:24px}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 26px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}.grid{display:grid;gap:14px}.grid-2{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff}.field textarea{min-height:100px;resize:vertical}.field input[type=color]{padding:4px;height:42px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:10px 14px;font-weight:800;text-decoration:none;cursor:pointer}.btn-blue{background:#1d4ed8;color:#fff}.btn-green{background:#166534;color:#fff}.btn-gray{background:#e5e7eb;color:#111827}.info{padding:12px;border-radius:9px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.style-card{border:1px solid #e5e7eb;border-radius:12px;padding:15px}.preview{border-radius:10px;padding:15px;min-height:72px;display:flex;flex-direction:column;justify-content:center}.muted{color:#6b7280;font-size:13px}.pill{font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca;border-radius:999px;padding:4px 9px}.marketplace-link{border-color:#bbf7d0;background:#f0fdf4}.marketplace-link h2{color:#166534}
-@media(max-width:800px){.grid-2,.grid-3{grid-template-columns:1fr}.cms-main{padding:14px}}
-</style>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-workspace.css') }}">
-</head>
-<body class="rb-workspace">
-<div class="cms-shell">
-<header class="cms-top">
-  <div><div class="cms-brand">RI BUROM</div><div style="color:#94a3b8;font-size:12px">Website CMS · {{ current_user.full_name }}</div></div>
-  <nav class="cms-nav">
-    <a href="{{ url_for('cms_pages') }}">Pages</a>
-    <a href="{{ url_for('cms_library') }}">Media Library</a>
-    <a href="{{ url_for('workspace_operations') }}">Operations</a>
-    <a class="active" href="{{ url_for('workspace_cms') }}">Content & Appearance</a>
-    {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_media') }}">Media & Assets</a>{% endif %}
-    {% if current_user.has_permission('manage_structure') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_structure') }}">Page Structure</a>{% endif %}
-    {% if current_user.has_permission('manage_media') or current_user.role=='owner' %}<a href="{{ url_for('workspace_cms_marketplace_appearance') }}">Marketplace Appearance</a>{% endif %}
-    {% if current_user.role=='owner' %}<a href="{{ url_for('workspace_administration') }}">Administration</a>{% endif %}
-    <a href="/" target="_blank">View Site</a>
-  </nav>
-</header>
-<main class="cms-main">
-{% include '_flash.html' %}
+{% extends 'control_room/base.html' %}
+{% set section='website' %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+<style>.cr-legacy{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.cr-legacy .cms-shell{min-height:100vh}.cr-legacy .cms-top{background:#0f172a;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.cr-legacy .cms-brand{font-size:21px;font-weight:900;letter-spacing:.08em}.cr-legacy .cms-nav{display:flex;gap:8px;flex-wrap:wrap}.cr-legacy .cms-nav a{color:#cbd5e1;text-decoration:none;padding:9px 11px;border-radius:8px;font-weight:800}.cr-legacy .cms-nav a.active,.cr-legacy .cms-nav a:hover{background:#1e293b;color:#fff}.cr-legacy .cms-main{max-width:1280px;margin:0 auto;padding:24px}.cr-legacy .panel{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 26px rgba(15,23,42,.06);padding:20px;margin-bottom:18px}.cr-legacy .grid{display:grid;gap:14px}.cr-legacy .grid-2{grid-template-columns:1fr 1fr}.cr-legacy .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.cr-legacy .field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px}.cr-legacy .field input,.cr-legacy .field textarea,.cr-legacy .field select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff}.cr-legacy .field textarea{min-height:100px;resize:vertical}.cr-legacy .field input[type=color]{padding:4px;height:42px}.cr-legacy .btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;padding:10px 14px;font-weight:800;text-decoration:none;cursor:pointer}.cr-legacy .btn-blue{background:#1d4ed8;color:#fff}.cr-legacy .btn-green{background:#166534;color:#fff}.cr-legacy .btn-gray{background:#e5e7eb;color:#111827}.cr-legacy .info{padding:12px;border-radius:9px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.cr-legacy .style-card{border:1px solid #e5e7eb;border-radius:12px;padding:15px}.cr-legacy .preview{border-radius:10px;padding:15px;min-height:72px;display:flex;flex-direction:column;justify-content:center}.cr-legacy .muted{color:#6b7280;font-size:13px}.cr-legacy .pill{font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca;border-radius:999px;padding:4px 9px}.cr-legacy .marketplace-link{border-color:#bbf7d0;background:#f0fdf4}.cr-legacy .marketplace-link h2{color:#166534}
+@media(max-width:800px){.cr-legacy .grid-2,.cr-legacy .grid-3{grid-template-columns:1fr}.cr-legacy .cms-main{padding:14px}}
+</style>{% endblock %}
+{% block content %}<div class="cr-legacy">
+
 <div class="info"><strong>Website CMS:</strong> this workspace controls public-facing wording and section appearance. Technical URLs, authentication and server configuration remain code-controlled.</div>
 
 <section class="panel marketplace-link">
@@ -90,7 +68,7 @@ body{margin:0;background:#f4f6f8;color:#1f2937;font-family:Inter,ui-sans-serif,s
   </form>
   {% else %}<p class="muted">Your account can view the CMS, but it does not have appearance/media permission.</p>{% endif %}
 </section>
-</main>
-</div>
-</body>
-</html>
+
+
+
+</div>{% endblock %}
