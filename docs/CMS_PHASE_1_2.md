@@ -36,7 +36,7 @@ Cloudinary images use automatic format/quality and bounded delivery width. Subse
 - Separate SQLite and PostgreSQL 18 migration upgrade/downgrade tests: 2 passed.
 - JavaScript syntax checks and `git diff --check`: passed.
 - Disposable local browser: gallery reorder/save, two-file upload/save, responsive logo save, desktop homepage and exact 390 CSS-pixel homepage/CMS review.
-- Screenshots in `docs/cms-qa/` use local synthetic media, not production content.
+- Browser QA generates screenshots from local synthetic media, not production content. CI retains them as workflow artifacts rather than committing them to the repository.
 
 ## Subsequent phases
 

@@ -3,6 +3,25 @@
 #rb-home-hero.rb-paper-hero{
   --rb-home-landscape-height:clamp(150px,23vw,340px);
   --rb-hero-landscape-gap:clamp(24px,3vw,46px);
+  padding-top:clamp(12px,1.5vw,24px);
+}
+
+#rb-home-hero.rb-paper-hero .rb-hero-content{
+  padding-top:8px;
+}
+
+/* Keep the CMS positioning canvas close to the navigation without changing
+   the saved horizontal/vertical placement or the logo dimensions. */
+.rb-public-site #rb-home-hero.rb-paper-hero .rb-hero-video-stage.cms-positioned-logo{
+  height:260px;
+  min-height:260px;
+}
+
+@media(max-width:600px){
+  .rb-public-site #rb-home-hero.rb-paper-hero .rb-hero-video-stage.cms-positioned-logo{
+    height:230px;
+    min-height:230px;
+  }
 }
 
 /* A CMS-uploaded hero image is the landscape itself, not a translucent texture. */
