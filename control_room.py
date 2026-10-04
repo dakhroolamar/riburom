@@ -1,5 +1,6 @@
 """Unified Control Room views and authenticated operational workflows."""
 import csv
+from copy import deepcopy
 import io
 import json
 import os
@@ -386,7 +387,7 @@ def register_control_room(app):
     @require('manage_about')
     def control_website_preview(revision_id):
         revision = db.get_or_404(WebsiteRevision, revision_id)
-        cfg = get_public_config(get_site_settings())
+        cfg = deepcopy(get_public_config(get_site_settings()))
         payload = json.loads(revision.payload_json)
         cfg['content'].update(payload['content'])
         cfg['home'] = payload['home']
