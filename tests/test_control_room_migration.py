@@ -10,6 +10,25 @@ import control_room_models
 
 
 class ControlMigrationTests(unittest.TestCase):
+    def test_follow_up_migration_preserves_existing_leads(self):
+        app=Flask(__name__)
+        app.config.update(SQLALCHEMY_DATABASE_URI='sqlite://',SQLALCHEMY_TRACK_MODIFICATIONS=False)
+        db.init_app(app);Migrate(app,db,directory='migrations')
+        with app.app_context():
+            tables=[t for t in db.metadata.sorted_tables if not t.name.startswith('control_')]
+            db.metadata.create_all(db.engine,tables=tables)
+            stamp(directory='migrations',revision='e6f7a8b9c012')
+            upgrade(directory='migrations',revision='f7a2b6c9d013')
+            from sqlalchemy import text
+            db.session.execute(text("INSERT INTO control_leads (source,source_id,status,notes,updated_at) VALUES ('website',99,'CONTACTED','Preserved notes',CURRENT_TIMESTAMP)"))
+            db.session.commit()
+            upgrade(directory='migrations',revision='f8b3c7d0e124')
+            row=db.session.execute(text('SELECT notes,next_action,follow_up FROM control_leads')).one()
+            self.assertEqual(tuple(row),('Preserved notes','',None))
+            downgrade(directory='migrations',revision='f7a2b6c9d013')
+            self.assertEqual(db.session.execute(text('SELECT notes FROM control_leads')).scalar(),'Preserved notes')
+            db.session.remove();db.engine.dispose()
+
     def test_fresh_bootstrap_schema_can_adopt_migration(self):
         app=Flask(__name__)
         app.config.update(SQLALCHEMY_DATABASE_URI='sqlite://',SQLALCHEMY_TRACK_MODIFICATIONS=False)

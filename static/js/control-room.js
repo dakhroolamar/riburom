@@ -51,40 +51,11 @@
   });
   window.addEventListener('beforeunload', event => {if (dirtyForms.size) {event.preventDefault(); event.returnValue = '';}});
   document.querySelectorAll('[data-confirm]').forEach(form => form.addEventListener('submit', event => {if (!confirm(form.dataset.confirm)) event.preventDefault();}));
-  const preview = document.getElementById('cr-website-preview');
-  let previewWidth = 1280;
-  function fitPreview() {
-    if (!preview) return;
-    const frame = preview.parentElement, scale = Math.min(1, frame.clientWidth / previewWidth);
-    preview.style.width = previewWidth + 'px';
-    preview.style.height = Math.ceil(frame.clientHeight / scale) + 'px';
-    preview.style.marginLeft = Math.max(0,(frame.clientWidth-previewWidth*scale)/2) + 'px';
-    preview.style.transformOrigin = 'top left';
-    preview.style.transform = `scale(${scale})`;
-  }
-  if (preview) {new ResizeObserver(fitPreview).observe(preview.parentElement); fitPreview();}
-  document.querySelectorAll('[data-preview-width]').forEach(button => button.addEventListener('click', () => {
-    previewWidth = button.dataset.previewWidth === '100%' ? 1280 : parseInt(button.dataset.previewWidth,10);
-    fitPreview();
-    document.querySelectorAll('[data-preview-width]').forEach(other => {other.classList.toggle('active',other === button);other.setAttribute('aria-pressed', String(other === button));});
-  }));
   document.querySelectorAll('[data-block-up],[data-block-down]').forEach(button => button.addEventListener('click', () => {
     const block = button.closest('.cr-block');
     if ('blockUp' in button.dataset && block.previousElementSibling) block.parentNode.insertBefore(block,block.previousElementSibling);
     if ('blockDown' in button.dataset && block.nextElementSibling) block.parentNode.insertBefore(block.nextElementSibling,block);
     const form = block.closest('form'); if (form) dirtyForms.add(form);
   }));
-  document.querySelector('[data-apply-json]')?.addEventListener('click', () => {
-    try {
-      const payload = JSON.parse(document.getElementById('cr-content-json').value);
-      if (!payload || Array.isArray(payload) || typeof payload !== 'object') throw Error('Enter a JSON object of text fields.');
-      const form = document.getElementById('cr-website-form');
-      for (const [name,value] of Object.entries(payload)) {
-        const input = form.elements.namedItem(name);
-        if (!input || typeof value !== 'string' || ['token','csrf_token'].includes(name)) continue;
-        input.value = value;
-      }
-      dirtyForms.add(form); status('Content fields updated. Save a draft to preview your changes.');
-    } catch (error) {status(error.message || 'Invalid content JSON.');}
-  });
+
 })();

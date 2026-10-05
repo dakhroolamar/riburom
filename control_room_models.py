@@ -1,6 +1,7 @@
 """Persistent operational workflows for the RI BUROM Control Room."""
 from datetime import datetime
 from models import db
+from sqlalchemy.orm import deferred
 
 
 class LeadWorkspace(db.Model):
@@ -14,6 +15,8 @@ class LeadWorkspace(db.Model):
     notes = db.Column(db.Text, nullable=False, default='')
     budget = db.Column(db.Numeric(12, 2))
     call_at = db.Column(db.DateTime)
+    next_action = deferred(db.Column(db.String(500), nullable=False, default='', server_default=''))
+    follow_up = deferred(db.Column(db.Date))
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     assigned_user = db.relationship('User')
 
