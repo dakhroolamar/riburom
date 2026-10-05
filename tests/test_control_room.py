@@ -205,5 +205,53 @@ class ControlRoomTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual([item['title'] for item in response.json['items']],['Search asset 0'])
 
+    def test_website_embeds_media_without_loading_public_preview(self):
+        response = self.client.get('/workspace/control/website')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Page Media & Appearance', response.data)
+        self.assertIn(b'id="upload-images"', response.data)
+        self.assertNotIn(b'<iframe', response.data)
+        self.assertNotIn(b'Content JSON', response.data)
+
+    def test_work_accept_update_close_reopen_and_stale_save(self):
+        from models import Message, AuditLog
+        from control_room_models import LeadWorkspace
+        message=Message(name='Desk Guest',email='desk@example.com',message='Original request')
+        self.db.session.add(message);self.db.session.commit()
+        url=f'/workspace/control/leads/website/{message.id}'
+        self.assertEqual(self.client.post(url,data={'work_token':'new','action':'accept'}).status_code,302)
+        state=LeadWorkspace.query.filter_by(source='website',source_id=message.id).one()
+        self.assertEqual(state.status,'IN_PROGRESS')
+        self.assertEqual(state.assigned_user_id,self.owner.id)
+        old_token=state.updated_at.isoformat()
+        data={'work_token':old_token,'status':'CONTACTED','assigned_user_id':str(self.owner.id),
+              'next_action':'Send estimate','follow_up':'2026-10-08','progress_note':'Called customer.'}
+        self.assertEqual(self.client.post(url,data=data).status_code,302)
+        self.assertEqual(state.next_action,'Send estimate')
+        self.assertEqual(state.follow_up.isoformat(),'2026-10-08')
+        self.assertEqual(self.client.post(url,data={'work_token':old_token,'action':'close'}).status_code,409)
+        for action,status in [('close','CLOSED'),('reopen','NEW')]:
+            self.assertEqual(self.client.post(url,data={'work_token':state.updated_at.isoformat(),'action':action}).status_code,302)
+            self.assertEqual(state.status,status)
+        self.assertEqual(message.message,'Original request')
+        history=AuditLog.query.filter_by(target_type='control_leads',target_id=str(state.id),action='work_updated').all()
+        self.assertEqual(len(history),4)
+        self.assertTrue(any('Called customer.' in item.details for item in history))
+
+    def test_closed_work_is_filtered_and_viewer_cannot_update(self):
+        from models import Message,User
+        from control_room_models import LeadWorkspace
+        message=Message(name='Closed Desk Guest',email='closed@example.com',message='Request')
+        self.db.session.add(message);self.db.session.flush()
+        state=LeadWorkspace(source='website',source_id=message.id,status='CLOSED')
+        viewer=User(username='desk-read-only',full_name='Viewer',password_hash='disabled',role='custom',permissions_json='["view_messages"]')
+        self.db.session.add_all([state,viewer]);self.db.session.commit()
+        self.assertNotIn(b'Closed Desk Guest',self.client.get('/workspace/control/enquiries').data)
+        self.assertIn(b'Closed Desk Guest',self.client.get('/workspace/control/enquiries?status=CLOSED').data)
+        self.login(viewer)
+        response=self.client.get('/workspace/control/enquiries?status=CLOSED')
+        self.assertNotIn(b'Accept &amp; assign to me',response.data)
+        self.assertEqual(self.client.post(f'/workspace/control/leads/website/{message.id}',data={'work_token':state.updated_at.isoformat(),'action':'reopen'}).status_code,403)
+
 if __name__ == '__main__':
     unittest.main()

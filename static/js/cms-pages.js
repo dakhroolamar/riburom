@@ -13,7 +13,7 @@
   }
   let contentState = null, contentKey = '', designState = null, selectedIndex = 0;
   let collectionDirty = false, textDirty = false, designDirty = false, logoDirty = false, requestId = 0;
-  let galleryDesign = null, galleryDesignDirty = false;
+  let galleryDesign = null, galleryDesignDirty = false, appearanceRequest = null;
   const supportsGallery = section => ['hero', 'home_gallery'].includes(section) || section.startsWith('tour-');
   const metadataChanges = new Map();
   const page = document.querySelector('[data-cms-page]');
@@ -25,9 +25,10 @@
     if ($('gallery-summary')) $('gallery-summary').textContent = `${state.items.length} of ${state.limit} photographs · ${collectionDirty || metadataChanges.size ? 'Unsaved changes' : 'Saved'}`;
   }
   window.addEventListener('beforeunload', event => {if (dirty() || busy) {event.preventDefault(); event.returnValue = '';}});
-  if (matchMedia('(max-width: 760px)').matches) document.querySelector('.mobile-navigation').open = false;
+  const mobileNav = document.querySelector('.mobile-navigation');
+  if (mobileNav && matchMedia('(max-width: 760px)').matches) mobileNav.open = false;
   async function loadContent(section, ticket) {
-    if (!canContent) return;
+    if (!canContent || page?.dataset.embedded === 'true') return;
     const result = await api('content/' + section);
     if (ticket !== requestId) return;
     contentState = result;
@@ -114,7 +115,7 @@
       const thumb = button('', root, () => {selectedIndex = index; renderItems();});
       thumb.setAttribute('aria-label', `Select photograph ${index + 1}`);
       thumb.setAttribute('aria-pressed', String(index === selectedIndex));
-      const img = el('img', undefined, thumb); img.src = item.src; img.alt = item.alt || '';
+      const img = el('img', undefined, thumb); img.loading = 'lazy'; img.decoding = 'async'; img.src = item.src; img.alt = item.alt || '';
       el('span', String(index + 1), thumb);
       thumb.draggable = true;
       thumb.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', String(index)));
@@ -259,21 +260,31 @@
       if (!asset.usage.length) button('Remove from library', card, async () => {await api('assets/' + asset.id, null, 'DELETE'); await renderLibrary();});
     });
   }
+  async function ensureAppearance() {
+    if (!page || appearanceRequest) return appearanceRequest;
+    const ticket = requestId;
+    appearanceRequest = Promise.all([loadDesign(contentKey, ticket), loadGalleryDesign(contentKey, ticket)]).catch(error => {
+      if (ticket === requestId) {appearanceRequest = null; fail(error);}
+    });
+    return appearanceRequest;
+  }
   document.querySelectorAll('[data-panel]').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.panel === 'appearance') ensureAppearance();
     document.querySelectorAll('[data-tab]').forEach(tab => tab.hidden = tab.dataset.tab !== button.dataset.panel);
     document.querySelectorAll('[data-panel]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
   }));
   async function selectSection(button) {
     if (busy) return status('Wait for the current save or upload to finish.');
-    if (dirty() && !confirm('Discard unsaved changes before changing sections?')) return;
+    if (dirty() && !confirm('Discard unsaved changes before changing sections?')) {if ($('cms-section-picker')) $('cms-section-picker').value = contentKey; return;}
     window.dispatchEvent(new Event('cms-discard'));
     const ticket = ++requestId;
     collectionDirty = textDirty = designDirty = galleryDesignDirty = logoDirty = false; metadataChanges.clear();
-    contentState = designState = galleryDesign = null;
+    contentState = designState = galleryDesign = null; appearanceRequest = null;
     if ($('gallery-design')) $('gallery-design').hidden = true;
     $('image-preview').style.aspectRatio = '';
     contentKey = button?.dataset.section || page.dataset.cmsPage;
     key = '';
+    if ($('cms-section-picker')) $('cms-section-picker').value = contentKey;
     $('section-title').textContent = button?.textContent || document.querySelector('h1').textContent;
     document.querySelectorAll('[data-section]').forEach(node => node.setAttribute('aria-pressed', String(node === button)));
     if ($('logo-editor')) $('logo-editor').hidden = contentKey !== 'hero';
@@ -282,15 +293,16 @@
     if ($('section-design')) $('section-design').hidden = true;
     status('Loading section…');
     const collection = button?.dataset.collection;
-    document.querySelector(`[data-panel="${canMedia && collection && contentKey !== 'hero' ? 'media' : canContent ? 'content' : 'appearance'}"]`)?.click();
+    document.querySelector(`[data-panel="${canMedia && collection ? 'media' : canContent && page.dataset.embedded !== 'true' ? 'content' : 'appearance'}"]`)?.click();
     try {
-      await Promise.all([loadContent(contentKey, ticket), loadDesign(contentKey, ticket), loadGalleryDesign(contentKey, ticket),
+      await Promise.all([loadContent(contentKey, ticket),
         canMedia && collection ? openCollection(collection, button.textContent, ticket) : Promise.resolve()]);
       if (ticket !== requestId) return;
       status('');
     } catch (error) {if (ticket === requestId) fail(error);}
   }
-  document.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => selectSection(button)));
+  if ($('cms-section-picker')) $('cms-section-picker').onchange = event => selectSection(event.target.selectedOptions[0]);
+  document.querySelectorAll('button[data-section]').forEach(button => button.addEventListener('click', () => selectSection(button)));
   if ($('save-collection')) {
     $('section-content').onsubmit = async event => {
       event.preventDefault(); if (!contentState || busy) return;
@@ -323,7 +335,7 @@
         summary(); status('Gallery and image details saved.');
       } catch (error) {summary(); fail(error);} finally {setBusy(false); $('save-collection').disabled = false;}
     };
-    $('upload-images').onchange = event => uploadFiles(event.target.files).catch(fail);
+    $('upload-images').onchange = event => {const input = event.target; uploadFiles(input.files).catch(fail).finally(() => {input.value = '';});};
     $('choose-library').onclick = () => openPicker().catch(fail);
     $('picker-find').onclick = () => pickerResults().catch(fail);
     $('picker-close').onclick = () => $('library-picker').close();
