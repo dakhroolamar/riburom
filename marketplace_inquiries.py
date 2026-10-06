@@ -13,6 +13,7 @@ from notifications import dispatch_notification_outbox, enqueue_new_enquiry
 
 PUBLIC_PROVIDER_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
 PUBLIC_SERVICE_STATUSES = {'PUBLISHED', 'ACTIVE'}
+MAX_SELECTED_SERVICES = 100
 
 _FIELD_LIMITS = {
     'travel_date': 120,
@@ -92,13 +93,19 @@ def register_marketplace_inquiries(flask_app):
             return redirect(url_for('marketplace_public_index'))
 
         selected_raw = request.form.getlist('service_ids')
+        # Bound raw fields before parsing, including duplicates and invalid IDs.
+        if len(selected_raw) > MAX_SELECTED_SERVICES:
+            flash(f'Please select no more than {MAX_SELECTED_SERVICES} services per enquiry.', 'error')
+            return redirect(url_for('marketplace_public_provider', slug=provider.slug))
         selected_ids = []
+        seen_ids = set()
         for raw in selected_raw:
             try:
                 service_id = int(raw)
             except (TypeError, ValueError):
                 continue
-            if service_id not in selected_ids:
+            if service_id not in seen_ids:
+                seen_ids.add(service_id)
                 selected_ids.append(service_id)
 
         services = []
@@ -109,7 +116,8 @@ def register_marketplace_inquiries(flask_app):
                 Service.is_active.is_(True),
                 Service.status.in_(PUBLIC_SERVICE_STATUSES),
             ).all()
-            services.sort(key=lambda service: selected_ids.index(service.id))
+            positions = {service_id: index for index, service_id in enumerate(selected_ids)}
+            services.sort(key=lambda service: positions[service.id])
             if len(services) != len(selected_ids):
                 flash('One or more selected services are no longer available. Please review your selection.', 'error')
                 return redirect(url_for('marketplace_public_provider', slug=provider.slug))
