@@ -4,6 +4,7 @@
   --rb-home-landscape-height:clamp(150px,23vw,340px);
   --rb-hero-landscape-gap:clamp(24px,3vw,46px);
   padding-top:clamp(12px,1.5vw,24px);
+  padding-inline:0!important;
 }
 
 #rb-home-hero.rb-paper-hero .rb-hero-content{
