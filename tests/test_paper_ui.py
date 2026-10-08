@@ -31,7 +31,7 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("video.classList.add('rb-hero-opening-film')", js)
         self.assertIn("video.parentElement !== hero", js)
         self.assertNotIn("stage.appendChild(video)", js)
-        self.assertIn("ri-burom-home-fixes.css?v=7", js)
+        self.assertIn("ri-burom-home-fixes.css?v=8", js)
         self.assertIn("landscapeRect.top - heroRect.top - configuredGap", js)
         self.assertIn("originalWidth * 2", js)
         self.assertIn("--rb-hero-landscape-gap", css)
@@ -40,8 +40,8 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("rb-hero-video-playing .rb-hero-content", css)
         self.assertIn("max-width:min(86vw,320px)!important", css)
         self.assertIn("max-height:220px!important", css)
-        self.assertIn("ri-burom-home-fixes.css') }}?v=7", home)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=7", home)
+        self.assertIn("ri-burom-home-fixes.css') }}?v=8", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=8", home)
         self.assertNotIn('ri-burom-home-fixes', landscape)
 
     def test_home_gallery_interactions_are_cms_driven(self):
@@ -116,7 +116,7 @@ class PaperUiContractTests(unittest.TestCase):
         for water_token in ('#4fa8c7', '#c4e9e9', '#85c4cf'):
             self.assertNotIn(water_token, landscape)
             self.assertNotIn(water_token, about_fallback)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=7", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=8", home)
 
     def test_marketplace_form_and_shared_footer_remain(self):
         provider = (ROOT / 'templates/marketplace_provider.html').read_text(encoding='utf-8')

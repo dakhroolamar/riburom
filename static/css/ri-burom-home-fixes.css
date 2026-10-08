@@ -111,7 +111,7 @@
 .rb-river-gallery-host{isolation:isolate}
 #rb-home-hero.rb-paper-hero .rb-river-gallery-host.has-river-gallery{
   position:relative!important;height:auto!important;min-height:0!important;
-  width:min(1000px,calc(100% - 40px))!important;max-width:1000px!important;
+  width:100%!important;max-width:none!important;
   margin-inline:auto!important;overflow:visible!important;pointer-events:auto!important;
 }
 .rb-river-gallery-fallback{position:absolute;inset:0}
@@ -382,3 +382,6 @@
   .rb-about-flip-page.is-flipping-prev{animation:none!important}
   .rb-rail-button{transition:none!important}
 }
+
+#rb-home-hero .rb-river-gallery .cms-gallery-track{border-radius:0}
+#rb-home-hero .rb-river-gallery .cms-gallery-controls{padding:14px 20px}
