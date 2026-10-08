@@ -2,9 +2,66 @@
 (() => {
   'use strict';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  function initLoop(gallery, track) {
+    gallery.dataset.galleryReady = 'true';
+    gallery.classList.add('cms-loop-gallery');
+    const slides = [...track.children];
+    const count = gallery.querySelector('[data-gallery-count]');
+    const pause = gallery.querySelector('[data-gallery-pause]');
+    if (pause) pause.hidden = true;
+    let current = 0;
+    let timer;
+    const load = n => {
+      const img = slides[n]?.querySelector('img');
+      if (!img) return;
+      img.loading = 'eager';
+      if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
+      if (img.decode) img.decode().catch(() => {});
+    };
+    const show = n => {
+      current = (n + slides.length) % slides.length;
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('is-current', i === current);
+        slide.setAttribute('aria-hidden', String(i !== current));
+      });
+      gallery.dataset.galleryIndex = String(current);
+      if (count) count.textContent = `${current + 1} / ${slides.length}`;
+      load(current);
+      load((current + 1) % slides.length);
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      if (slides.length < 2 || document.hidden || reduced.matches) return;
+      timer = setTimeout(() => {
+        const next = (current + 1) % slides.length;
+        const image = slides[next].querySelector('img');
+        if (!image || (image.complete && image.naturalWidth)) show(next);
+        schedule();
+      }, 1000);
+    };
+    for (const [selector, direction] of [['[data-gallery-prev]', -1], ['[data-gallery-next]', 1]]) {
+      const button = gallery.querySelector(selector);
+      if (button) {
+        button.disabled = slides.length < 2;
+        button.addEventListener('click', () => { show(current + direction); schedule(); });
+      }
+    }
+    track.addEventListener('keydown', event => {
+      if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault(); show(current + (event.key === 'ArrowLeft' ? -1 : 1)); schedule();
+      }
+    });
+    document.addEventListener('visibilitychange', schedule);
+    reduced.addEventListener('change', schedule);
+    show(0); schedule();
+  }
   function init(gallery) {
     const track = gallery.querySelector('.cms-gallery-track');
     if (!track?.children.length || gallery.dataset.galleryReady) return;
+    if (gallery.hasAttribute('data-rb-river-gallery')) {
+      initLoop(gallery, track);
+      return;
+    }
     gallery.dataset.galleryReady = 'true';
     const slides = [...track.children];
     const interval = [1000, 2000, 5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;

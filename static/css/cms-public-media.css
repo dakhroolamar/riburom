@@ -17,3 +17,10 @@
 #rb-home-hero .cms-hero-gallery{width:100%;max-width:none;margin:32px 0 14px;padding:0}
 #rb-home-hero .cms-hero-gallery .cms-gallery-track{border-radius:0}
 #rb-home-hero .cms-hero-gallery .cms-gallery-controls{padding:14px 20px}
+
+/* The homepage loop crossfades fixed layers instead of interruptible scrolling. */
+#rb-home-hero .cms-loop-gallery .cms-gallery-track{display:grid;overflow:hidden;scroll-snap-type:none;aspect-ratio:calc(var(--gallery-ratio,16/9) / .7)}
+#rb-home-hero .cms-loop-gallery .cms-gallery-track figure{grid-area:1/1;aspect-ratio:auto;height:100%;opacity:0;transition:opacity 450ms ease-in-out;pointer-events:none}
+#rb-home-hero .cms-loop-gallery .cms-gallery-track figure.is-current{opacity:1;z-index:1}
+@media(max-width:600px){#rb-home-hero .cms-loop-gallery .cms-gallery-track{aspect-ratio:calc(4/3 / .7)}}
+@media(prefers-reduced-motion:reduce){#rb-home-hero .cms-loop-gallery .cms-gallery-track figure{transition:none}}
