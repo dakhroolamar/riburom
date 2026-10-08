@@ -1,0 +1,8 @@
+<section id="reviews" class="rb-reviews" style="order:{{ home_order_index.contact }}">
+<div class="rb-reviews-heading"><div><p>TRAVELLER VOICES</p><h2>Memories from Meghalaya</h2><p>Public reviews shared by our visitors.</p></div><a href="#write-review">Write a review</a></div>
+{% for row in review_rows %}<div class="rb-review-scroll" aria-label="Traveller reviews row {{ loop.index }}" tabindex="0"><div class="rb-review-track">
+{% for review in row %}<article class="rb-review-card"><div class="rb-review-stars" aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</div><p>{{ review.comment }}</p><strong>{{ review.name }}</strong></article>{% endfor %}
+</div></div>{% endfor %}
+{% if not review_rows[0] %}<p>Be the first to share a memory of your journey.</p>{% endif %}
+<details id="write-review" class="rb-review-form"><summary>Share your experience</summary><form action="/reviews" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><p>Your name, rating and review will be published immediately. Please leave out private contact information.</p><label for="review-name">Your name</label><input id="review-name" name="name" maxlength="80" required autocomplete="name"><fieldset><legend>Your star rating</legend>{% for rating in range(1,6) %}<label><input type="radio" name="rating" value="{{ rating }}" required>{{ rating }} ★</label>{% endfor %}</fieldset><label for="review-comment">Your review</label><textarea id="review-comment" name="comment" maxlength="600" rows="3" required></textarea><button type="submit">Publish review</button></form></details>
+</section>

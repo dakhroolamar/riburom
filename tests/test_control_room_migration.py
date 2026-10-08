@@ -10,6 +10,24 @@ import control_room_models
 
 
 class ControlMigrationTests(unittest.TestCase):
+    def test_reviews_migration_creates_table_and_adopts_bootstrap(self):
+        for existing in (False, True):
+            with self.subTest(existing=existing):
+                app=Flask(__name__)
+                app.config.update(SQLALCHEMY_DATABASE_URI='sqlite://',SQLALCHEMY_TRACK_MODIFICATIONS=False)
+                db.init_app(app);Migrate(app,db,directory='migrations')
+                with app.app_context():
+                    if existing:
+                        db.create_all()
+                    stamp(directory='migrations',revision='f8b3c7d0e124')
+                    upgrade(directory='migrations',revision='a9c4d7e2f015')
+                    self.assertIn('traveller_reviews',inspect(db.engine).get_table_names())
+                    from models import TravellerReview
+                    db.session.add(TravellerReview(name='Migration visitor',rating=5,comment='Preserved review'))
+                    db.session.commit()
+                    self.assertEqual(TravellerReview.query.one().rating,5)
+                    db.session.remove();db.engine.dispose()
+
     def test_follow_up_migration_preserves_existing_leads(self):
         app=Flask(__name__)
         app.config.update(SQLALCHEMY_DATABASE_URI='sqlite://',SQLALCHEMY_TRACK_MODIFICATIONS=False)

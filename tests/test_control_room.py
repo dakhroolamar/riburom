@@ -90,10 +90,11 @@ class ControlRoomTests(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertIn(b'The King Who Could Not Be Killed', page.data)
             self.assertIn(b'height:auto', page.data)
+            self.assertIn(b'js/ri-burom-motion.js', page.data)
             home = self.client.get('/').data
             self.assertIn(b'aria-label="Featured story"', home)
             self.assertIn(b'Read Stories from Meghalaya', home)
-            self.assertIn(b'href="/stories/featured"', home)
+            self.assertIn(b'href="/stories"', home)
             self.assertNotIn(b'href="https://example.com/old-story"', home)
             self.assertNotIn(b'A legend passed through oral storytelling.', home)
             self.client.post('/update_blog', data={'blog_title': 'Unpublished'})
@@ -123,6 +124,46 @@ class ControlRoomTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.db.session.refresh(settings)
         self.assertEqual((settings.blog_title, settings.blog_image, settings.blog_enabled), before)
+
+    def test_public_review_publishes_immediately_and_escapes_html(self):
+        from app import limiter
+        from models import TravellerReview
+        limiter.reset()
+        client = self.app.test_client()
+        original_ids = {row.id for row in TravellerReview.query.all()}
+        try:
+            response = client.post('/reviews', data={'name': '<b>Visitor</b>', 'rating': '5', 'comment': '<script>alert(1)</script>Beautiful journey'})
+            self.assertEqual(response.status_code, 303)
+            page = client.get('/').data
+            self.assertIn(b'5 out of 5 stars', page)
+            self.assertIn(b'&lt;script&gt;alert(1)&lt;/script&gt;Beautiful journey', page)
+            self.assertNotIn(b'<script>alert(1)</script>', page)
+            self.assertLess(page.index(b'id="reviews"'), page.index(b'id="rb-home-contact"'))
+            self.assertEqual(page.count(b'class="rb-review-scroll"'), 2)
+            count = TravellerReview.query.count()
+            client.post('/reviews', data={'name': 'Visitor', 'rating': '6', 'comment': 'Invalid rating'})
+            self.assertEqual(TravellerReview.query.count(), count)
+            client.post('/reviews', data={'name': 'Visitor', 'rating': '1', 'comment': 'x' * 601})
+            self.assertEqual(TravellerReview.query.count(), count)
+            self.assertEqual(client.post('/reviews', data={'name':'Visitor','rating':'4','comment':'Limited'}).status_code,429)
+        finally:
+            TravellerReview.query.filter(TravellerReview.id.notin_(original_ids)).delete(synchronize_session=False)
+            self.db.session.commit()
+            limiter.reset()
+
+    def test_stories_navigation_has_a_public_empty_state(self):
+        from models import SiteSettings
+        settings = SiteSettings.query.first()
+        enabled = settings.blog_enabled
+        try:
+            settings.blog_enabled = False
+            self.db.session.commit()
+            self.assertEqual(self.client.get('/stories').status_code,200)
+            self.assertEqual(self.client.get('/stories/featured').status_code,404)
+            self.assertIn(b'href="/stories"',self.client.get('/').data)
+        finally:
+            settings.blog_enabled = enabled
+            self.db.session.commit()
 
     def test_quote_and_trip_conversion_preserve_source_enquiry(self):
         from models import Message

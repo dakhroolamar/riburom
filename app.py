@@ -30,7 +30,7 @@ load_dotenv()
 
 from models import (
     db, Package, AboutContent, AboutSection, SiteSettings, TeamMember, Message,
-    User, AuditLog, ROLE_PERMISSIONS, ROLE_LABELS, seed_defaults,
+    User, AuditLog, ROLE_PERMISSIONS, ROLE_LABELS, seed_defaults, TravellerReview,
 )
 from storage import (
     save_image, save_pdf, save_generated_png, delete_media, allowed_file, imgsrc,
@@ -668,7 +668,23 @@ def home():
         featured = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
     total_published = Package.query.filter_by(published=True).count()
     hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
-    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings)
+    reviews = TravellerReview.query.order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
+    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings, review_rows=[reviews[::2], reviews[1::2]])
+
+
+@app.post('/reviews')
+@limiter.limit('3 per hour')
+def publish_review():
+    name = request.form.get('name', '').strip()
+    comment = request.form.get('comment', '').strip()
+    rating = request.form.get('rating', type=int)
+    if not name or len(name) > 80 or not comment or len(comment) > 600 or rating not in range(1, 6):
+        flash('Enter your name, a review of up to 600 characters, and a rating from 1 to 5.', 'error')
+        return redirect(url_for('home') + '#reviews', code=303)
+    db.session.add(TravellerReview(name=name, rating=rating, comment=comment))
+    db.session.commit()
+    flash('Thank you! Your review is now published.', 'success')
+    return redirect(url_for('home') + '#reviews', code=303)
 
 
 @app.route('/admin/customers')
@@ -1470,12 +1486,15 @@ def update_blog():
     return redirect(destination)
 
 
+@app.route('/stories')
 @app.route('/stories/featured')
 def featured_story():
     settings = get_site_settings()
     if not settings.blog_enabled or not (settings.blog_image or settings.blog_url):
-        abort(404)
-    return render_template('featured_story.html', settings=settings)
+        if request.path == '/stories/featured':
+            abort(404)
+        return render_template('featured_story.html', settings=settings, story_available=False)
+    return render_template('featured_story.html', settings=settings, story_available=True)
 
 
 @app.route('/update_footer', methods=['POST'])

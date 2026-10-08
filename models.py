@@ -8,6 +8,16 @@ from sqlalchemy.orm import deferred
 
 db = SQLAlchemy()
 
+
+class TravellerReview(db.Model):
+    __tablename__ = 'traveller_reviews'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.String(600), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    __table_args__ = (db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_review_rating'),)
+
 DEFAULT_MISSION = (
     "Come as a traveller. Leave with a connection. We seek to create "
     "journeys that bring travellers closer to Meghalaya's landscapes, "

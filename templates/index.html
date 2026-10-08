@@ -11,8 +11,8 @@
     {% include '_public_theme.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=7" data-rb-home-fixes-css>
     <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=7" defer></script>
-    <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=1">
-    <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=1" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
+    <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=2" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -145,6 +145,7 @@
     </section>
     {% endif %}
 
+    {% include '_reviews.html' %}
     {% if public.home.visibility.contact %}
     <section id="rb-home-contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
         <div id="contact" style="position:relative;top:-2px"></div>
@@ -178,7 +179,7 @@
     {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
     <aside id="rb-home-blog" class="rb-story-notification" aria-label="Featured story">
         <button type="button" class="rb-story-notification-close" aria-label="Dismiss story card">×</button>
-        <a class="rb-story-notification-link" href="{{ url_for('featured_story') }}">
+        <a class="rb-story-notification-link" href="/stories">
             {% if settings.blog_image %}<img src="{{ settings.blog_image|imgsrc }}" alt="" width="72" height="92" loading="lazy">{% endif %}
             <span><strong>Read Stories from Meghalaya</strong><span class="rb-story-notification-title">{{ settings.blog_title }}</span><span class="rb-story-notification-action">Read the story <span aria-hidden="true">→</span></span></span>
         </a>
