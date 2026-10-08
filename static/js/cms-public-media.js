@@ -7,15 +7,17 @@
     if (!track?.children.length || gallery.dataset.galleryReady) return;
     gallery.dataset.galleryReady = 'true';
     const slides = [...track.children];
-    const interval = [2000, 5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
+    const interval = [1000, 2000, 5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
     const count = gallery.querySelector('[data-gallery-count]');
     const pause = gallery.querySelector('[data-gallery-pause]');
     let visible = false, paused = false, held = false, hovered = gallery.matches(':hover'), focused = false, timer, resumeAt = 0;
+    let animation = 0;
     const offset = slide => slide.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
     const index = () => slides.reduce((best, slide, n) =>
       Math.abs(offset(slide) - track.scrollLeft) < Math.abs(offset(slides[best]) - track.scrollLeft) ? n : best, 0);
     const load = n => {
-      const img = slides[n]?.querySelector('img');
+      const img = slides[(n + slides.length) % slides.length]?.querySelector('img');
+      if (img) img.loading = 'eager';
       if (img?.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
     };
     const sync = () => {
@@ -24,11 +26,30 @@
       gallery.dataset.galleryIndex = String(n);
       gallery.style.setProperty('--gallery-progress', `${(n + 1) / slides.length * 100}%`);
       load(n);
+      load(n + 1);
     };
     function go(n) {
       n = (n + slides.length) % slides.length;
       load(n);
-      track.scrollTo({left: offset(slides[n]), behavior: reduced.matches ? 'auto' : 'smooth'});
+      load(n + 1);
+      cancelAnimationFrame(animation);
+      const start = track.scrollLeft, end = offset(slides[n]);
+      if (reduced.matches || (n === 0 && index() === slides.length - 1)) {
+        track.scrollTo({left:end, behavior:'instant'});
+        if (!reduced.matches) slides[n].animate([{opacity:.65},{opacity:1}],{duration:350});
+        sync();
+        return;
+      }
+      track.style.scrollSnapType = 'none';
+      const began = performance.now();
+      const step = now => {
+        const progress = Math.min((now - began) / 400, 1);
+        const eased = progress * progress * (3 - 2 * progress);
+        track.scrollLeft = start + (end - start) * eased;
+        if (progress < 1) animation = requestAnimationFrame(step);
+        else { animation = 0; track.style.scrollSnapType = ''; sync(); }
+      };
+      animation = requestAnimationFrame(step);
     }
     function schedule() {
       clearTimeout(timer);
@@ -36,17 +57,19 @@
           !gallery.hasAttribute('data-gallery-autoplay') || slides.length < 2) return;
       timer = setTimeout(() => {go(index() + 1); schedule();}, Math.max(interval, resumeAt - Date.now()));
     }
-    function manual() { resumeAt = Date.now() + 12000; schedule(); }
+    function manual() { resumeAt = Date.now() + interval; schedule(); }
     gallery.addEventListener('pointerenter', event => {
       if (event.pointerType === 'touch') return;
       hovered = true;
+      cancelAnimationFrame(animation);
+      animation = 0;
       track.scrollTo({left:track.scrollLeft, behavior:'instant'});
       schedule();
     });
     gallery.addEventListener('pointerleave', () => { hovered = false; schedule(); });
-    gallery.addEventListener('focusin', () => { focused = true; schedule(); });
+    gallery.addEventListener('focusin', event => { focused = event.target.matches(':focus-visible'); schedule(); });
     gallery.addEventListener('focusout', event => {
-      focused = gallery.contains(event.relatedTarget);
+      focused = gallery.contains(event.relatedTarget) && event.relatedTarget.matches(':focus-visible');
       schedule();
     });
     for (const [selector, direction] of [['[data-gallery-prev]', -1], ['[data-gallery-next]', 1]]) {
@@ -61,7 +84,7 @@
         event.preventDefault(); manual(); go(index() + (event.key === 'ArrowLeft' ? -1 : 1));
       }
     });
-    track.addEventListener('scroll', sync, {passive:true});
+    track.addEventListener('scroll', () => { if (!animation) sync(); }, {passive:true});
     track.addEventListener('wheel', manual, {passive:true});
     track.addEventListener('pointerdown', () => {held = true; manual();}, {passive:true});
     for (const event of ['pointerup', 'pointercancel']) window.addEventListener(event, () => {
