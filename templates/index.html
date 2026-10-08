@@ -13,8 +13,6 @@
     <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=7" defer></script>
     <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
     <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=2" defer></script>
-    <link rel="stylesheet" href="{{ url_for('static',filename='css/hero-intro.css') }}?v=1">
-    <script src="{{ url_for('static',filename='js/hero-intro.js') }}?v=1" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -39,7 +37,6 @@
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
-        {% include '_hero_intro.html' %}
         {% set gallery_images = cms_collection_media('hero', false) %}
         {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'hero' %}{% include '_cms_gallery.html' %}</div>{% endif %}
         {% set river_design = cms_gallery_settings('home_gallery') %}
