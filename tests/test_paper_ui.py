@@ -13,7 +13,7 @@ class PaperUiContractTests(unittest.TestCase):
             if section != 'blog':
                 self.assertIn(f'home_order_index.{section}', source)
         for binding in ('public.content.hero_title', 'public.content.hero_subtitle',
-                        'settings.hero_animation_video', 'name="csrf_token"',
+                        'name="csrf_token"',
                         'action="/send_message"', 'name="tour_interest"'):
             self.assertIn(binding, source)
 

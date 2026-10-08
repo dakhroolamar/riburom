@@ -1,0 +1,12 @@
+{% if hero_logo %}
+<div class="rb-code-intro" data-code-intro hidden aria-hidden="true">
+    <img class="rb-code-intro-scene" data-intro-scene="{{ url_for('static',filename='hero-meghalaya.webp') }}" alt="" width="1280" height="720">
+    <div class="rb-code-intro-shade"></div>
+    <svg class="rb-code-intro-river" viewBox="0 0 1000 220" fill="none" aria-hidden="true">
+        <path d="M-80 160C100 20 180 220 340 125S560 30 690 130 880 215 1080 70" stroke="#6ab8d6" stroke-width="18"/>
+        <path d="M-80 185C100 45 180 245 340 150S560 55 690 155 880 240 1080 95" stroke="#d6f1f3" stroke-width="6"/>
+        <path d="M-80 132C100 -8 180 192 340 97S560 2 690 102 880 187 1080 42" stroke="#3f8dac" stroke-width="8"/>
+    </svg>
+    <img class="rb-code-intro-logo" src="{{ hero_logo|imgsrc }}" alt="" decoding="async">
+</div>
+{% endif %}

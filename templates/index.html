@@ -13,6 +13,8 @@
     <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=7" defer></script>
     <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
     <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=2" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/hero-intro.css') }}?v=1">
+    <script src="{{ url_for('static',filename='js/hero-intro.js') }}?v=1" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -26,11 +28,7 @@
             {% set placement = cms_logo_placement() %}
             <div class="rb-hero-video-stage{% if placement %} cms-positioned-logo{% endif %}" data-rb-hero-video-stage {% if placement %}style="{% for device, values in placement.items() %}{% for axis in ['x','y','size'] %}--cms-{{ 'logo' if device == 'desktop' else device }}-{{ axis }}:{{ values[axis] }}%;{% endfor %}{% endfor %}"{% endif %}>
                 <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
-                {% if settings.hero_animation_video %}
-                <video class="rb-hero-animation-video" data-rb-hero-animation-video autoplay muted playsinline preload="metadata" poster="{{ hero_logo|imgsrc }}" aria-hidden="true">
-                    <source src="{{ settings.hero_animation_video|imgsrc }}">
-                </video>
-                {% endif %}
+
             </div>
             {% endif %}
             <p class="rb-hero-eyebrow text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
@@ -41,6 +39,7 @@
                 <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
             </div>
         </div>
+        {% include '_hero_intro.html' %}
         {% set gallery_images = cms_collection_media('hero', false) %}
         {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'hero' %}{% include '_cms_gallery.html' %}</div>{% endif %}
         {% set river_design = cms_gallery_settings('home_gallery') %}

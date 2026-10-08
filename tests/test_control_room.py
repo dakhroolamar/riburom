@@ -92,6 +92,8 @@ class ControlRoomTests(unittest.TestCase):
             self.assertIn(b'height:auto', page.data)
             self.assertIn(b'js/ri-burom-motion.js', page.data)
             home = self.client.get('/').data
+            self.assertNotIn(b'data-rb-hero-animation-video', home)
+            self.assertIn(b'js/hero-intro.js', home)
             self.assertIn(b'aria-label="Featured story"', home)
             self.assertIn(b'Read Stories from Meghalaya', home)
             self.assertIn(b'href="/stories"', home)
