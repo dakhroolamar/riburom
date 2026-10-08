@@ -7,10 +7,10 @@
     if (!track?.children.length || gallery.dataset.galleryReady) return;
     gallery.dataset.galleryReady = 'true';
     const slides = [...track.children];
-    const interval = [5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
+    const interval = [2000, 5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
     const count = gallery.querySelector('[data-gallery-count]');
     const pause = gallery.querySelector('[data-gallery-pause]');
-    let visible = false, paused = false, held = false, timer, resumeAt = 0;
+    let visible = false, paused = false, held = false, hovered = gallery.matches(':hover'), focused = false, timer, resumeAt = 0;
     const offset = slide => slide.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
     const index = () => slides.reduce((best, slide, n) =>
       Math.abs(offset(slide) - track.scrollLeft) < Math.abs(offset(slides[best]) - track.scrollLeft) ? n : best, 0);
@@ -32,11 +32,23 @@
     }
     function schedule() {
       clearTimeout(timer);
-      if (!visible || paused || held || document.hidden || reduced.matches || navigator.connection?.saveData ||
+      if (!visible || paused || held || hovered || focused || document.hidden || reduced.matches || navigator.connection?.saveData ||
           !gallery.hasAttribute('data-gallery-autoplay') || slides.length < 2) return;
       timer = setTimeout(() => {go(index() + 1); schedule();}, Math.max(interval, resumeAt - Date.now()));
     }
     function manual() { resumeAt = Date.now() + 12000; schedule(); }
+    gallery.addEventListener('pointerenter', event => {
+      if (event.pointerType === 'touch') return;
+      hovered = true;
+      track.scrollTo({left:track.scrollLeft, behavior:'instant'});
+      schedule();
+    });
+    gallery.addEventListener('pointerleave', () => { hovered = false; schedule(); });
+    gallery.addEventListener('focusin', () => { focused = true; schedule(); });
+    gallery.addEventListener('focusout', event => {
+      focused = gallery.contains(event.relatedTarget);
+      schedule();
+    });
     for (const [selector, direction] of [['[data-gallery-prev]', -1], ['[data-gallery-next]', 1]]) {
       const button = gallery.querySelector(selector);
       if (button) {
