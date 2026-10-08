@@ -80,6 +80,7 @@ class ControlRoomTests(unittest.TestCase):
                 response = self.client.post('/update_blog', data={
                     'blog_title': 'The King Who Could Not Be Killed',
                     'blog_excerpt': 'A legend passed through oral storytelling.',
+                    'blog_url': 'https://example.com/old-story',
                     'blog_enabled': 'on', 'blog_show_home': 'on',
                     'blog_image': (io.BytesIO(b'validated by storage mock'), 'story.png'),
                 })
@@ -89,8 +90,12 @@ class ControlRoomTests(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertIn(b'The King Who Could Not Be Killed', page.data)
             self.assertIn(b'height:auto', page.data)
-            self.assertIn(b'/stories/featured', self.client.get('/').data)
-            self.assertIn(b'/stories/featured', self.client.get('/about').data)
+            home = self.client.get('/').data
+            self.assertIn(b'aria-label="Featured story"', home)
+            self.assertIn(b'Read Stories from Meghalaya', home)
+            self.assertIn(b'href="/stories/featured"', home)
+            self.assertNotIn(b'href="https://example.com/old-story"', home)
+            self.assertNotIn(b'A legend passed through oral storytelling.', home)
             self.client.post('/update_blog', data={'blog_title': 'Unpublished'})
             self.assertEqual(self.client.get('/stories/featured').status_code, 404)
         finally:

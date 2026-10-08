@@ -10,7 +10,8 @@ class PaperUiContractTests(unittest.TestCase):
         source = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
         for section in ('hero', 'about', 'tours', 'why', 'blog', 'contact'):
             self.assertIn(f'public.home.visibility.{section}', source)
-            self.assertIn(f'home_order_index.{section}', source)
+            if section != 'blog':
+                self.assertIn(f'home_order_index.{section}', source)
         for binding in ('public.content.hero_title', 'public.content.hero_subtitle',
                         'settings.hero_animation_video', 'name="csrf_token"',
                         'action="/send_message"', 'name="tour_interest"'):

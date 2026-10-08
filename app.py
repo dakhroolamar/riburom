@@ -1473,7 +1473,7 @@ def update_blog():
 @app.route('/stories/featured')
 def featured_story():
     settings = get_site_settings()
-    if not settings.blog_enabled or not settings.blog_image:
+    if not settings.blog_enabled or not (settings.blog_image or settings.blog_url):
         abort(404)
     return render_template('featured_story.html', settings=settings)
 
