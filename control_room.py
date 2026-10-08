@@ -328,6 +328,10 @@ def register_control_room(app):
                 ('box', Package.query.filter_by(published=True).count() if allowed('manage_tours', 'view_marketplace') else '—', 'Active Packages', 'slate')]
         if section == 'website':
             page = request.args.get('page', 'home')
+            if page == 'stories':
+                if not allowed('manage_about'):
+                    abort(403)
+                return render_template('control_room/blog.html', **context)
             if page not in PAGES:
                 abort(404)
             revisions = WebsiteRevision.query.filter_by(page=page).order_by(WebsiteRevision.id.desc()).limit(20).all()

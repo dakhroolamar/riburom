@@ -1,0 +1,19 @@
+{% extends 'control_room/base.html' %}
+{% from 'control_room/macros.html' import csrf with context %}
+{% block content %}
+<div class="cr-page-heading"><div><h1>Blog / Stories</h1><p>Share a featured story from the hills.</p></div><a class="cr-button secondary" href="{{ url_for('control_room',section='website') }}">Back to Website Manager</a></div>
+<section class="cr-panel" style="max-width:900px;padding:24px">
+<h2>Featured story</h2><p class="cr-muted">Upload your illustrated blog as a PNG, JPG or WebP. Readers can open the complete image on its own story page. Saving replaces the current featured story.</p>
+<form action="{{ url_for('update_blog') }}" method="post" enctype="multipart/form-data" style="margin-top:20px">{{ csrf() }}
+<label>Story title<input name="blog_title" value="{{ settings.blog_title or '' }}" maxlength="300" required></label>
+<label>Introduction / accessible story text<textarea name="blog_excerpt" rows="8" maxlength="10000">{{ settings.blog_excerpt or '' }}</textarea></label>
+<p class="cr-muted">For an illustrated story, paste its text here so readers using assistive technology can read it too.</p>
+<label>Story artwork<input type="file" name="blog_image" accept="image/png,image/jpeg,image/webp"></label><p class="cr-muted">Up to 12 MB. The story page displays the full artwork without cropping.</p>
+{% if settings.blog_image %}<img src="{{ settings.blog_image|imgsrc }}" alt="Current story artwork" style="display:block;max-width:100%;max-height:500px;object-fit:contain;margin:16px 0"><label><input type="checkbox" name="remove_blog_image">Remove current artwork</label>{% endif %}
+<label>External story link (optional)<input type="url" name="blog_url" value="{{ settings.blog_url or '' }}" maxlength="1000" placeholder="Leave blank to use the on-site story page"></label>
+<label>Button text<input name="blog_button_text" value="{{ settings.blog_button_text or 'Read the Story' }}" maxlength="120"></label>
+<label><input type="checkbox" name="blog_enabled" {% if settings.blog_enabled %}checked{% endif %}>Publish story</label>
+<label><input type="checkbox" name="blog_show_home" {% if settings.blog_show_home %}checked{% endif %}>Feature on homepage</label>
+<p class="cr-muted">The homepage Blog section must also be visible in the homepage settings.</p>
+<button type="submit">Save Story</button>{% if settings.blog_enabled and settings.blog_image %}<a class="cr-button secondary" href="{{ url_for('featured_story') }}" target="_blank" rel="noopener">View story</a>{% endif %}
+</form></section>{% endblock %}

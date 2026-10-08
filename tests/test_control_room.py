@@ -66,6 +66,59 @@ class ControlRoomTests(unittest.TestCase):
         for route in ('/workspace','/workspace/cms','/workspace/marketplace','/workspace/administration'):
             self.assertEqual(self.client.get(route).status_code, 302)
 
+    def test_featured_story_upload_publish_and_unpublish(self):
+        from unittest.mock import patch
+        from models import SiteSettings
+        settings = SiteSettings.query.first()
+        fields = ('blog_title', 'blog_excerpt', 'blog_url', 'blog_image', 'blog_enabled', 'blog_show_home')
+        original = {name: getattr(settings, name) for name in fields}
+        try:
+            response = self.client.get('/workspace/control/website?page=stories')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b'name="blog_image"', response.data)
+            with patch('app.save_image', return_value='uploads/story.png'):
+                response = self.client.post('/update_blog', data={
+                    'blog_title': 'The King Who Could Not Be Killed',
+                    'blog_excerpt': 'A legend passed through oral storytelling.',
+                    'blog_enabled': 'on', 'blog_show_home': 'on',
+                    'blog_image': (io.BytesIO(b'validated by storage mock'), 'story.png'),
+                })
+            self.assertEqual(response.status_code, 302)
+            self.assertIn('page=stories', response.location)
+            page = self.client.get('/stories/featured')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn(b'The King Who Could Not Be Killed', page.data)
+            self.assertIn(b'height:auto', page.data)
+            self.assertIn(b'/stories/featured', self.client.get('/').data)
+            self.assertIn(b'/stories/featured', self.client.get('/about').data)
+            self.client.post('/update_blog', data={'blog_title': 'Unpublished'})
+            self.assertEqual(self.client.get('/stories/featured').status_code, 404)
+        finally:
+            for name, value in original.items():
+                setattr(settings, name, value)
+            self.db.session.commit()
+
+    def test_story_editor_requires_content_permission(self):
+        from models import User
+        staff = User(username='story-viewer', full_name='Story Viewer', role='staff', permissions_json='{}', password_hash='unused')
+        self.db.session.add(staff)
+        self.db.session.commit()
+        self.login(staff)
+        self.assertEqual(self.client.get('/workspace/control/website?page=stories').status_code, 403)
+        self.assertEqual(self.client.post('/update_blog', data={'blog_enabled': 'on'}).status_code, 403)
+
+    def test_invalid_story_image_does_not_publish_settings(self):
+        from models import SiteSettings
+        settings = SiteSettings.query.first()
+        before = (settings.blog_title, settings.blog_image, settings.blog_enabled)
+        response = self.client.post('/update_blog', data={
+            'blog_title': 'Must not publish', 'blog_enabled': 'on',
+            'blog_image': (io.BytesIO(b'not an image'), 'invalid.png'),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.db.session.refresh(settings)
+        self.assertEqual((settings.blog_title, settings.blog_image, settings.blog_enabled), before)
+
     def test_quote_and_trip_conversion_preserve_source_enquiry(self):
         from models import Message
         from control_room_models import LeadWorkspace, Quote, Trip

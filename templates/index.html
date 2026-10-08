@@ -143,7 +143,7 @@
     </section>
     {% endif %}
 
-    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and settings.blog_url %}
+    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_url or settings.blog_image) %}
     <section id="rb-home-blog" data-reveal="right" style="order:{{ home_order_index.blog }};" class="rb-story rb-section-space">
         <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             {% if settings.blog_image %}<img class="rb-paper-photo" src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" loading="lazy" decoding="async">{% endif %}
@@ -151,7 +151,7 @@
                 <p class="text-amber-900 font-bold uppercase tracking-wider mb-2">{{ public.content.blog_eyebrow }}</p>
                 <h2 class="text-3xl md:text-4xl font-bold text-green-800 mb-4">{{ settings.blog_title }}</h2>
                 <p class="text-gray-600 text-lg whitespace-pre-line">{{ settings.blog_excerpt }}</p>
-                <a href="{{ settings.blog_url }}" target="_blank" rel="noopener noreferrer" class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }}</a>
+                <a href="{{ settings.blog_url or url_for('featured_story') }}" {% if settings.blog_url %}target="_blank" rel="noopener noreferrer"{% endif %} class="rb-button inline-block mt-6 bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded">{{ settings.blog_button_text or 'Read the Story' }}</a>
             </div>
         </div>
     </section>

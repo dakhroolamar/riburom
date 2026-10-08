@@ -1429,9 +1429,25 @@ def update_public_site():
 def update_blog():
     settings = get_site_settings()
     url = (request.form.get('blog_url') or '').strip()
+    destination = url_for('control_room', section='website', page='stories')
     if url and not valid_external_url(url):
         flash('Blog URL must be a valid http/https link.', 'error')
-        return redirect('/workspace/cms/media')
+        return redirect(destination)
+    upload = request.files.get('blog_image')
+    if upload and upload.filename:
+        if len(upload.read(12 * 1024 * 1024 + 1)) > 12 * 1024 * 1024:
+            flash('Story images must be 12 MB or smaller.', 'error')
+            return redirect(destination)
+        upload.stream.seek(0)
+    try:
+        new_image = save_image(upload)
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(destination)
+    image = new_image or (None if request.form.get('remove_blog_image') else settings.blog_image)
+    if request.form.get('blog_enabled') and not (url or image):
+        flash('Upload a story image or provide an external story link before publishing.', 'error')
+        return redirect(destination)
     settings.blog_enabled = bool(request.form.get('blog_enabled'))
     settings.blog_show_home = bool(request.form.get('blog_show_home'))
     settings.blog_url = url
@@ -1440,23 +1456,26 @@ def update_blog():
     settings.blog_button_text = (request.form.get('blog_button_text') or 'Read the Story').strip()[:120] or 'Read the Story'
 
     old_image = settings.blog_image
-    try:
-        new_image = save_image(request.files.get('blog_image'))
-    except ValueError as exc:
-        flash(str(exc), 'error')
-        return redirect('/workspace/cms/media')
     if new_image:
         settings.blog_image = new_image
     elif request.form.get('remove_blog_image'):
         settings.blog_image = None
 
-    add_audit('updated', 'blog', 1, 'featured external blog story')
+    add_audit('updated', 'blog', 1, 'featured blog story')
     db.session.commit()
-    notify_indexnow_paths(['/', '/about'])
+    notify_indexnow_paths(['/', '/about', '/stories/featured'])
     if (new_image or request.form.get('remove_blog_image')) and old_image != settings.blog_image:
         delete_media(old_image)
     flash('Blog feature updated.', 'success')
-    return redirect('/workspace/cms/media')
+    return redirect(destination)
+
+
+@app.route('/stories/featured')
+def featured_story():
+    settings = get_site_settings()
+    if not settings.blog_enabled or not settings.blog_image:
+        abort(404)
+    return render_template('featured_story.html', settings=settings)
 
 
 @app.route('/update_footer', methods=['POST'])

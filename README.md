@@ -24,6 +24,16 @@ Python is pinned to **3.14.3** in `.python-version`, and CI uses the same versio
 
 ## Main application areas
 
+### Featured blog / story
+
+In the Control Room, open **Website Manager → Blog / Stories**. Upload a PNG,
+JPG or WebP (up to 12 MB), add a title and accessible story text, and select
+**Publish story**. With no external link, readers open `/stories/featured`, where
+the artwork is displayed in full. Select **Feature on homepage** and keep the
+homepage Blog section visible to show its card. This editor manages one featured
+story; saving replaces the previous feature. Clearing Publish story hides the
+public story page. Existing external blog links remain supported.
+
 - Public homepage, About page, experiences, tour details, and marketplace.
 - Staff Operations workspace for tours, website enquiries, and team profiles.
 - CMS for public copy, styling, media, backgrounds, typography, and structure.
