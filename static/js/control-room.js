@@ -9,11 +9,29 @@
     if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
   }));
   const menu = document.querySelector('[data-menu]');
-  menu?.addEventListener('click', () => {
-    const open = document.getElementById('cr-sidebar').classList.toggle('is-open');
-    menu.setAttribute('aria-expanded', String(open));
+  const sidebar = document.getElementById('cr-sidebar');
+  const mobileNavigation = window.matchMedia('(max-width: 700px)');
+  const setNavigation = (open, restoreFocus = false) => {
+    if (!sidebar || !menu) return;
+    const expanded = mobileNavigation.matches && open;
+    sidebar.classList.toggle('is-open', expanded);
+    sidebar.inert = mobileNavigation.matches && !expanded;
+    menu.setAttribute('aria-expanded', String(expanded));
+    if (expanded) sidebar.querySelector('a')?.focus();
+    else if (restoreFocus) menu.focus();
+  };
+  menu?.addEventListener('click', () => setNavigation(menu.getAttribute('aria-expanded') !== 'true'));
+  mobileNavigation.addEventListener('change', () => setNavigation(false));
+  setNavigation(false);
+  document.addEventListener('click', event => {
+    if (menu?.getAttribute('aria-expanded') === 'true' && !sidebar.contains(event.target) && !menu.contains(event.target)) setNavigation(false);
   });
-  document.addEventListener('keydown', event => {if (event.key === 'Escape') {document.getElementById('cr-sidebar')?.classList.remove('is-open'); menu?.setAttribute('aria-expanded','false');}});
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && menu?.getAttribute('aria-expanded') === 'true') setNavigation(false, true);
+  });
+  document.addEventListener('focusin', event => {
+    if (menu?.getAttribute('aria-expanded') === 'true' && !sidebar.contains(event.target) && !menu.contains(event.target)) setNavigation(false);
+  });
   document.querySelectorAll('[data-tab-group]').forEach(group => {
     const buttons = [...group.querySelectorAll('[data-tab-target]')];
     buttons.forEach(button => {

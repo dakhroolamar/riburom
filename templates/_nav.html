@@ -40,7 +40,7 @@
         </button>
     </div>
 
-    <div id="mobile-menu" class="rb-mobile-menu" aria-hidden="true">
+    <div id="mobile-menu" class="rb-mobile-menu" aria-hidden="true" inert>
         <a href="/">{{ public.content.nav_home }}</a>
         <a href="/all_tours">{{ public.content.mobile_tours }}</a>
         <a href="/marketplace">Marketplace</a>
@@ -62,6 +62,7 @@
     const setOpen = (open) => {
         menu.classList.toggle('is-open', open);
         menu.setAttribute('aria-hidden', String(!open));
+        menu.inert = !open;
         button.setAttribute('aria-expanded', String(open));
     };
 
@@ -70,6 +71,15 @@
     });
 
     menu.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setOpen(false)));
+    document.addEventListener('click', event => {
+        if (!menu.contains(event.target) && !button.contains(event.target)) setOpen(false);
+    });
+    document.addEventListener('focusin', event => {
+        if (!menu.contains(event.target) && !button.contains(event.target)) setOpen(false);
+    });
+    window.addEventListener('resize', () => {
+        if (getComputedStyle(button).display === 'none') setOpen(false);
+    }, { passive: true });
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && button.getAttribute('aria-expanded') === 'true') {
             setOpen(false);

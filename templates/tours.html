@@ -10,9 +10,9 @@
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
 </head>
-<body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800 font-sans">
+<body class="rb-public-site rb-studio-public rb-editorial rb-page-enter bg-gray-50 text-gray-800 font-sans">
 {% include '_nav.html' %}{% include '_flash.html' %}
-<section data-reveal class="max-w-7xl mx-auto px-6 py-12">
+<section data-reveal class="rb-discovery-layout max-w-7xl mx-auto px-6 py-12">
     <div class="rb-hero-readable rb-discovery-head"><div class="rb-hero-copy"><p class="rb-hero-eyebrow">{{ public.content.tours_page_eyebrow }}</p><h1 class="rb-hero-title">{{ public.content.tours_page_heading }}</h1><p class="text-gray-600">{{ public.content.tours_page_intro }}</p></div></div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
         {% for pkg in packages %}

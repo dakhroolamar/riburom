@@ -22,26 +22,26 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("--rb-font-cultural:var(--rb-heading-font", source)
         self.assertIn("--rb-font-body:var(--rb-body-font", source)
 
-    def test_hero_opening_film_keeps_landscape_gap_and_larger_logo(self):
+    def test_editorial_hero_keeps_copy_visible_and_preserves_cms_logo(self):
         js = (ROOT / 'static/js/ri-burom-home-fixes.js').read_text(encoding='utf-8')
-        css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
+        css = (ROOT / 'static/css/ri-burom-editorial.css').read_text(encoding='utf-8')
         home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
         landscape = (ROOT / 'templates/_paper_landscape.html').read_text(encoding='utf-8')
-
-        self.assertIn("video.classList.add('rb-hero-opening-film')", js)
-        self.assertIn("video.parentElement !== hero", js)
-        self.assertNotIn("stage.appendChild(video)", js)
-        self.assertIn("ri-burom-home-fixes.css?v=9", js)
-        self.assertIn("landscapeRect.top - heroRect.top - configuredGap", js)
-        self.assertIn("originalWidth * 2", js)
-        self.assertIn("--rb-hero-landscape-gap", css)
-        self.assertIn("var(--rb-home-landscape-height) - var(--rb-hero-landscape-gap)", css)
-        self.assertIn("object-fit:cover!important", css)
-        self.assertIn("rb-hero-video-playing .rb-hero-content", css)
-        self.assertIn("max-width:min(86vw,320px)!important", css)
-        self.assertIn("max-height:220px!important", css)
+        editorial = js.split("if (document.body.classList.contains('rb-studio-public')) {", 1)[1].split('return;', 1)[0]
+        self.assertIn('stage.appendChild(video)', editorial)
+        self.assertIn("video.classList.add('rb-hero-opening-film')", editorial)
+        self.assertNotIn('logo.style.setProperty', editorial)
+        self.assertNotIn('originalWidth * 2', editorial)
+        self.assertIn('settings.hero_logo_width', home)
+        self.assertIn('settings.hero_animation_video', home)
+        self.assertIn('rb-studio-public', home)
+        self.assertIn('rb-editorial-hero', home)
+        self.assertIn('.rb-hero-content', css)
+        self.assertIn('visibility:visible!important', css)
+        self.assertIn('pointer-events:auto!important', css)
+        self.assertIn('[data-reveal]{opacity:1;', css)
         self.assertIn("ri-burom-home-fixes.css') }}?v=9", home)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=10", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=11", home)
         self.assertNotIn('ri-burom-home-fixes', landscape)
 
     def test_home_gallery_interactions_are_cms_driven(self):
@@ -62,7 +62,6 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn('class="rb-rail-button" type="button" data-rb-rail-next', home)
         self.assertNotIn('data-rb-water-shield', gallery_template)
         self.assertNotIn('data-rb-water-shield', home)
-        self.assertIn('#rb-home-why.rb-aged-paper-tear{width:96%!important;padding:4.8rem 1.3rem!important}', css)
         for contract in ('data-rb-river-gallery-host', 'data-rb-river-gallery',
                          'data-rb-about-gallery', 'data-rb-about-flip',
                          'rb-experience-rail', 'data-rb-rail-track'):
@@ -78,15 +77,19 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("/workspace/cms/galleries/save", cms)
         self.assertIn('multiple required', cms_template)
 
-    def test_why_section_uses_torn_aged_paper_not_flat_green_panel(self):
+    def test_why_section_uses_open_editorial_layout_with_cms_content(self):
         home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
-        css = (ROOT / 'static/css/ri-burom-home-fixes.css').read_text(encoding='utf-8')
-        self.assertIn('rb-aged-paper-tear', home)
+        css = (ROOT / 'static/css/ri-burom-editorial.css').read_text(encoding='utf-8')
+        self.assertIn('rb-editorial-values', home)
+        self.assertIn('public.content.home_why_title', home)
+        for number in range(1, 5):
+            self.assertIn(f'public.content.why{number}_title', home)
+            self.assertIn(f'public.content.why{number}_text', home)
+        self.assertNotIn('rb-aged-paper-tear', home)
         self.assertNotIn('class="rb-story rb-paper-edge bg-green-900 text-white rb-section-space"', home)
-        self.assertIn('clip-path:polygon(', css)
-        self.assertIn('repeating-linear-gradient', css)
-        self.assertIn('repeating-radial-gradient', css)
-        self.assertIn('drop-shadow', css)
+        self.assertIn('rb-home-why', css)
+        self.assertIn('background:transparent!important', css)
+        self.assertIn('border-radius:0!important', css)
 
     def test_tour_art_is_separate_from_dynamic_title(self):
         source = (ROOT / 'templates/tour_detail.html').read_text(encoding='utf-8')
@@ -116,7 +119,7 @@ class PaperUiContractTests(unittest.TestCase):
         for water_token in ('#4fa8c7', '#c4e9e9', '#85c4cf'):
             self.assertNotIn(water_token, landscape)
             self.assertNotIn(water_token, about_fallback)
-        self.assertIn("ri-burom-home-fixes.js') }}?v=10", home)
+        self.assertIn("ri-burom-home-fixes.js') }}?v=11", home)
 
     def test_marketplace_form_and_shared_footer_remain(self):
         provider = (ROOT / 'templates/marketplace_provider.html').read_text(encoding='utf-8')

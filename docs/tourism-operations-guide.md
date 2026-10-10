@@ -36,6 +36,8 @@ Draft, awaiting verification, under review and documents verified describe revie
 
 ## Update website and media
 
+Featured stories now appear within the homepage instead of opening automatically over it. Use the existing story title, excerpt, image and home-visibility settings to maintain that section. Public typography, colors, branding, gallery order and visibility remain editable through the same CMS controls.
+
 Website page text follows **Save Draft → Preview saved draft → Publish Saved Draft**. Review the saved change summary before publishing. Images and appearance use immediate saves and are labelled as live changes. Media titles, alt text and captions are shared wherever that image is used.
 
 Give photographs descriptive titles and location/tags so colleagues can find them. Use the media usage links to reach their page gallery. Rotate an incorrectly oriented source before replacing it; use the gallery's focal controls for cropping. Replacing a shared photograph affects its other uses.
@@ -47,3 +49,9 @@ An Owner can apply the **Tourism Operations** preset when creating or editing a 
 ## Editing alongside colleagues
 
 Packages, trips, checklists and enquiry actions reject a save when someone else has changed that record since you opened it. On a conflict, reload, review the latest saved version and reapply your intended changes. This prevents an older form from replacing a colleague's work.
+
+## Daily workspace layout
+
+The enquiry list places traveller, status and last update with next action/follow-up first. Scroll across the table for destination, source, dates, budget and assigned staff; select the traveller to work in the detail panel. Dashboard pipeline counts open the corresponding enquiry filter.
+
+On a phone, Menu opens navigation; Escape or an outside interaction closes it. Closed navigation stays outside the keyboard focus order. Package editing keeps the save and preview actions available while moving through the form.

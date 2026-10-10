@@ -137,7 +137,8 @@ class SeoFoundationTests(unittest.TestCase):
         motion_source = (root / "static" / "js" / "ri-burom-motion.js").read_text(encoding="utf-8")
 
         self.assertIn('alt="RI BUROM Tours & Travels logo"', nav_source)
-        self.assertIn('alt="Meghalaya landscape featured by RI BUROM"', home_source)
+        self.assertIn('Meghalaya landscape featured by RI BUROM', home_source)
+        self.assertIn('A lush landscape and waterfall', home_source)
         self.assertIn("RI BUROM partner or certification logo", footer_source)
         self.assertNotIn('function showLoader', motion_source)
 

@@ -10,17 +10,16 @@
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=10" defer></script>
     {% include '_public_theme.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=9" data-rb-home-fixes-css>
-    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=10" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=11" defer></script>
     <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
-    <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=3" defer></script>
 </head>
-<body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
+<body class="rb-public-site rb-editorial rb-studio-public rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
     {% include '_flash.html' %}
     <main id="rbHomeSections" class="rb-paper-journey flex flex-col">
     {% if public.home.visibility.hero %}
     {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
-    <header id="rb-home-hero" class="rb-paper-hero rb-paper-edge rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
+    <header id="rb-home-hero" class="rb-paper-hero rb-editorial-hero rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center rb-hero-content rb-hero-copy">
             {% if hero_logo or settings.hero_animation_video %}
             {% set placement = cms_logo_placement() %}
@@ -42,8 +41,7 @@
         {% set river_design = cms_gallery_settings('home_gallery') %}
         <div class="rb-paper-landscape rb-river-gallery-host" data-rb-river-gallery-host>
             <div class="rb-river-gallery-fallback" data-rb-river-gallery-fallback>
-                {% include '_paper_landscape.html' %}
-                {% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="Meghalaya landscape featured by RI BUROM" decoding="async">{% endif %}
+                <img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="{% if hero_image %}Meghalaya landscape featured by RI BUROM{% else %}A lush landscape and waterfall{% endif %}" fetchpriority="high" decoding="async">
             </div>
             <div class="rb-river-gallery cms-public-gallery" data-rb-river-gallery data-cms-gallery {% if river_design.autoplay %}data-gallery-autoplay{% endif %} data-gallery-interval="{{ river_design.interval }}" style="--gallery-ratio:{{ river_design.ratio }}" aria-label="RI BUROM photo gallery" hidden>
                 <div class="rb-river-gallery-track cms-gallery-track" data-rb-rail-track tabindex="0" aria-label="Gallery photographs"></div>
@@ -61,8 +59,8 @@
     {% if public.home.visibility.about %}
     <section id="rb-home-about" style="order:{{ home_order_index.about }};" class="rb-story">
       <div class="rb-story-grid">
-        <div class="rb-story-art rb-paper-pin rb-about-gallery-host" data-rb-about-gallery>
-            <div class="rb-about-gallery-fallback" data-rb-about-gallery-fallback>{% include '_paper_falls.html' %}</div>
+        <div class="rb-story-art rb-about-gallery-host" data-rb-about-gallery>
+            <div class="rb-about-gallery-fallback" data-rb-about-gallery-fallback><img src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="Landscape featured by RI BUROM" loading="lazy" decoding="async"></div>
             <div class="rb-about-flip" data-rb-about-flip hidden>
                 <div class="rb-about-flip-page" data-rb-about-flip-page><img src="" alt="RI BUROM Meghalaya travel gallery" loading="lazy" decoding="async"></div>
                 <span class="rb-about-flip-counter" data-rb-about-counter aria-live="polite"></span>
@@ -125,7 +123,7 @@
     {% endif %}
 
     {% if public.home.visibility.why %}
-    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="rb-story rb-aged-paper-tear rb-section-space">
+    <section id="rb-home-why" data-reveal style="order:{{ home_order_index.why }};" class="rb-story rb-editorial-values rb-section-space">
         <div class="max-w-7xl mx-auto px-6">
             <div class="max-w-3xl mb-10">
                 <p class="rb-aged-eyebrow font-bold uppercase tracking-wider mb-2">{{ public.content.home_why_eyebrow }}</p>
@@ -142,12 +140,25 @@
     </section>
     {% endif %}
 
+    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
+    <section id="rb-home-blog" class="rb-story rb-editorial-story" aria-label="Featured story" style="order:{{ home_order_index.blog }};">
+        <div class="rb-story-grid">
+            {% if settings.blog_image %}<a href="{{ url_for('featured_story') }}" class="rb-story-art"><img src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" loading="lazy" decoding="async"></a>{% endif %}
+            <div>
+                <h2>{{ settings.blog_title }}</h2>
+                {% if settings.blog_excerpt %}<p>{{ settings.blog_excerpt }}</p>{% endif %}
+                <a href="{{ url_for('featured_story') }}" class="rb-action-outline rb-custom-link mt-6">{{ settings.blog_button_text or 'Read the story' }}</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     {% include '_reviews.html' %}
     {% if public.home.visibility.contact %}
     <section id="rb-home-contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
         <div id="contact" style="position:relative;top:-2px"></div>
-        <div class="max-w-4xl mx-auto px-6">
-            <div class="text-center mb-8">
+        <div class="rb-contact-layout">
+            <div class="rb-contact-intro">
                 <h2 class="text-3xl font-bold text-green-800">{{ public.content.contact_title }}</h2>
                 <p class="text-gray-600 mt-2">{{ public.content.contact_text }}</p>
             </div>
@@ -173,15 +184,6 @@
     <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>
     {% endif %}
 
-    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
-    <aside id="rb-home-blog" class="rb-story-notification" aria-label="Featured story" data-story-key="{{ featured_story_key }}" hidden>
-        <button type="button" class="rb-story-notification-close" aria-label="Dismiss story card">×</button>
-        <a class="rb-story-notification-link" href="/stories">
-            {% if settings.blog_image %}<img src="{{ settings.blog_image|imgsrc }}" alt="" width="72" height="92" loading="lazy">{% endif %}
-            <span><strong>Read Stories from Meghalaya</strong><span class="rb-story-notification-title">{{ settings.blog_title }}</span><span class="rb-story-notification-action">Read the story <span aria-hidden="true">→</span></span></span>
-        </a>
-    </aside>
-    {% endif %}
     {% include '_footer.html' %}
 </body>
 </html>

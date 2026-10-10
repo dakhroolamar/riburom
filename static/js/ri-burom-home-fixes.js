@@ -24,6 +24,19 @@
 
     if (!hero || !stage || !logo) return;
 
+    // The editorial hero keeps navigation and copy available while media plays.
+    // Its reserved media slot also preserves the logo dimensions set in the CMS.
+    if (document.body.classList.contains('rb-studio-public')) {
+      if (video) {
+        if (video.parentElement !== stage) stage.appendChild(video);
+        video.classList.remove('rb-hero-animation-video--background');
+        video.classList.add('rb-hero-opening-film');
+        Object.entries({position:'absolute', top:'0', right:'0', bottom:'0', left:'0', width:'100%', height:'100%', 'object-fit':'contain', 'z-index':'1'})
+          .forEach(([property, value]) => video.style.setProperty(property, value));
+      }
+      return;
+    }
+
     if (!logo.dataset.rbOriginalHeroWidth) {
       const configuredWidth = parseFloat(logo.style.width) || Math.round(logo.getBoundingClientRect().width) || 80;
       logo.dataset.rbOriginalHeroWidth = String(configuredWidth);
