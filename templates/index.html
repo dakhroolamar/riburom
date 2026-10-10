@@ -11,7 +11,7 @@
     {% include '_public_theme.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=9" data-rb-home-fixes-css>
     <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=11" defer></script>
-    <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=3">
 </head>
 <body class="rb-public-site rb-editorial rb-studio-public rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -133,19 +133,6 @@
     </section>
     {% endif %}
 
-    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
-    <section id="rb-home-blog" class="rb-story rb-editorial-story" aria-label="Featured story" style="order:{{ home_order_index.blog }};">
-        <div class="rb-story-grid">
-            {% if settings.blog_image %}<a href="{{ url_for('featured_story') }}" class="rb-story-art"><img src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" loading="lazy" decoding="async"></a>{% endif %}
-            <div>
-                <h2>{{ settings.blog_title }}</h2>
-                {% if settings.blog_excerpt %}<p>{{ settings.blog_excerpt }}</p>{% endif %}
-                <a href="{{ url_for('featured_story') }}" class="rb-action-outline rb-custom-link mt-6">{{ settings.blog_button_text or 'Read the story' }}</a>
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
     {% include '_reviews.html' %}
     {% if public.home.visibility.contact %}
     <section id="rb-home-contact" data-reveal="scale" style="order:{{ home_order_index.contact }};" class="bg-gray-200 rb-section-space">
@@ -172,6 +159,14 @@
     </section>
     {% endif %}
     </main>
+
+    {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
+    <aside class="rb-story-notification rb-story-shortcut" aria-label="Stories" data-story-shortcut>
+        <a href="{{ url_for('featured_story') }}" class="rb-story-notification-link"><span aria-hidden="true">↗</span><strong>Read Stories</strong></a>
+        <button type="button" class="rb-story-notification-close" aria-label="Dismiss Read Stories card">×</button>
+    </aside>
+    <script src="{{ url_for('static', filename='js/story-navigation-card.js') }}?v=1" defer></script>
+    {% endif %}
 
     {% if public.theme.whatsapp_visible is not defined or public.theme.whatsapp_visible %}
     <a href="{{ whatsapp_url(public.content.whatsapp_message) }}" target="_blank" rel="noopener noreferrer" class="rb-floating-cta fixed bottom-6 right-6 rb-button text-white px-5 py-3 rounded-full shadow-2xl transition z-50 font-bold">{{ public.content.whatsapp_text }}</a>

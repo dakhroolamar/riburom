@@ -1,5 +1,9 @@
 .rb-story-notification{position:fixed;left:24px;bottom:24px;z-index:1001;isolation:isolate;pointer-events:auto;width:320px;max-width:calc(100vw - 32px);background:#fffdf6;border:1px solid #d9dfcf;border-radius:16px;box-shadow:0 8px 32px #17372926;padding:16px;font-family:var(--rb-body-font,Arial,sans-serif)}
 .rb-story-notification[hidden]{display:none}
+.rb-story-notification.rb-story-shortcut{width:220px;padding:12px 44px 12px 16px;background:#f5f3ed;border-color:#173d3233;border-radius:4px;box-shadow:0 4px 20px #173d3214;z-index:40}
+.rb-story-shortcut .rb-story-notification-link{min-height:44px;padding:0;color:#173d32;font-family:Georgia,"Times New Roman",serif}
+.rb-story-shortcut .rb-story-notification-link strong{font-size:18px;font-weight:400;margin:0}
+.rb-story-shortcut .rb-story-notification-close{width:40px;height:40px;top:14px;right:2px;color:#173d32}
 .rb-story-notification-link{display:flex;gap:14px;align-items:center;color:#183e2b;text-decoration:none;padding-right:10px}
 .rb-story-notification-link img{width:72px;height:92px;object-fit:contain;background:#f1eddf;border-radius:6px;flex-shrink:0}
 .rb-story-notification-link strong{display:block;font-size:16px;line-height:1.35;margin-bottom:6px}

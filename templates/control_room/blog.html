@@ -13,7 +13,7 @@
 <label>External story link (optional)<input type="url" name="blog_url" value="{{ settings.blog_url or '' }}" maxlength="1000" placeholder="Leave blank to use the on-site story page"></label>
 <label>Button text<input name="blog_button_text" value="{{ settings.blog_button_text or 'Read the Story' }}" maxlength="120"></label>
 <label><input type="checkbox" name="blog_enabled" {% if settings.blog_enabled %}checked{% endif %}>Publish story</label>
-<label><input type="checkbox" name="blog_show_home" {% if settings.blog_show_home %}checked{% endif %}>Feature on homepage</label>
-<p class="cr-muted">The homepage Blog section must also be visible in the homepage settings.</p>
+<label><input type="checkbox" name="blog_show_home" {% if settings.blog_show_home %}checked{% endif %}>Show Read Stories card on homepage</label>
+<p class="cr-muted">The homepage Blog visibility setting also controls this card. Story artwork and text appear on the story page.</p>
 <button type="submit">Save Story</button>{% if settings.blog_enabled and settings.blog_image %}<a class="cr-button secondary" href="{{ url_for('featured_story') }}" target="_blank" rel="noopener">View story</a>{% endif %}
 </form></section>{% endblock %}

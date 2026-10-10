@@ -244,16 +244,18 @@ class ControlRoomTests(unittest.TestCase):
             home = self.client.get('/').data
             self.assertNotIn(b'data-rb-hero-animation-video', home)
             self.assertNotIn(b'js/hero-intro.js', home)
-            self.assertIn(b'aria-label="Featured story"', home)
-            self.assertIn(b'class="rb-story rb-editorial-story"', home)
-            self.assertIn(b'The King Who Could Not Be Killed', home)
+            self.assertIn(b'data-story-shortcut', home)
+            self.assertIn(b'Read Stories', home)
+            self.assertNotIn(b'id="rb-home-blog"', home)
+            self.assertNotIn(b'The King Who Could Not Be Killed', home)
             self.assertIn(b'href="/stories/featured"', home)
-            self.assertNotIn(b'class="rb-story-notification"', home)
+            self.assertIn(b'js/story-navigation-card.js', home)
             self.assertNotIn(b'js/story-notification.js', home)
             self.assertNotIn(b'href="https://example.com/old-story"', home)
-            self.assertIn(b'A legend passed through oral storytelling.', home)
+            self.assertNotIn(b'A legend passed through oral storytelling.', home)
             self.client.post('/update_blog', data={'blog_title': 'Unpublished'})
             self.assertEqual(self.client.get('/stories/featured').status_code, 404)
+            self.assertNotIn(b'data-story-shortcut', self.client.get('/').data)
         finally:
             for name, value in original.items():
                 setattr(settings, name, value)
