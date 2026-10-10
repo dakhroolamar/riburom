@@ -25,6 +25,8 @@ class Trip(db.Model):
     __tablename__ = 'control_trips'
     id = db.Column(db.Integer, primary_key=True)
     lead_id = db.Column(db.Integer, db.ForeignKey('control_leads.id'), unique=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('packages.id', name='fk_control_trips_package'))
+    package = db.relationship('Package')
     name = db.Column(db.String(200), nullable=False)
     destination = db.Column(db.String(300), nullable=False)
     start_date = db.Column(db.Date, nullable=False, index=True)
@@ -56,6 +58,8 @@ class Quote(db.Model):
     __tablename__ = 'control_quotes'
     id = db.Column(db.Integer, primary_key=True)
     lead_id = db.Column(db.Integer, db.ForeignKey('control_leads.id'), nullable=False, index=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('packages.id', name='fk_control_quotes_package'))
+    package = db.relationship('Package')
     amount = db.Column(db.Numeric(12, 2), nullable=False)
     summary = db.Column(db.Text, nullable=False)
     valid_until = db.Column(db.Date, nullable=False)
@@ -75,6 +79,15 @@ class PartnerDocument(db.Model):
     expires_on = db.Column(db.Date)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     reviewed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+
+class PartnerOperations(db.Model):
+    __tablename__ = 'control_partner_operations'
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id', ondelete='CASCADE'), primary_key=True)
+    contact_person = db.Column(db.String(200), nullable=False, default='', server_default='')
+    location = db.Column(db.String(240), nullable=False, default='', server_default='')
+    service_area = db.Column(db.String(500), nullable=False, default='', server_default='')
+    notes = db.Column(db.Text, nullable=False, default='', server_default='')
 
 
 class WebsiteRevision(db.Model):

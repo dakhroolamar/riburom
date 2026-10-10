@@ -904,6 +904,19 @@ def send_message():
         flash('Please provide a valid email address.', 'error'); return redirect('/#contact')
     if len(phone) > 40 or len(travel_dates) > 120 or len(tour_interest) > 200 or len(message) > 5000 or not message:
         flash('One of the fields is invalid or too long. Please try again.', 'error'); return redirect('/#contact')
+    if phone and (not re.fullmatch(r'[+\d\s().-]+', phone) or not 7 <= len(re.sub(r'\D', '', phone)) <= 15):
+        flash('Please provide a valid contact phone number.', 'error'); return redirect('/#contact')
+    if travel_dates and re.fullmatch(r'[+-]?\d+', travel_dates):
+        flash('Please provide travel dates, for example 12–15 October 2026, or say your dates are flexible.', 'error'); return redirect('/#contact')
+    if request.form.get('travel_start') or request.form.get('travel_end'):
+        try:
+            start = datetime.fromisoformat(request.form.get('travel_start', '')).date()
+            end = datetime.fromisoformat(request.form.get('travel_end') or request.form['travel_start']).date()
+            if end < start:
+                raise ValueError
+        except ValueError:
+            flash('Please choose valid departure and return dates.', 'error'); return redirect('/#contact')
+        travel_dates = f'{start.isoformat()} – {end.isoformat()}'
     travellers = None
     if travellers_raw:
         try:
@@ -1047,37 +1060,35 @@ def admin():
     return redirect('/workspace')
 
 
-@app.route('/add_package', methods=['POST'])
+@app.route('/add_package', methods=['GET', 'POST'])
 @permission_required('manage_tours')
 def add_package():
-    title = request.form.get('title', '').strip(); description = request.form.get('description', '').strip()
-    if not title or not description:
-        flash('Tour name and description are required.', 'error'); return redirect('/workspace')
+    from package_operations import package_input, editor_values, editor_draft
+    if request.method == 'GET':
+        source = db.get_or_404(Package, request.args.get('copy', type=int)) if request.args.get('copy') else None
+        return render_template('edit_package.html', pkg=source, creating=True, pricing=editor_values(source), missing=[])
+    try:
+        values = package_input(request.form)
+    except ValueError as error:
+        flash(str(error), 'error')
+        return render_template('edit_package.html', pkg=editor_draft(None, request.form), creating=True, pricing=request.form, missing=[]), 400
+    title, description = values['title'], values['description']
     try:
         image_file = save_image(request.files.get('photo')) or 'default.jpg'
         pdf_file = save_pdf(request.files.get('pdf')) or ''
     except ValueError as e:
-        flash(str(e), 'error'); return redirect('/workspace')
-    try: sort_order = int(request.form.get('sort_order') or 0)
-    except ValueError: sort_order = 0
-    pkg = Package(title=title, slug=unique_slug(title), description=description,
-        location=(request.form.get('location') or '').strip() or None,
-        duration=(request.form.get('duration') or '').strip() or None,
-        price=(request.form.get('price') or '').strip() or None,
-        category=(request.form.get('category') or '').strip() or None,
-        best_season=(request.form.get('best_season') or '').strip() or None,
-        difficulty=(request.form.get('difficulty') or '').strip() or None,
-        itinerary=(request.form.get('itinerary') or '').strip() or None,
-        included=(request.form.get('included') or '').strip() or None,
-        excluded=(request.form.get('excluded') or '').strip() or None,
+        flash(str(e) + ' Reselect the upload before saving again.', 'error')
+        draft = editor_draft(None, request.form)
+        return render_template('edit_package.html', pkg=draft, creating=True, pricing={**editor_values(draft), **request.form.to_dict()}, missing=[]), 400
+    pkg = Package(**values, slug=unique_slug(title),
         image_file=image_file, pdf_file=pdf_file, published=bool(request.form.get('published')),
-        featured=bool(request.form.get('featured')), sort_order=sort_order)
+        featured=bool(request.form.get('featured')))
     db.session.add(pkg); db.session.flush()
     add_audit('created', 'package', pkg.id, pkg.title)
     if pkg.published:
         notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'], stage_only=True)
     db.session.commit()
-    flash(f'"{title}" added.', 'success'); return redirect('/workspace')
+    flash(f'"{title}" added.', 'success'); return redirect(url_for('edit_package_form', id=pkg.id))
 
 
 @app.route('/edit_package/<int:id>', methods=['GET'])
@@ -1085,7 +1096,17 @@ def add_package():
 def edit_package_form(id):
     pkg = db.session.get(Package, id)
     if pkg is None: abort(404)
-    return render_template('edit_package.html', pkg=pkg)
+    from package_operations import editor_values, readiness
+    return render_template('edit_package.html', pkg=pkg, creating=False, pricing=editor_values(pkg), missing=readiness(pkg))
+
+
+@app.get('/workspace/control/packages/<int:id>/preview')
+@permission_required('manage_tours')
+def control_package_preview(id):
+    response = app.make_response(render_template('tour_detail.html', pkg=db.get_or_404(Package, id)))
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
 
 
 @app.route('/edit_package/<int:id>', methods=['POST'])
@@ -1093,23 +1114,27 @@ def edit_package_form(id):
 def edit_package(id):
     pkg = db.session.get(Package, id)
     if pkg is None: abort(404)
-    title = request.form.get('title', '').strip(); description = request.form.get('description', '').strip()
-    if not title or not description:
-        flash('Tour name and description are required.', 'error'); return redirect(url_for('edit_package_form', id=id))
+    from package_operations import package_input, editor_draft, editor_values, readiness
+    try:
+        values = package_input(request.form)
+    except ValueError as error:
+        flash(str(error), 'error')
+        draft = editor_draft(pkg, request.form)
+        return render_template('edit_package.html', pkg=draft, creating=False, pricing=request.form, missing=[]), 400
+    title, description = values['title'], values['description']
     old_image, old_pdf = pkg.image_file, pkg.pdf_file
     was_published = pkg.published
     try:
         new_image = save_image(request.files.get('photo')); new_pdf = save_pdf(request.files.get('pdf'))
     except ValueError as e:
-        flash(str(e), 'error'); return redirect(url_for('edit_package_form', id=id))
+        flash(str(e) + ' Reselect the upload before saving again.', 'error')
+        draft = editor_draft(pkg, request.form)
+        return render_template('edit_package.html', pkg=draft, creating=False, pricing={**editor_values(draft), **request.form.to_dict()}, missing=[]), 400
     # Preserve the established public URL when an editor changes the title.
     # A package slug is assigned once at creation time.
-    pkg.title = title; pkg.description = description
-    for field in ('location','duration','price','category','best_season','difficulty','itinerary','included','excluded'):
-        setattr(pkg, field, (request.form.get(field) or '').strip() or None)
+    for field, value in values.items():
+        setattr(pkg, field, value)
     pkg.published = bool(request.form.get('published')); pkg.featured = bool(request.form.get('featured'))
-    try: pkg.sort_order = int(request.form.get('sort_order') or 0)
-    except ValueError: pkg.sort_order = 0
     if new_image: pkg.image_file = new_image
     elif request.form.get('remove_image'): pkg.image_file = None
     if new_pdf: pkg.pdf_file = new_pdf
@@ -1120,7 +1145,10 @@ def edit_package(id):
     db.session.commit()
     if (new_image or request.form.get('remove_image')) and old_image != pkg.image_file: delete_media(old_image)
     if (new_pdf or request.form.get('remove_pdf')) and old_pdf != pkg.pdf_file: delete_media(old_pdf)
-    flash(f'"{title}" updated.', 'success'); return redirect('/workspace')
+    flash(f'"{title}" updated. ' + ('Changes are live.' if pkg.published else 'Saved as an unpublished package.'), 'success')
+    if pkg.published and readiness(pkg):
+        flash('Review missing package details: ' + ', '.join(readiness(pkg)) + '.', 'warning')
+    return redirect(url_for('edit_package_form', id=id))
 
 
 @app.route('/delete_package/<int:id>', methods=['POST'])
@@ -1128,6 +1156,10 @@ def edit_package(id):
 def delete_package(id):
     pkg = db.session.get(Package, id)
     if pkg is not None:
+        from control_room_models import Trip, Quote
+        if Trip.query.filter_by(package_id=id).first() or Quote.query.filter_by(package_id=id).first():
+            flash('This package is linked to a quote or trip. Unpublish it to preserve operational history.', 'error')
+            return redirect(url_for('edit_package_form', id=id))
         old_image, old_pdf, title, slug, was_published = pkg.image_file, pkg.pdf_file, pkg.title, pkg.slug, pkg.published
         db.session.delete(pkg); add_audit('deleted', 'package', id, title)
         if was_published:

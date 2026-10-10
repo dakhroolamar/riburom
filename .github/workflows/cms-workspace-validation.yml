@@ -96,6 +96,9 @@ jobs:
           node --check static/js/cms-public-media.js
           node --check static/js/ri-burom-home-fixes.js
           node --check tests/cms_browser_qa.cjs
+          node --check static/js/control-room.js
+          node --check static/js/control-room-media.js
+          node --check tests/tourism_operations_browser_qa.cjs
 
       - name: Validate public UI utility coverage
         run: python scripts/check_ui_utility_coverage.py
@@ -104,7 +107,9 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Require CMS migration upgrade and downgrade on PostgreSQL 18
-        run: python -m unittest tests.test_cms_media_migration.CmsPostgresMigrationTests -v
+        run: |
+          python -m unittest tests.test_cms_media_migration.CmsPostgresMigrationTests -v
+          python -m unittest tests.test_control_room_migration.ControlOperationsPostgresMigrationTests -v
 
       - name: Run marketplace model tests
         run: python -m unittest discover -s tests -p 'test_marketplace_models.py' -v
@@ -202,15 +207,42 @@ jobs:
       - name: Run CMS desktop and 390px browser QA
         run: node tests/cms_browser_qa.cjs
 
+      - name: Start isolated tourism operations fixture
+        env:
+          APP_ENV: testing
+          TESTING: '1'
+          PYTHON_DOTENV_DISABLED: '1'
+          OPERATIONS_PREVIEW_PORT: '5056'
+        run: |
+          python -m tests.control_room_preview > /tmp/riburom-operations-preview.log 2>&1 &
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:5056/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/riburom-operations-preview.log
+          exit 1
+
+      - name: Run tourism operations desktop and mobile QA
+        env:
+          OPERATIONS_QA_BASE_URL: http://127.0.0.1:5056
+          OPERATIONS_QA_OUTPUT: /tmp/riburom-operations-qa
+        run: node tests/tourism_operations_browser_qa.cjs
+
       - name: Show CMS preview log on failure
         if: failure()
-        run: cat /tmp/riburom-cms-preview.log || true
+        run: |
+          cat /tmp/riburom-cms-preview.log || true
+          cat /tmp/riburom-operations-preview.log || true
 
       - name: Upload CMS browser QA screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: riburom-cms-release-qa
-          path: /tmp/riburom-cms-qa
+          path: |
+            /tmp/riburom-cms-qa
+            /tmp/riburom-operations-qa
           if-no-files-found: warn
           retention-days: 7

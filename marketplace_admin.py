@@ -25,6 +25,26 @@ from storage import delete_media, save_image
 PUBLIC_MARKETPLACE_STATUSES = {'APPROVED', 'PUBLISHED', 'ACTIVE'}
 
 
+def _operation_values():
+    values = {}
+    for field, limit in (('contact_person', 200), ('location', 240), ('service_area', 500), ('operational_notes', 10000)):
+        if field in request.form:
+            value = request.form[field].strip()
+            if len(value) > limit:
+                abort(400, description='A partner operation field is too long.')
+            values['notes' if field == 'operational_notes' else field] = value
+    return values
+
+
+def _save_operations(provider, values):
+    if values:
+        from control_room_models import PartnerOperations
+        row = db.session.get(PartnerOperations, provider.id) or PartnerOperations(provider_id=provider.id)
+        for field, value in values.items():
+            setattr(row, field, value)
+        db.session.add(row)
+
+
 def _provider_is_public(provider):
     return bool(provider and provider.is_active and provider.status in PUBLIC_MARKETPLACE_STATUSES)
 
@@ -157,6 +177,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
     @flask_app.route('/workspace/marketplace/providers/create', methods=['POST'])
     @manage_required
     def marketplace_provider_create():
+        operational_values = _operation_values()
         name = (request.form.get('name') or '').strip()
         if not name or len(name) > 200:
             flash('Provider name is required and must be 200 characters or fewer.', 'error')
@@ -198,6 +219,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
 
         db.session.add(provider)
         db.session.flush()
+        _save_operations(provider, operational_values)
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('created', 'provider', provider.id, provider.name)
         try:
@@ -211,11 +233,12 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             raise
 
         flash(f'Provider "{provider.name}" created.', 'success')
-        return redirect(url_for('workspace_marketplace'))
+        return redirect(url_for('marketplace_provider_edit', id=provider.id))
 
     @flask_app.route('/workspace/marketplace/providers/<int:id>/update', methods=['POST'])
     @manage_required
     def marketplace_provider_update(id):
+        operational_values = _operation_values()
         provider = _provider_target(id)
         old_slug = provider.slug
         was_public = _provider_is_public(provider)
@@ -262,6 +285,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         provider.phone = phone
         provider.status = status
         provider.is_active = bool(request.form.get('is_active'))
+        _save_operations(provider, operational_values)
 
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('updated', 'provider', provider.id, provider.name)
@@ -278,7 +302,7 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             delete_marketplace_media_if_unreferenced(old_image_url)
 
         flash(f'Provider "{provider.name}" updated.', 'success')
-        return redirect(url_for('workspace_marketplace'))
+        return redirect(url_for('marketplace_provider_edit', id=provider.id))
 
     @flask_app.route('/workspace/marketplace/providers/<int:id>/delete', methods=['POST'])
     @manage_required
@@ -300,6 +324,8 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.query(ProviderTypeAssignment).filter_by(
             provider_id=provider.id
         ).delete(synchronize_session=False)
+        from control_room_models import PartnerOperations
+        PartnerOperations.query.filter_by(provider_id=id).delete(synchronize_session=False)
         db.session.delete(provider)
         add_audit('deleted', 'provider', id, name)
         if was_public:

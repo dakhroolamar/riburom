@@ -29,10 +29,11 @@ class ControlRoomTests(unittest.TestCase):
             pass
 
     def setUp(self):
-        from models import User, SiteSettings, Message, Package
+        from models import User, SiteSettings, Message, Package, AuditLog
         from marketplace_models import Provider
         self.fixture_models = (Message,Package,Provider,User)
         self.original_ids = {model:{row[0] for row in self.db.session.query(model.id).all()} for model in self.fixture_models}
+        self.original_audit_ids = {row[0] for row in self.db.session.query(AuditLog.id).all()}
         self.settings = SiteSettings.query.first()
         self.original_config = self.settings.public_config_json
         self.client = self.app.test_client()
@@ -40,7 +41,9 @@ class ControlRoomTests(unittest.TestCase):
         self.login(self.owner)
 
     def tearDown(self):
+        from models import AuditLog
         self.db.session.rollback()
+        AuditLog.query.filter(AuditLog.id.notin_(self.original_audit_ids)).delete(synchronize_session=False)
         # These are disposable unittest fixtures in the named isolated test DB.
         for table in reversed(self.db.metadata.sorted_tables):
             if table.name.startswith('control_'):
@@ -49,7 +52,9 @@ class ControlRoomTests(unittest.TestCase):
             model.query.filter(model.id.notin_(self.original_ids[model])).delete(synchronize_session=False)
         self.settings.public_config_json = self.original_config
         self.db.session.commit()
-        self.db.session.expire_all()
+        self.context.pop()
+        type(self).context = self.app.app_context()
+        self.context.push()
 
     def login(self, user):
         with self.client.session_transaction() as state:
@@ -65,6 +70,136 @@ class ControlRoomTests(unittest.TestCase):
                 self.assertIn(b'cr-sidebar', response.data)
         for route in ('/workspace','/workspace/cms','/workspace/marketplace','/workspace/administration'):
             self.assertEqual(self.client.get(route).status_code, 302)
+
+    def test_package_editor_validates_structured_input_preserves_url_and_previews_private(self):
+        from models import Package
+        package = Package(title='Before', slug='stable-tour-url', description='Original', published=False, price='Legacy group rate')
+        self.db.session.add(package); self.db.session.commit()
+        values = dict(title='Changed title', description='Updated overview', price_mode='amount', price_amount='12500.50',
+                      price_basis='person', nights='3', days='4', itinerary='Day 1: Arrival')
+        response = self.client.post(f'/edit_package/{package.id}', data=values)
+        self.assertEqual(response.status_code, 302)
+        self.db.session.refresh(package)
+        self.assertEqual(package.slug, 'stable-tour-url')
+        self.assertEqual(package.price, '₹ 12,500.50 per person')
+        self.assertEqual(package.duration, '3 Nights / 4 Days')
+        self.assertFalse(package.published)
+        self.assertEqual(self.client.get('/tours/stable-tour-url').status_code, 404)
+        preview = self.client.get(f'/workspace/control/packages/{package.id}/preview')
+        self.assertEqual(preview.status_code, 200)
+        self.assertIn('no-store', preview.headers['Cache-Control'])
+        copy = self.client.get(f'/add_package?copy={package.id}')
+        self.assertEqual(copy.status_code, 200)
+        self.assertIn(b'Changed title (copy)', copy.data)
+        self.assertNotIn(b'name="published" checked', copy.data)
+        invalid = self.client.post(f'/edit_package/{package.id}', data={**values, 'price_amount':'NaN'})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn(b'Updated overview', invalid.data)
+        self.db.session.refresh(package)
+        self.assertEqual(package.price, '₹ 12,500.50 per person')
+
+    def test_enquiry_due_mine_spam_and_atomic_bulk_updates(self):
+        from datetime import date, timedelta
+        from models import Message
+        from control_room_models import LeadWorkspace
+        records = [Message(name=name, email='work@example.com', message='Trip enquiry') for name in ('Due Traveller','Other Traveller')]
+        self.db.session.add_all(records); self.db.session.flush()
+        due = LeadWorkspace(source='website', source_id=records[0].id, assigned_user_id=self.owner.id, follow_up=date.today(), status='CONTACTED')
+        other = LeadWorkspace(source='website', source_id=records[1].id, follow_up=date.today()-timedelta(days=1), status='NEW')
+        self.db.session.add_all([due,other]); self.db.session.commit()
+        for view, expected, absent in [('mine','Due Traveller','Other Traveller'),('due','Due Traveller','Other Traveller'),('overdue','Other Traveller','Due Traveller')]:
+            text = self.client.get('/workspace/control/enquiries?work='+view).data
+            self.assertIn(expected.encode(), text); self.assertNotIn(absent.encode(), text)
+        keys = [f'website-{record.id}' for record in records]
+        values = dict(keys=keys, action='spam', **{'token_'+keys[0]:due.updated_at.isoformat(), 'token_'+keys[1]:'stale'})
+        self.assertEqual(self.client.post('/workspace/control/leads/bulk', data=values).status_code, 409)
+        self.db.session.rollback(); self.db.session.refresh(due)
+        self.assertEqual(due.status,'CONTACTED')
+        values['token_'+keys[1]]=other.updated_at.isoformat()
+        self.assertEqual(self.client.post('/workspace/control/leads/bulk', data=values).status_code,302)
+        self.db.session.refresh(due); self.db.session.refresh(other)
+        self.assertEqual((due.status,other.status),('SPAM','SPAM'))
+        active=self.client.get('/workspace/control/enquiries').data
+        self.assertNotIn(b'Due Traveller',active)
+        self.assertIn(b'Due Traveller',self.client.get('/workspace/control/enquiries?status=SPAM').data)
+        reopened=self.client.post('/workspace/control/leads/'+keys[0].replace('-', '/'), data={'action':'reopen','work_token':due.updated_at.isoformat()})
+        self.assertEqual(reopened.status_code,302)
+
+    def test_tourism_operations_role_and_personal_preferences_do_not_grant_owner_access(self):
+        from models import User, Message
+        from control_room_models import ControlPreference
+        operator=User(username='tourism-operator',full_name='Tourism Operator',role='tourism_operations',password_hash='disabled')
+        self.db.session.add(operator); self.db.session.commit(); self.login(operator)
+        for section in ('enquiries','trips','partners','marketplace','media'):
+            self.assertEqual(self.client.get('/workspace/control/'+section).status_code,200)
+        self.assertEqual(self.client.get('/workspace/control/settings').status_code,403)
+        self.assertEqual(self.client.post('/workspace/control/website/home/draft').status_code,403)
+        self.assertEqual(self.client.post('/workspace/control/dashboard/preferences',data={'new_enquiries':'on'}).status_code,302)
+        own=self.db.session.get(ControlPreference,f'dashboard:{operator.id}')
+        self.assertTrue(json.loads(own.value_json)['new_enquiries'])
+        self.assertIsNone(self.db.session.get(ControlPreference,'notifications'))
+        self.login(self.owner)
+        self.assertIsNone(self.db.session.get(ControlPreference,f'dashboard:{self.owner.id}'))
+
+    def test_partner_private_operational_details_and_package_quote_trip_links(self):
+        from models import Package, Message
+        from marketplace_models import Provider
+        from control_room_models import PartnerOperations, Quote, Trip
+        partner=Provider(name='Operations Partner',slug='operations-partner',status='DRAFT')
+        package=Package(title='Linked Package',slug='linked-package',description='Tour overview')
+        message=Message(name='Linked Traveller',email='linked@example.com',message='Tour please')
+        self.db.session.add_all([partner,package,message]); self.db.session.commit()
+        response=self.client.post(f'/workspace/marketplace/providers/{partner.id}/update',data=dict(name=partner.name,slug=partner.slug,status='APPROVED',is_active='on',contact_person='Contact Person',location='Shillong',service_area='Khasi Hills',operational_notes='Private agreed rate'))
+        self.assertEqual(response.status_code,302)
+        operations=self.db.session.get(PartnerOperations,partner.id)
+        self.assertEqual(operations.location,'Shillong')
+        self.assertNotIn(b'Private agreed rate',self.client.get('/marketplace/providers/'+partner.slug).data)
+        self.assertEqual(self.client.post(f'/workspace/control/quotes/website/{message.id}',data=dict(package_id=package.id,amount='15000',summary='Confirmed custom group price',valid_until='2026-11-01')).status_code,302)
+        self.assertEqual(Quote.query.one().package_id,package.id)
+        self.assertEqual(self.client.post('/workspace/control/trips/save',data=dict(package_id=package.id,name='Linked Traveller',destination='Shillong',start_date='2026-11-10',end_date='2026-11-13',travellers='4',status='PLANNED',source='website',source_id=message.id)).status_code,302)
+        trip=Trip.query.one()
+        self.assertEqual(trip.package_id,package.id)
+        self.assertEqual(self.client.post(f'/delete_package/{package.id}').status_code,302)
+        self.assertIsNotNone(self.db.session.get(Package,package.id))
+        template=self.client.get(f'/workspace/control/trips/{trip.id}/template')
+        self.assertEqual(template.status_code,200)
+        self.assertNotIn('start_date',template.json)
+        self.assertIn('no-store',template.headers['Cache-Control'])
+
+    def test_readonly_staff_cannot_bulk_triage_or_preview_packages(self):
+        from models import User, Message, Package
+        viewer=User(username='operations-viewer',full_name='Read Only',role='enquiries',permissions_json='["view_messages"]',password_hash='disabled')
+        message=Message(name='Protected lead',email='readonly@example.com',message='Trip')
+        package=Package(title='Private package',slug='private-package',description='Private',published=False)
+        self.db.session.add_all([viewer,message,package]); self.db.session.commit(); self.login(viewer)
+        key=f'website-{message.id}'
+        self.assertEqual(self.client.post('/workspace/control/leads/bulk',data={'keys':key,'token_'+key:'new','action':'spam'}).status_code,403)
+        self.assertEqual(self.client.get(f'/workspace/control/packages/{package.id}/preview').status_code,403)
+        self.assertEqual(self.client.get('/add_package').status_code,403)
+
+    def test_public_enquiry_rejects_malformed_contact_details_and_stores_date_range(self):
+        from app import limiter
+        from models import Message
+        limiter.reset()
+        original=Message.query.count()
+        common=dict(name='Date validation traveller',email='dates@example.com',message='A family trip please')
+        for invalid in ({'phone':'not a number'}, {'travel_dates':'-138'}, {'travel_start':'2026-11-10','travel_end':'2026-11-01'}):
+            self.assertEqual(self.client.post('/send_message',data={**common,**invalid}).status_code,302)
+            self.assertEqual(Message.query.count(),original)
+        self.assertEqual(self.client.post('/send_message',data={**common,'phone':'+91 9876543210','travel_start':'2026-11-01','travel_end':'2026-11-04'}).status_code,302)
+        self.assertEqual(Message.query.filter_by(email='dates@example.com').one().travel_dates,'2026-11-01 – 2026-11-04')
+
+    def test_package_upload_error_keeps_typed_fields_without_updating_saved_package(self):
+        from models import Package
+        from unittest.mock import patch
+        package=Package(title='Saved package',slug='upload-saved-package',description='Saved overview',published=False)
+        self.db.session.add(package);self.db.session.commit()
+        with patch('app.save_image',side_effect=ValueError('Invalid photo')):
+            response=self.client.post(f'/edit_package/{package.id}',data=dict(title='Typed replacement name',description='Typed replacement overview'))
+        self.assertEqual(response.status_code,400)
+        self.assertIn(b'Typed replacement name',response.data)
+        self.db.session.refresh(package)
+        self.assertEqual(package.title,'Saved package')
 
     def test_featured_story_upload_publish_and_unpublish(self):
         from unittest.mock import patch

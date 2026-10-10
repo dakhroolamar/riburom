@@ -1,13 +1,18 @@
 """Loopback-only, in-memory visual fixture; never production data."""
 import json
+import os
 from datetime import date, timedelta
 from tests.ui_preview import app, db
 from flask import abort, redirect, request, session
 from werkzeug.security import generate_password_hash
-from models import User, Message
+from models import User, Message, SiteSettings
 from control_room_models import LeadWorkspace, Trip, TripUpdate
 
 with app.app_context():
+    settings = SiteSettings.query.first()
+    settings.hero_logo = 'control-room/brand.svg'
+    settings.header_mark = 'control-room/brand.svg'
+    settings.header_wordmark = 'control-room/brand.svg'
     owner = User(username='preview', full_name='Preview Admin', role='owner',
                  password_hash=generate_password_hash('preview-only-password'))
     db.session.add(owner)
@@ -46,4 +51,4 @@ def control_preview_login():
     return redirect('/workspace/control/overview')
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5055, use_reloader=False, threaded=False)
+    app.run(host='127.0.0.1', port=int(os.environ.get('OPERATIONS_PREVIEW_PORT','5055')), use_reloader=False, threaded=False)

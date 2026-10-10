@@ -1,15 +1,42 @@
 """The Control Room migration adds tables without rewriting existing content."""
 import unittest
+import os
 from flask import Flask
 from flask_migrate import Migrate, stamp, upgrade, downgrade
 from sqlalchemy import inspect
 from models import db, Package
+from tests.postgres_test_safety import assert_disposable_postgres_url
 import cms_media_models
 import marketplace_models
 import control_room_models
 
 
 class ControlMigrationTests(unittest.TestCase):
+    def test_operations_migration_adopts_bootstrap_and_preserves_rows_on_roundtrip(self):
+        from sqlalchemy import text
+        app=Flask(__name__)
+        database_url = getattr(self, 'url', 'sqlite://')
+        app.config.update(SQLALCHEMY_DATABASE_URI=database_url,SQLALCHEMY_TRACK_MODIFICATIONS=False)
+        db.init_app(app);Migrate(app,db,directory='migrations')
+        with app.app_context():
+            if database_url.startswith('postgresql'):
+                assert_disposable_postgres_url(database_url)
+                with db.engine.begin() as connection:
+                    connection.execute(text('DROP SCHEMA public CASCADE'))
+                    connection.execute(text('CREATE SCHEMA public'))
+            db.create_all()
+            stamp(directory='migrations',revision='b7d2e9a4c610')
+            upgrade(directory='migrations',revision='c8f1a2d3e470')
+            db.session.execute(text("INSERT INTO control_trips (name,destination,start_date,end_date,travellers,status,guide,driver,vehicle,itinerary_json,accommodation_json,checklist_json,created_at,updated_at) VALUES ('Preserved group','Shillong','2026-11-01','2026-11-03',4,'PLANNED','','','','[]','[]','{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"))
+            db.session.commit();db.session.remove()
+            downgrade(directory='migrations',revision='b7d2e9a4c610')
+            self.assertEqual(db.session.execute(text('SELECT name FROM control_trips')).scalar(),'Preserved group')
+            db.session.remove()
+            upgrade(directory='migrations',revision='c8f1a2d3e470')
+            self.assertEqual(db.session.execute(text('SELECT name,package_id FROM control_trips')).one(),('Preserved group',None))
+            self.assertIn('control_partner_operations',inspect(db.engine).get_table_names())
+            db.session.remove();db.engine.dispose()
+
     def test_shared_image_version_migration_preserves_existing_metadata(self):
         from sqlalchemy import text
         app = Flask(__name__)
@@ -130,3 +157,13 @@ class ControlMigrationTests(unittest.TestCase):
             self.assertNotIn('control_trips',inspect(db.engine).get_table_names())
             self.assertEqual(db.session.get(Package,package.id).description,'Original content')
             db.session.remove();db.engine.dispose()
+
+
+postgres_url = os.environ.get('CMS_TEST_DATABASE_URL')
+assert_disposable_postgres_url(postgres_url)
+
+
+@unittest.skipUnless(postgres_url, 'CMS_TEST_DATABASE_URL is required for PostgreSQL operational migration QA')
+class ControlOperationsPostgresMigrationTests(unittest.TestCase):
+    url = postgres_url
+    test_operations_migration_adopts_bootstrap_and_preserves_rows_on_roundtrip = ControlMigrationTests.test_operations_migration_adopts_bootstrap_and_preserves_rows_on_roundtrip

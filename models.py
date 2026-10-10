@@ -45,8 +45,13 @@ ROLE_PERMISSIONS = {
         'view_dashboard', 'view_messages', 'manage_messages',
         'view_marketplace_inquiries', 'manage_marketplace_inquiries',
     },
+    'tourism_operations': {
+        'view_dashboard', 'manage_tours', 'manage_media', 'view_messages', 'manage_messages',
+        'view_marketplace', 'manage_marketplace', 'view_marketplace_inquiries', 'manage_marketplace_inquiries',
+    },
 }
 ROLE_LABELS = {
+    'tourism_operations': 'Tourism Operations',
     'owner': 'Owner',
     'content_manager': 'Content Manager',
     'enquiries': 'Enquiries / Booking',

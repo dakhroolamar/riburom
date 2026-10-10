@@ -4,6 +4,7 @@ from copy import deepcopy
 import io
 import json
 import os
+import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
@@ -20,7 +21,7 @@ from marketplace_models import Provider, Service, ServiceCategory, ProviderType,
 from cms_media_models import MediaAsset
 from control_room_models import (
     LeadWorkspace, Trip, TripUpdate, Quote, PartnerDocument, WebsiteRevision,
-    ControlPreference, Invoice, AssetMetadata, LibraryVideo, ServiceInventory,
+    ControlPreference, Invoice, AssetMetadata, LibraryVideo, ServiceInventory, PartnerOperations,
 )
 
 TITLES = {
@@ -33,7 +34,7 @@ TITLES = {
     'media': ('Media Library', 'Manage and organize your digital assets for Meghalaya’s travel experiences.'),
     'settings': ('Settings & System', 'Manage your organisation, team, security and system preferences.'),
 }
-LEAD_STATES = ('NEW', 'CONTACTED', 'IN_PROGRESS', 'QUOTED', 'CONFIRMED', 'DECLINED', 'CLOSED')
+LEAD_STATES = ('NEW', 'CONTACTED', 'IN_PROGRESS', 'QUOTED', 'CONFIRMED', 'DECLINED', 'CLOSED', 'SPAM')
 TRIP_STATES = ('PLANNED', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')
 CHECKLIST = ('Vehicle assigned and inspected', 'Guide briefed on itinerary', 'Accommodation confirmed',
              'Emergency contact shared with group', 'Check-in with guide (Day 1)')
@@ -150,7 +151,11 @@ def lead_record(source, source_id, create=False):
 
 
 def lead_item(obj, source, state=None):
+    digits = re.sub(r'\D', '', obj.phone or '')
+    if len(digits) == 10:
+        digits = '91' + digits
     return SimpleNamespace(id=obj.id, source=source, key=f'{source}-{obj.id}', name=obj.name,
+        whatsapp=digits if 11 <= len(digits) <= 15 else '',
         email=obj.email, phone=obj.phone or '', travellers=obj.travellers or '',
         destination=(obj.tour_interest if source == 'website' else obj.pickup_location) or 'Not specified',
         dates=(obj.travel_dates if source == 'website' else obj.travel_date) or 'Not specified',
@@ -177,9 +182,18 @@ def lead_queries(filtered=True):
             query = query.filter(or_(model.name.ilike(f'%{search}%'), model.email.ilike(f'%{search}%'), destination.ilike(f'%{search}%'), LeadWorkspace.notes.ilike(f'%{search}%')))
         default_state = model.status if source == 'marketplace' else case((model.is_read.is_(True), 'CONTACTED'), else_='NEW')
         if filtered and status == 'ACTIVE':
-            query = query.filter(func.coalesce(LeadWorkspace.status, default_state).notin_(['CLOSED','DECLINED']))
+            query = query.filter(func.coalesce(LeadWorkspace.status, default_state).notin_(['CLOSED','DECLINED','SPAM']))
         if filtered and status in LEAD_STATES:
             query = query.filter(func.coalesce(LeadWorkspace.status, default_state) == status)
+        if filtered:
+            scope = request.args.get('work', '')
+            if scope == 'mine':
+                query = query.filter(LeadWorkspace.assigned_user_id == user().id)
+            elif scope == 'unassigned':
+                query = query.filter(LeadWorkspace.assigned_user_id.is_(None))
+            elif scope in ('due', 'overdue'):
+                query = query.filter(LeadWorkspace.follow_up == date.today() if scope == 'due' else LeadWorkspace.follow_up < date.today())
+                query = query.filter(func.coalesce(LeadWorkspace.status, default_state).notin_(['CLOSED','DECLINED','SPAM']))
         yield source, model, query, func.coalesce(LeadWorkspace.status, default_state)
 
 
@@ -187,11 +201,12 @@ def leads(page=1):
     queries = list(lead_queries())
     if not queries:
         return [], 0
-    selections = [query.with_entities(model.id.label('id'), model.created_at.label('created_at'), literal(source).label('source')).statement
+    selections = [query.with_entities(model.id.label('id'), model.created_at.label('created_at'), LeadWorkspace.follow_up.label('follow_up'), literal(source).label('source')).statement
                   for source, model, query, state in queries]
     combined = union_all(*selections).subquery()
     total = db.session.scalar(select(func.count()).select_from(combined))
-    keys = db.session.execute(select(combined).order_by(combined.c.created_at.desc(), combined.c.id.desc()).limit(50).offset((page-1)*50)).all()
+    ordering = (combined.c.follow_up.asc().nulls_last(), combined.c.created_at.desc(), combined.c.id.desc(), combined.c.source) if request.args.get('sort') == 'follow_up' else (combined.c.created_at.desc(), combined.c.id.desc(), combined.c.source)
+    keys = db.session.execute(select(combined).order_by(*ordering).limit(50).offset((page-1)*50)).all()
     items = {}
     for source, model, query, state in queries:
         ids = [key.id for key in keys if key.source == source]
@@ -227,7 +242,8 @@ def register_control_room(app):
     @app.context_processor
     def control_context():
         return {'control_nav': navigation() if user() else [], 'control_allowed': allowed,
-                'control_today': date.today(), 'control_checklist': CHECKLIST}
+                'control_today': date.today(), 'control_checklist': CHECKLIST,
+                'permission_presets': {'tourism_operations': sorted(__import__('models').ROLE_PERMISSIONS['tourism_operations'])} if user() and user().role == 'owner' else {}}
 
     @app.route('/workspace/control/search')
     @require()
@@ -244,7 +260,8 @@ def register_control_room(app):
                 (Package,('manage_tours','view_marketplace'),'title','Packages','marketplace')):
                 if allowed(*permissions):
                     for item in model.query.filter(getattr(model,field).ilike(f'%{term}%')).limit(10).all():
-                        results.append(dict(label=getattr(item,field),detail=area,area=area,href=url_for('control_room',section=section,selected=item.id)))
+                        href = url_for('edit_package_form', id=item.id) if area == 'Packages' and allowed('manage_tours') else url_for('control_room', section=section, tab='packages', q=item.title) if area == 'Packages' else url_for('control_room', section=section, selected=item.id)
+                        results.append(dict(label=getattr(item,field),detail=area,area=area,href=href))
             if allowed('manage_about','manage_media','manage_structure'):
                 results.extend(dict(label=label,detail='Website area',area='Website',href=url_for('control_room',section='website',page=key)) for key,label in PAGES.items() if term.lower() in label.lower())
         return render_template('control_room/search.html',section='overview',title='Search Results',term=term,results=results)
@@ -256,6 +273,11 @@ def register_control_room(app):
             abort(403 if section in TITLES else 404)
         context = dict(section=section, title=TITLES[section][0], subtitle=TITLES[section][1],
                        settings=get_site_settings(), today=date.today(), selected=None, stats=[])
+        if section in ('enquiries', 'trips'):
+            context['operation_packages'] = Package.query.order_by(Package.title).limit(200).all() if allowed('manage_tours') else []
+            context['operation_partners'] = Provider.query.options(selectinload(Provider.provider_type_assignments)).filter(Provider.is_active.is_(True), Provider.status.in_(['VERIFIED','APPROVED','PUBLISHED','ACTIVE'])).order_by(Provider.name).limit(200).all() if allowed('view_marketplace','manage_marketplace') else []
+            context['trip_templates'] = Trip.query.order_by(Trip.updated_at.desc()).limit(30).all() if section == 'trips' and allowed('manage_tours') else []
+            context['operation_templates'] = [dict(id=p.id, title=p.title, destination=p.location or '', itinerary=p.itinerary or '', price=p.price or '', summary='\n'.join(filter(None, [p.title, p.duration, p.description, 'Itinerary:\n'+p.itinerary if p.itinerary else '', 'Included:\n'+p.included if p.included else '', 'Excluded:\n'+p.excluded if p.excluded else '']))) for p in context['operation_packages']]
         if section == 'enquiries':
             page_number = max(1, request.args.get('page', 1, type=int) or 1)
             rows, total = leads(page_number)
@@ -270,6 +292,7 @@ def register_control_room(app):
                     abort(400)
                 obj,state=lead_record(source,int(source_id))
                 context['selected']=lead_item(obj,source,state)
+            context['detail_open'] = bool(key)
             selected = context['selected']
             context['lead_history'] = AuditLog.query.filter_by(target_type='control_leads', target_id=str(selected.state.id)).order_by(AuditLog.id.desc()).limit(30).all() if selected and selected.state else []
             context['quotes'] = Quote.query.filter_by(lead_id=selected.state.id).order_by(Quote.id.desc()).limit(20).all() if selected and selected.state else []
@@ -322,6 +345,10 @@ def register_control_room(app):
             context['pending_count'] = Provider.query.filter(Provider.status.in_(['SUBMITTED','UNDER_REVIEW'])).count() if can else 0
             context['pending_partners'] = [p for p in context['partners'] if p.status in ('SUBMITTED', 'UNDER_REVIEW')]
             if section == 'partners':
+                ids = [p.id for p in context['partners']]
+                context['partner_operations'] = {row.provider_id: row for row in PartnerOperations.query.filter(PartnerOperations.provider_id.in_(ids)).all()} if ids else {}
+                docs = PartnerDocument.query.filter(PartnerDocument.provider_id.in_(ids)).with_entities(PartnerDocument.provider_id, func.count(PartnerDocument.id), func.min(PartnerDocument.expires_on)).group_by(PartnerDocument.provider_id).all() if ids and allowed('manage_marketplace') else []
+                context['partner_documents'] = {row[0]: dict(count=row[1], expires=row[2]) for row in docs}
                 selected = next((p for p in context['partners'] if str(p.id) == request.args.get('selected')), context['pending_partners'][0] if context['pending_partners'] else (context['partners'][0] if context['partners'] else None))
                 if request.args.get('selected','').isdigit():
                     selected=db.get_or_404(Provider,int(request.args['selected']))
@@ -355,6 +382,15 @@ def register_control_room(app):
             context['pending_partners'] = pending.order_by(Provider.created_at).limit(4).all() if allowed('view_marketplace', 'manage_marketplace') else []
             prefs = db.session.get(ControlPreference, 'notifications')
             context['notifications'] = json.loads(prefs.value_json) if prefs else {}
+            personal = db.session.get(ControlPreference, f'dashboard:{user().id}')
+            if personal:
+                context['notifications'].update(json.loads(personal.value_json))
+            due = overdue = 0
+            for _, _, query, state in lead_queries(False):
+                active = query.filter(state.notin_(['CLOSED','DECLINED','SPAM']))
+                due += active.filter(LeadWorkspace.follow_up == date.today()).count()
+                overdue += active.filter(LeadWorkspace.follow_up < date.today()).count()
+            context.update(my_due=due, my_overdue=overdue)
             context['activity'] = TripUpdate.query.options(selectinload(TripUpdate.author)).order_by(TripUpdate.created_at.desc()).limit(5).all() if allowed('manage_tours') and context['notifications'].get('trip_updates',True) else []
             context['publishing_activity'] = WebsiteRevision.query.filter(WebsiteRevision.published_at.is_not(None), WebsiteRevision.is_backup.is_(False)).order_by(WebsiteRevision.published_at.desc()).limit(5).all() if allowed('manage_about') and context['notifications'].get('marketing_updates',False) else []
             context['stats'] = [('users', context['counts']['NEW'], 'New Enquiries', 'green'),
@@ -387,6 +423,9 @@ def register_control_room(app):
                 pages=PAGES, page=page, payload=payload, fields=fields, revisions=revisions,
                 revision=latest, config_token=public_config_token(context['settings']), public=cfg,
                 preview_url={'home': '/', 'tours': '/all_tours', 'marketplace': '/marketplace', 'about': '/about', 'contact': '/#contact'}.get(page, '/'))
+            context['draft_changes'] = [name.replace('_', ' ').title() for name in payload.get('content', {}) if payload['content'][name] != cfg['content'].get(name)] if latest else []
+            if latest and payload.get('home') != cfg['home']:
+                context['draft_changes'].append('Homepage layout')
             context['stats'] = [('file', len(PAGES), 'Website Areas', 'green'), ('file', WebsiteRevision.query.filter_by(published_at=None, is_backup=False).count(), 'Saved Drafts', 'sand'),
                                 ('alert', sum(not cfg['content'].get(n) for n in ('site_title', 'meta_description')), 'SEO Fields Missing', 'rose'),
                                 ('clock', WebsiteRevision.query.filter(WebsiteRevision.created_at >= datetime.utcnow() - timedelta(days=30)).count(), 'Recent Updates', 'blue')]
@@ -400,6 +439,9 @@ def register_control_room(app):
                 abort(403)
             prefs = db.session.get(ControlPreference, 'notifications')
             from notifications import delivery_preferences
+            from models import NotificationOutbox
+            context['delivery_counts'] = dict(db.session.query(NotificationOutbox.status, func.count(NotificationOutbox.id)).filter(NotificationOutbox.event_type == 'new_enquiry').group_by(NotificationOutbox.status).all())
+            context['delivery_failures'] = NotificationOutbox.query.filter_by(event_type='new_enquiry', status='FAILED').order_by(NotificationOutbox.updated_at.desc()).limit(5).all()
             context['delivery_preferences'] = delivery_preferences()
             context.update(staff=User.query.order_by(User.full_name).all(), invoices=Invoice.query.order_by(Invoice.id.desc()).limit(50).all(),
                 audits=AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all(), notifications=json.loads(prefs.value_json) if prefs else {},
@@ -412,7 +454,7 @@ def register_control_room(app):
     @require('manage_marketplace')
     def marketplace_provider_edit(id):
         return render_template('control_room/catalogue_edit.html', section='partners', title='Edit Partner', kind='partner',
-            item=db.get_or_404(Provider, id), provider_types=ProviderType.query.order_by(ProviderType.name).all())
+            item=db.get_or_404(Provider, id), operations=db.session.get(PartnerOperations, id), provider_types=ProviderType.query.order_by(ProviderType.name).all())
 
     @app.route('/workspace/control/services/<int:id>/edit')
     @require('manage_marketplace')
@@ -488,10 +530,15 @@ def register_control_room(app):
         query = filter_media_usage(query)
         assets, pagination = media_page(query, (order, MediaAsset.id.desc()))
         usage = asset_usage_batch(assets)
+        from cms_media_models import MediaCollection, MediaCollectionItem
+        usage_links = {a.id: [] for a in assets}
+        for asset_id, key, title in db.session.query(MediaCollectionItem.asset_id, MediaCollection.key, MediaCollection.title).join(MediaCollection, MediaCollection.id == MediaCollectionItem.collection_id).filter(MediaCollectionItem.asset_id.in_(usage_links)).distinct().all():
+            page = 'tour-detail' if key.startswith('tour-') else 'home' if key.startswith('home_') or key == 'hero' else 'footer' if key.startswith('footer') else key if key in PAGES else 'home'
+            usage_links[asset_id].append(dict(label=title, href=url_for('cms_pages', page=page) + '#' + key))
         metadata = {m.asset_id: m for m in AssetMetadata.query.filter(AssetMetadata.asset_id.in_([a.id for a in assets])).all()} if assets else {}
         return jsonify(items=[dict(id=a.id, version=a.version, title=a.title, src=delivery(a.path, 400), preview_src=delivery(a.path, 1200), path=a.path,
             alt=a.alt, caption=a.caption, credit=a.credit, width=a.width, height=a.height, byte_size=a.byte_size,
-            created_at=a.created_at.isoformat(), usage=usage[a.id], kind='image',
+            created_at=a.created_at.isoformat(), usage=usage[a.id], usage_links=usage_links[a.id], kind='image',
             location=metadata[a.id].location if a.id in metadata else '', category=metadata[a.id].category if a.id in metadata else '',
             tags=metadata[a.id].tags if a.id in metadata else '')
             for a in assets], **(pagination or {}))
@@ -568,13 +615,15 @@ def register_control_room(app):
                       follow_up=state.follow_up if state else None, updated_at=datetime.utcnow())
         note = text('progress_note', 5000)
         if action == 'accept':
-            if previous.status in ('CLOSED','DECLINED'):
+            if previous.status in ('CLOSED','DECLINED','SPAM'):
                 abort(400, description='Reopen this enquiry before accepting it.')
             values.update(status='IN_PROGRESS' if previous.status in ('NEW','CONTACTED') else previous.status, assigned_user_id=user().id)
         elif action == 'close':
             values['status'] = 'CLOSED'
+        elif action == 'spam':
+            values['status'] = 'SPAM'
         elif action == 'reopen':
-            if previous.status not in ('CLOSED','DECLINED'):
+            if previous.status not in ('CLOSED','DECLINED','SPAM'):
                 abort(400, description='This enquiry is already open.')
             values['status'] = 'NEW'
         elif action == 'update':
@@ -629,13 +678,80 @@ def register_control_room(app):
         flash('Enquiry work updated.', 'success')
         return redirect(url_for('control_room', section='enquiries', selected=f'{source}-{source_id}', status='ALL'))
 
+    @app.post('/workspace/control/leads/bulk')
+    @require()
+    def control_lead_bulk():
+        keys = list(dict.fromkeys(request.form.getlist('keys')))
+        action = request.form.get('action')
+        if not keys or len(keys) > 50 or action not in ('spam', 'accept', 'close'):
+            abort(400, description='Select up to 50 enquiries and a work action.')
+        # Validate the whole batch before changing any row; stale tokens reject it atomically.
+        records = []
+        for key in keys:
+            source, _, source_id = key.partition('-')
+            if source not in ('website', 'marketplace') or not source_id.isdigit():
+                abort(400)
+            if not allowed('manage_messages' if source == 'website' else 'manage_marketplace_inquiries'):
+                abort(403)
+            obj, state = lead_record(source, int(source_id))
+            if request.form.get('token_' + key) != (state.updated_at.isoformat() if state else 'new'):
+                abort(409, description='An enquiry changed. Reload the list before bulk updating.')
+            if action == 'accept' and lead_item(obj, source, state).status in ('CLOSED', 'DECLINED', 'SPAM'):
+                abort(400, description='Reopen closed or spam enquiries before assigning them.')
+            records.append((source, obj, state))
+        try:
+            for source, obj, state in records:
+                previous = lead_item(obj, source, state).status
+                status = 'SPAM' if action == 'spam' else 'CLOSED' if action == 'close' else 'IN_PROGRESS' if previous in ('NEW', 'CONTACTED') else previous
+                values = dict(status=status, updated_at=datetime.utcnow())
+                if action == 'accept':
+                    values['assigned_user_id'] = user().id
+                if state:
+                    result = db.session.execute(update(LeadWorkspace).where(LeadWorkspace.id == state.id, LeadWorkspace.updated_at == state.updated_at).values(**values))
+                    if result.rowcount != 1:
+                        db.session.rollback()
+                        abort(409, description='An enquiry changed. Reload before updating.')
+                else:
+                    state = LeadWorkspace(source=source, source_id=obj.id, **values)
+                    db.session.add(state)
+                    db.session.flush()
+                if source == 'marketplace':
+                    obj.status = status
+                else:
+                    obj.is_read = status != 'NEW'
+                add_audit('work_updated', 'control_leads', state.id, f'Bulk {action}: {previous} → {status}.')
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            abort(409, description='An enquiry changed. Reload before updating.')
+        flash(f'{len(records)} enquiries updated.', 'success')
+        return redirect(url_for('control_room', section='enquiries'))
+
+    @app.post('/workspace/control/dashboard/preferences')
+    @require()
+    def control_dashboard_preferences():
+        key = f'dashboard:{user().id}'
+        preference = db.session.get(ControlPreference, key) or ControlPreference(key=key)
+        preference.value_json = json.dumps({name: name in request.form for name in ('new_enquiries', 'trip_updates', 'partner_activities', 'system_alerts', 'marketing_updates')})
+        db.session.add(preference)
+        db.session.commit()
+        flash('Your dashboard preferences saved. Organisation delivery settings were not changed.', 'success')
+        return redirect(url_for('control_room', section='overview'))
+
     @app.route('/workspace/control/quotes/<source>/<int:source_id>', methods=['POST'])
     @require()
     def control_quote_create(source, source_id):
         if not allowed('manage_messages' if source == 'website' else 'manage_marketplace_inquiries'):
             abort(403)
         obj, lead = lead_record(source, source_id, create=True)
-        quote = Quote(lead_id=lead.id, amount=money('amount'), summary=text('summary', 10000, True), valid_until=day('valid_until'))
+        package_id = request.form.get('package_id', '')
+        if package_id:
+            if not allowed('manage_tours'):
+                abort(403)
+            if not package_id.isdigit():
+                abort(400)
+            db.get_or_404(Package, int(package_id))
+        quote = Quote(lead_id=lead.id, package_id=int(package_id) if package_id else None, amount=money('amount'), summary=text('summary', 10000, True), valid_until=day('valid_until'))
         lead.status = 'QUOTED'
         if source == 'marketplace':
             obj.status = 'QUOTED'
@@ -658,13 +774,20 @@ def register_control_room(app):
     def control_trip_save():
         trip_id = request.form.get('id')
         trip = db.get_or_404(Trip, int(trip_id)) if trip_id and trip_id.isdigit() else Trip()
+        package_id = request.form.get('package_id', '')
+        if package_id:
+            if not package_id.isdigit():
+                abort(400)
+            db.get_or_404(Package, int(package_id))
+        if 'package_id' in request.form:
+            trip.package_id = int(package_id) if package_id else None
         trip.name = text('name', 200, True)
         trip.destination = text('destination', 300, True)
         trip.start_date, trip.end_date = day('start_date'), day('end_date')
         if trip.end_date < trip.start_date:
             abort(400, description='The return date must follow departure.')
-        trip.travellers = request.form.get('travellers', type=int) or 1
-        if not 1 <= trip.travellers <= 10000:
+        trip.travellers = request.form.get('travellers', type=int) if 'travellers' in request.form else 1
+        if trip.travellers is None or not 1 <= trip.travellers <= 10000:
             abort(400)
         trip.status = request.form.get('status', 'PLANNED')
         if trip.status not in TRIP_STATES:
@@ -684,10 +807,21 @@ def register_control_room(app):
             lead.status = 'CONFIRMED'
             if source == 'marketplace':
                 obj.status = 'CONFIRMED'
+            else:
+                obj.is_read = True
         db.session.add(trip)
         if trip.lead_id:
             add_audit('trip_updated', 'control_leads', trip.lead_id, 'Trip details saved. Enquiry linked to operational trip.')
         return save(trip, 'trips', 'Trip saved.')
+
+    @app.get('/workspace/control/trips/<int:trip_id>/template')
+    @require('manage_tours')
+    def control_trip_template(trip_id):
+        trip = db.get_or_404(Trip, trip_id)
+        response = jsonify(destination=trip.destination, guide=trip.guide, driver=trip.driver, vehicle=trip.vehicle,
+                           package_id=trip.package_id or '', itinerary='\n'.join(json.loads(trip.itinerary_json)), accommodation='\n'.join(json.loads(trip.accommodation_json)))
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
 
     @app.route('/workspace/control/trips/<int:trip_id>/update', methods=['POST'])
     @require('manage_tours')

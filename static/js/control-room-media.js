@@ -43,6 +43,7 @@
     const media=node(item.kind==='video'?'video':'img',undefined,root,'cr-media-preview');media.src=item.kind==='video'?url(item.path):(item.preview_src || item.src);
     if(item.kind==='image')media.alt=item.alt||'';else media.controls=true;
     node('h2',item.title,root);
+    for (const use of item.usage_links || []) {const link=node('a','Edit '+use.label,root,'cr-button secondary small');link.href=use.href;}
     const dl=node('dl',undefined,root);for(const [label,value] of [['File type',item.kind==='video'?'Video':'Image'],['File size',item.byte_size ? (item.byte_size/1048576).toFixed(2)+' MB':'Unknown'],['Dimensions',item.width?`${item.width} × ${item.height} px`:'Not available'],['Upload date',new Date(item.created_at+'Z').toLocaleDateString('en-GB')],['Usage',item.usage?.join(', ')||'Not used on a page']]){node('dt',label,dl);node('dd',value,dl);}
     if(item.kind==='video') {
       const help=node('p','Use this video as the homepage opening film.',root,'cr-muted');
@@ -50,6 +51,10 @@
       return;
     }
     const form=node('form',undefined,root);field(form,'title','Title',item.title).required=true;field(form,'alt','Alt text',item.alt);field(form,'caption','Caption',item.caption,true);field(form,'location','Location',item.location);field(form,'category','Category',item.category);field(form,'tags','Tags (comma separated)',item.tags);
+    form.elements.title.placeholder='e.g. Dawki riverside campsite';
+    form.elements.location.placeholder='e.g. Dawki, West Jaintia Hills';
+    form.elements.tags.placeholder='e.g. camping, family, river';
+    node('p','Use a descriptive title so staff can find this photo. If it appears sideways, rotate the original before replacing it. Adjust its focal crop in the page gallery editor.',form,'cr-muted');
     form.dataset.savedFields=snapshot(form);
     node('p','Image metadata is shared across every use of this photograph.',form,'cr-muted');
     const actions=node('div',undefined,form,'cr-actions');actions.style.marginTop='15px';node('button','Save Metadata',actions);
