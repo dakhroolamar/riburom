@@ -176,6 +176,13 @@ body.rb-studio-public {
 }
 
 /* Exact reference design takes precedence over legacy appearance settings. */
+.rb-studio-public .rb-stories-list{min-height:60vh}
+.rb-studio-public .rb-story-categories{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0 44px;padding-bottom:20px;border-bottom:1px solid var(--rb-studio-line)}
+.rb-studio-public .rb-story-categories a{display:inline-flex;align-items:center;min-height:44px;padding:10px 18px;border:1px solid var(--rb-studio-line);color:#173d32;text-decoration:none}
+.rb-studio-public .rb-story-categories a[aria-current]{background:#173d32;color:#f5f3ed}
+.rb-studio-public .rb-story-category-heading{font-size:32px;line-height:1.2;margin-bottom:28px}
+.rb-studio-public .rb-story-category-label{font-size:13px;margin-bottom:12px;color:#536454}
+.rb-studio-public .rb-stories-list .rb-card-media{object-position:50% 18%}
 body.rb-public-site.rb-studio-public{
   --rb-body-font:Georgia,"Times New Roman",serif;
   --rb-heading-font:Georgia,"Times New Roman",serif;

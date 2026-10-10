@@ -162,7 +162,7 @@
 
     {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
     <aside class="rb-story-notification rb-story-shortcut" aria-label="Stories" data-story-shortcut>
-        <a href="{{ url_for('featured_story') }}" class="rb-story-notification-link"><span aria-hidden="true">↗</span><strong>Read Stories</strong></a>
+        <a href="{{ url_for('stories_index') }}" class="rb-story-notification-link"><span aria-hidden="true">↗</span><strong>Read Stories</strong></a>
         <button type="button" class="rb-story-notification-close" aria-label="Dismiss Read Stories card">×</button>
     </aside>
     <script src="{{ url_for('static', filename='js/story-navigation-card.js') }}?v=1" defer></script>

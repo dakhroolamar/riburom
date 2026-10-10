@@ -220,7 +220,7 @@ class ControlRoomTests(unittest.TestCase):
         from unittest.mock import patch
         from models import SiteSettings
         settings = SiteSettings.query.first()
-        fields = ('blog_title', 'blog_excerpt', 'blog_url', 'blog_image', 'blog_enabled', 'blog_show_home')
+        fields = ('blog_title', 'blog_excerpt', 'blog_url', 'blog_image', 'blog_enabled', 'blog_show_home', 'public_config_json')
         original = {name: getattr(settings, name) for name in fields}
         try:
             response = self.client.get('/workspace/control/website?page=stories')
@@ -229,6 +229,7 @@ class ControlRoomTests(unittest.TestCase):
             with patch('app.save_image', return_value='uploads/story.png'):
                 response = self.client.post('/update_blog', data={
                     'blog_title': 'The King Who Could Not Be Killed',
+                    'blog_category': 'Folklore & Legends',
                     'blog_excerpt': 'A legend passed through oral storytelling.',
                     'blog_url': 'https://example.com/old-story',
                     'blog_enabled': 'on', 'blog_show_home': 'on',
@@ -248,14 +249,23 @@ class ControlRoomTests(unittest.TestCase):
             self.assertIn(b'Read Stories', home)
             self.assertNotIn(b'id="rb-home-blog"', home)
             self.assertNotIn(b'The King Who Could Not Be Killed', home)
-            self.assertIn(b'href="/stories/featured"', home)
+            self.assertIn(b'href="/stories"', home)
             self.assertIn(b'js/story-navigation-card.js', home)
             self.assertNotIn(b'js/story-notification.js', home)
             self.assertNotIn(b'href="https://example.com/old-story"', home)
             self.assertNotIn(b'A legend passed through oral storytelling.', home)
+            listing = self.client.get('/stories').data
+            self.assertIn(b'Story categories', listing)
+            self.assertIn(b'Folklore &amp; Legends', listing)
+            self.assertIn(b'href="/stories/featured"', listing)
+            self.assertIn(b'The King Who Could Not Be Killed', listing)
+            self.assertIn(b'No published stories in this category.', self.client.get('/stories?category=Nature').data)
+            self.assertNotIn(b'id="about-blog"', self.client.get('/about').data)
+            self.assertNotIn(b'The King Who Could Not Be Killed', self.client.get('/about').data)
             self.client.post('/update_blog', data={'blog_title': 'Unpublished'})
             self.assertEqual(self.client.get('/stories/featured').status_code, 404)
             self.assertNotIn(b'data-story-shortcut', self.client.get('/').data)
+            self.assertNotIn(b'The King Who Could Not Be Killed', self.client.get('/stories').data)
         finally:
             for name, value in original.items():
                 setattr(settings, name, value)

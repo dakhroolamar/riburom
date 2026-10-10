@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stories from Meghalaya | RI BUROM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
+    {% include '_public_theme.html' %}
+</head>
+<body class="rb-public-site rb-studio-public rb-editorial bg-gray-50 text-gray-800">
+{% include '_nav.html' %}{% include '_flash.html' %}
+<main class="rb-discovery-layout rb-stories-list max-w-7xl mx-auto px-6 py-12">
+    <header class="rb-discovery-head">
+        <h1 class="rb-hero-title">Stories from Meghalaya</h1>
+        <p>Explore stories of place, people and tradition.</p>
+    </header>
+    <nav class="rb-story-categories" aria-label="Story categories">
+        <a href="{{ url_for('stories_index') }}" {% if not selected_category %}aria-current="page"{% endif %}>All Stories</a>
+        {% if story_available %}<a href="{{ url_for('stories_index', category=category) }}" {% if selected_category == category %}aria-current="page"{% endif %}>{{ category }}</a>{% endif %}
+    </nav>
+    {% if show_story %}
+    <section aria-labelledby="story-category-heading">
+        <h2 id="story-category-heading" class="rb-story-category-heading">{{ category }}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <article class="rb-card rb-paper-card flex flex-col">
+                {% if settings.blog_image %}<a href="{{ url_for('featured_story') }}" aria-label="Read {{ settings.blog_title }}"><img class="rb-card-media" src="{{ settings.blog_image|imgsrc }}" alt="{{ settings.blog_title }}" loading="lazy" decoding="async"></a>{% endif %}
+                <div class="p-6 flex-grow">
+                    <p class="rb-story-category-label">{{ category }}</p>
+                    <h3>{{ settings.blog_title or 'Featured story' }}</h3>
+                    {% if settings.blog_excerpt %}<p class="rb-card-excerpt">{{ settings.blog_excerpt|truncate(180) }}</p>{% endif %}
+                </div>
+                <div class="p-6 pt-0"><a href="{{ url_for('featured_story') }}" class="rb-button block text-center text-white py-3">Read Story <span aria-hidden="true">→</span></a></div>
+            </article>
+        </div>
+    </section>
+    {% else %}
+    <div class="rb-empty"><p>{% if selected_category %}No published stories in this category.{% else %}Our next story is on its way. Come back soon.{% endif %}</p>{% if selected_category %}<a href="{{ url_for('stories_index') }}" class="rb-action-outline">View all stories</a>{% endif %}</div>
+    {% endif %}
+</main>
+{% include '_footer.html' %}
+</body>
+</html>

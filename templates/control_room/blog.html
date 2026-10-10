@@ -6,6 +6,9 @@
 <h2>Featured story</h2><p class="cr-muted">Upload your illustrated blog as a PNG, JPG or WebP. Readers can open the complete image on its own story page. Saving replaces the current featured story.</p>
 <form action="{{ url_for('update_blog') }}" method="post" enctype="multipart/form-data" style="margin-top:20px">{{ csrf() }}
 <label>Story title<input name="blog_title" value="{{ settings.blog_title or '' }}" maxlength="300" required></label>
+<label>Category<input name="blog_category" value="{{ public.content.story_category }}" maxlength="100" list="story-categories" required></label>
+<datalist id="story-categories"><option value="Folklore &amp; Legends"><option value="Culture"><option value="Nature"><option value="Community"><option value="Travel Journals"></datalist>
+<p class="cr-muted">Choose or enter a category for the Stories listing.</p>
 <label>Introduction / accessible story text<textarea name="blog_excerpt" rows="8" maxlength="10000">{{ settings.blog_excerpt or '' }}</textarea></label>
 <p class="cr-muted">For an illustrated story, paste its text here so readers using assistive technology can read it too.</p>
 <label>Story artwork<input type="file" name="blog_image" accept="image/png,image/jpeg,image/webp"></label><p class="cr-muted">Up to 12 MB. The story page displays the full artwork without cropping.</p>

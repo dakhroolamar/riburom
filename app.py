@@ -172,6 +172,7 @@ PUBLIC_SITE_DEFAULTS = {
         'why3_title': 'Culture with Respect', 'why3_text': 'Experience living culture as something to understand, not merely photograph.',
         'why4_title': 'Responsible Travel', 'why4_text': 'Support local livelihoods while treating landscapes and communities with care.',
         'blog_eyebrow': 'Stories from the Journey',
+        'story_category': 'Folklore & Legends',
         'contact_title': 'Plan Your Journey', 'contact_text': 'Tell us what you are looking for and we will help you plan the next step.',
         'form_name': 'Your Name', 'form_email': 'Email Address', 'form_phone': 'WhatsApp / Phone', 'form_travellers': 'Number of Travellers',
         'form_dates': 'Preferred Travel Dates', 'form_tour': 'Tour / Experience', 'form_message': 'Message', 'form_submit': 'Send Enquiry',
@@ -1508,6 +1509,10 @@ def update_public_site():
 @permission_required('manage_about')
 def update_blog():
     settings = get_site_settings()
+    category = (request.form.get('blog_category') or '').strip()
+    if len(category) > 100:
+        flash('Story category must be 100 characters or fewer.', 'error')
+        return redirect(url_for('control_room', section='website', page='stories'))
     url = (request.form.get('blog_url') or '').strip()
     destination = url_for('control_room', section='website', page='stories')
     if url and not valid_external_url(url):
@@ -1534,6 +1539,10 @@ def update_blog():
     settings.blog_title = (request.form.get('blog_title') or '').strip()[:300]
     settings.blog_excerpt = (request.form.get('blog_excerpt') or '').strip()[:10000]
     settings.blog_button_text = (request.form.get('blog_button_text') or 'Read the Story').strip()[:120] or 'Read the Story'
+    if 'blog_category' in request.form:
+        config = get_public_config(settings)
+        config['content']['story_category'] = category or 'General'
+        settings.public_config_json = json.dumps(config, ensure_ascii=False)
 
     old_image = settings.blog_image
     if new_image:
@@ -1542,7 +1551,7 @@ def update_blog():
         settings.blog_image = None
 
     add_audit('updated', 'blog', 1, 'featured blog story')
-    notify_indexnow_paths(['/', '/about', '/stories/featured'], stage_only=True)
+    notify_indexnow_paths(['/', '/stories', '/stories/featured'], stage_only=True)
     db.session.commit()
     if (new_image or request.form.get('remove_blog_image')) and old_image != settings.blog_image:
         delete_media(old_image)
@@ -1551,13 +1560,22 @@ def update_blog():
 
 
 @app.route('/stories')
+def stories_index():
+    settings = get_site_settings()
+    available = settings.blog_enabled and bool(settings.blog_image or settings.blog_url)
+    category = get_public_config(settings)['content']['story_category']
+    selected = (request.args.get('category') or '').strip()[:100]
+    return render_template('stories.html', settings=settings,
+                           story_available=available, category=category,
+                           selected_category=selected,
+                           show_story=available and (not selected or selected == category))
+
+
 @app.route('/stories/featured')
 def featured_story():
     settings = get_site_settings()
     if not settings.blog_enabled or not (settings.blog_image or settings.blog_url):
-        if request.path == '/stories/featured':
-            abort(404)
-        return render_template('featured_story.html', settings=settings, story_available=False)
+        abort(404)
     return render_template('featured_story.html', settings=settings, story_available=True)
 
 
