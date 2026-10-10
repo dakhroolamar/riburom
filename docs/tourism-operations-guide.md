@@ -36,7 +36,7 @@ Draft, awaiting verification, under review and documents verified describe revie
 
 ## Update website and media
 
-Featured stories now appear within the homepage instead of opening automatically over it. Use the existing story title, excerpt, image and home-visibility settings to maintain that section. Public typography, colors, branding, gallery order and visibility remain editable through the same CMS controls.
+Featured stories now appear within the homepage instead of opening automatically over it. Use the existing story title, excerpt, image and home-visibility settings to maintain that section. Public typography, colors and layout follow the approved editorial reference; legacy appearance settings are retained but do not override this design. Page copy, photographs, gallery order and visibility remain editable. The hero photograph uses the main landscape image; the editable homepage gallery appears below the hero and retains its aspect and playback settings.
 
 Website page text follows **Save Draft → Preview saved draft → Publish Saved Draft**. Review the saved change summary before publishing. Images and appearance use immediate saves and are labelled as live changes. Media titles, alt text and captions are shared wherever that image is used.
 

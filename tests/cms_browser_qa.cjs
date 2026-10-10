@@ -14,6 +14,16 @@ async function imageReady(page, selector) {
 async function changed(page, start, timeout=8500) {
   await page.waitForFunction(start => document.querySelector('[data-rb-river-gallery]').dataset.galleryIndex !== start, start, {timeout});
   await page.waitForTimeout(500);
+  assert.equal(await page.locator(river+' figure.is-current').evaluate(el=>getComputedStyle(el).opacity),'1','The selected photograph must actually be visible');
+  const hidden=await page.locator(river+' figure:not(.is-current)').evaluateAll(items=>items.every(el=>getComputedStyle(el).opacity==='0'));
+  assert.ok(hidden,'Other photographs must not overlap the selected photograph');
+}
+async function visibleGallery(page) {
+  await page.locator(river).evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+  await page.waitForFunction(selector=>{
+    const box=document.querySelector(selector).getBoundingClientRect();
+    return (Math.min(box.bottom,innerHeight)-Math.max(box.top,0))/box.height>=.2;
+  },river);
 }
 async function captureRealPhotoEvidence(page) {
   const source = 'https://riburomtours.com/api/public-section-backgrounds';
@@ -137,12 +147,33 @@ async function captureRealPhotoEvidence(page) {
   await page.locator('#library-results .media-card').first().waitFor();
   await noOverflow(page); await page.screenshot({path:OUT+'/cms-library-desktop.png',fullPage:true});
   await page.goto(BASE+'/');
+  for (const state of ['', 'rb-hero-video-playing', 'rb-hero-video-complete', 'rb-hero-video-fallback']) {
+    await page.locator('#rb-home-hero').evaluate((hero,state) => {
+      hero.classList.remove('rb-hero-video-playing','rb-hero-video-complete','rb-hero-video-fallback');
+      hero.classList.add('rb-hero-video-enabled');if(state)hero.classList.add(state);
+    },state);
+    assert.ok(await page.locator('#rb-home-hero h1').isVisible(),'Opening film never hides the hero title');
+    assert.equal(await page.locator('#rb-home-hero h1').evaluate(el=>getComputedStyle(el).opacity),'1','Hero title is immediately opaque in every film state');
+    const heroCopy = await page.locator('.rb-hero-content').evaluate(el => ({opacity:getComputedStyle(el).opacity,pointerEvents:getComputedStyle(el).pointerEvents}));
+    assert.equal(heroCopy.opacity,'1','Opening film leaves hero content visible');
+    assert.equal(heroCopy.pointerEvents,'auto','Opening film leaves journey actions interactive');
+    assert.ok(await page.locator('.rb-hero-actions a').first().isVisible(),'Journey action remains visible during playback');
+  }
+  await page.locator('#rb-home-hero').evaluate(hero => hero.classList.remove('rb-hero-video-enabled','rb-hero-video-playing','rb-hero-video-complete','rb-hero-video-fallback'));
   assert.equal(await page.locator('.cms-hero-gallery').count(),0,'Fixture must match production with no optional Hero collection');
   await page.locator(river+'[data-gallery-ready="true"]').waitFor();
-  await page.locator(river).scrollIntoViewIfNeeded();
+  await visibleGallery(page);
   await imageReady(page,river+' img'); await noOverflow(page);
   const bounds=await page.locator(river).boundingBox();
-  assert.ok(bounds.width>1000 && bounds.x>=-2 && bounds.x+bounds.width<=1442,'Desktop gallery fills the available width without overflow');
+  const host=await page.locator('[data-rb-river-gallery-host]').evaluate(el=>{
+    const box=el.getBoundingClientRect(),style=getComputedStyle(el);
+    const left=parseFloat(style.paddingLeft)+parseFloat(style.borderLeftWidth);
+    const right=parseFloat(style.paddingRight)+parseFloat(style.borderRightWidth);
+    return {x:box.x+left,width:box.width-left-right};
+  });
+  assert.ok(host && bounds.width>=host.width-2 && bounds.width<=host.width+2,'Desktop gallery fills its editorial media column');
+  assert.ok(bounds.x>=host.x-2 && bounds.x+bounds.width<=host.x+host.width+2,'Desktop gallery stays within its media column');
+  assert.ok(bounds.x>=-2 && bounds.x+bounds.width<=1442,'Desktop gallery stays within the viewport without overflow');
   const start=await page.locator(river).getAttribute('data-gallery-index');
   await page.locator(river).hover();
   await page.waitForTimeout(6500);
@@ -156,6 +187,7 @@ async function captureRealPhotoEvidence(page) {
   const manual=await page.locator(river).getAttribute('data-gallery-index');
   await page.waitForTimeout(6500);
   assert.equal(await page.locator(river).getAttribute('data-gallery-index'),manual,'Manual input must pause autoplay');
+  await visibleGallery(page);
   await page.mouse.move(0,0);
   await changed(page,manual,7500);
   await page.locator(river+' [data-gallery-pause]').click();
@@ -164,6 +196,7 @@ async function captureRealPhotoEvidence(page) {
   await page.waitForTimeout(6500);
   assert.equal(await page.locator(river).getAttribute('data-gallery-index'),paused,'Explicit pause');
   await page.locator(river+' [data-gallery-pause]').click();
+  await visibleGallery(page);
   await page.mouse.move(0,0); await changed(page,paused);
   await page.locator('#rb-home-contact').scrollIntoViewIfNeeded();
   const off=await page.locator(river).getAttribute('data-gallery-index'); await page.waitForTimeout(6500);
@@ -177,7 +210,7 @@ async function captureRealPhotoEvidence(page) {
   await page.goto(BASE+'/'); await page.locator(river+'[data-gallery-ready="true"]').waitFor();
   await page.locator(river).scrollIntoViewIfNeeded(); await noOverflow(page);
   const size=await page.locator(river+' figure').first().boundingBox();
-  assert.ok(Math.abs(size.width/size.height-(4/3/0.7))<0.02,'Mobile gallery uses the configured reduced height');
+  assert.ok(Math.abs(size.width/size.height-(4/3/0.7))<0.02,`Mobile gallery uses the configured reduced height: ${size.width} × ${size.height}`);
   await page.screenshot({path:OUT+'/gallery-mobile-390.png'});
   await page.locator(river+' .cms-gallery-track').focus();
   const beforeKey=await page.locator(river).getAttribute('data-gallery-index');

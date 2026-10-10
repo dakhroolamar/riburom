@@ -18,31 +18,25 @@
     {% include '_flash.html' %}
     <main id="rbHomeSections" class="rb-paper-journey flex flex-col">
     {% if public.home.visibility.hero %}
-    {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
     <header id="rb-home-hero" class="rb-paper-hero rb-editorial-hero rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center rb-hero-content rb-hero-copy">
-            {% if hero_logo or settings.hero_animation_video %}
-            {% set placement = cms_logo_placement() %}
-            <div class="rb-hero-video-stage{% if placement %} cms-positioned-logo{% endif %}" data-rb-hero-video-stage {% if placement %}style="{% for device, values in placement.items() %}{% for axis in ['x','y','size'] %}--cms-{{ 'logo' if device == 'desktop' else device }}-{{ axis }}:{{ values[axis] }}%;{% endfor %}{% endfor %}"{% endif %}>
-                {% if hero_logo %}<img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">{% endif %}
-                {% if settings.hero_animation_video %}<video src="{{ settings.hero_animation_video|imgsrc }}" muted playsinline preload="metadata" data-rb-hero-animation-video aria-label="RI BUROM opening film"></video>{% endif %}
-            </div>
-            {% endif %}
             <p class="rb-hero-eyebrow text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
-            <h1 class="rb-hero-title">{{ public.content.hero_title }}</h1>
+            <h1 class="rb-hero-title">{% if public.content.hero_title == 'Meghalaya, beyond the ordinary.' %}<span class="rb-reference-title-line">Meghalaya, </span><span class="rb-reference-title-line">beyond the </span><span class="rb-reference-title-line">ordinary.</span>{% elif public.content.hero_title.isupper() %}{{ public.content.hero_title|capitalize }}{% else %}{{ public.content.hero_title }}{% endif %}</h1>
             <p class="text-lg md:text-2xl max-w-3xl mb-8 text-gray-100">{{ public.content.hero_subtitle }}</p>
             <div class="rb-hero-actions">
-                <a href="#tours" class="rb-button-accent text-white font-bold py-3 px-8 rounded-full shadow-lg transition">{{ public.content.hero_primary_button }}</a>
-                <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }}</a>
+                <a href="#tours" class="rb-button-accent text-white font-bold py-3 px-8 rounded-full shadow-lg transition">{{ public.content.hero_primary_button }} <span aria-hidden="true">→</span></a>
+                <a href="#contact" class="rb-button-outline border-2 bg-transparent hover:bg-white font-bold py-3 px-8 rounded-full transition">{{ public.content.hero_secondary_button }} <span aria-hidden="true">→</span></a>
             </div>
         </div>
         {% set gallery_images = cms_collection_media('hero', false) %}
         {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'hero' %}{% include '_cms_gallery.html' %}</div>{% endif %}
+        <div class="rb-paper-landscape rb-reference-landscape">
+            <img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="{% if hero_image %}Meghalaya landscape featured by RI BUROM{% else %}A lush landscape and waterfall{% endif %}" fetchpriority="high" decoding="async">
+        </div>
+    </header>
         {% set river_design = cms_gallery_settings('home_gallery') %}
-        <div class="rb-paper-landscape rb-river-gallery-host" data-rb-river-gallery-host>
-            <div class="rb-river-gallery-fallback" data-rb-river-gallery-fallback>
-                <img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="{% if hero_image %}Meghalaya landscape featured by RI BUROM{% else %}A lush landscape and waterfall{% endif %}" fetchpriority="high" decoding="async">
-            </div>
+        <section class="rb-story rb-reference-gallery rb-river-gallery-host" data-rb-river-gallery-host style="order:{{ home_order_index.hero }};" aria-label="RI BUROM photographs">
+            <div data-rb-river-gallery-fallback hidden></div>
             <div class="rb-river-gallery cms-public-gallery" data-rb-river-gallery data-cms-gallery {% if river_design.autoplay %}data-gallery-autoplay{% endif %} data-gallery-interval="{{ river_design.interval }}" style="--gallery-ratio:{{ river_design.ratio }}" aria-label="RI BUROM photo gallery" hidden>
                 <div class="rb-river-gallery-track cms-gallery-track" data-rb-rail-track tabindex="0" aria-label="Gallery photographs"></div>
                 <div class="cms-gallery-controls" aria-label="Photo gallery controls">
@@ -52,8 +46,7 @@
                     <button {% if not river_design.autoplay %}hidden{% endif %} type="button" data-gallery-pause aria-label="Pause automatic photographs" aria-pressed="false">Ⅱ</button>
                 </div>
             </div>
-        </div>
-    </header>
+        </section>
     {% endif %}
 
     {% if public.home.visibility.about %}

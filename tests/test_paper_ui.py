@@ -22,7 +22,7 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("--rb-font-cultural:var(--rb-heading-font", source)
         self.assertIn("--rb-font-body:var(--rb-body-font", source)
 
-    def test_editorial_hero_keeps_copy_visible_and_preserves_cms_logo(self):
+    def test_editorial_hero_keeps_copy_visible_without_loading_opening_film(self):
         js = (ROOT / 'static/js/ri-burom-home-fixes.js').read_text(encoding='utf-8')
         css = (ROOT / 'static/css/ri-burom-editorial.css').read_text(encoding='utf-8')
         home = (ROOT / 'templates/index.html').read_text(encoding='utf-8')
@@ -32,8 +32,9 @@ class PaperUiContractTests(unittest.TestCase):
         self.assertIn("video.classList.add('rb-hero-opening-film')", editorial)
         self.assertNotIn('logo.style.setProperty', editorial)
         self.assertNotIn('originalWidth * 2', editorial)
-        self.assertIn('settings.hero_logo_width', home)
-        self.assertIn('settings.hero_animation_video', home)
+        self.assertIn('rb-reference-landscape', home)
+        self.assertNotIn('data-rb-hero-animation-video', home)
+        self.assertNotIn('settings.hero_animation_video', home)
         self.assertIn('rb-studio-public', home)
         self.assertIn('rb-editorial-hero', home)
         self.assertIn('.rb-hero-content', css)

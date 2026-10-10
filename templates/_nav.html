@@ -13,13 +13,10 @@
 <nav class="rb-site-nav" aria-label="Primary navigation">
     <div class="rb-nav-bar rb-nav-grid rb-logo-{{ site_settings.header_logo_position or 'left' }}">
         <a href="/" aria-label="Ri Burom Tours & Travels" class="rb-brand" style="gap: {{ site_settings.header_logo_gap }}px;">
-            {% if site_settings.header_wordmark %}
-                <img src="{{ site_settings.header_wordmark|imgsrc }}" alt="Ri Burom wordmark" style="width: {{ site_settings.header_wordmark_width }}px; max-height: 54px; object-fit: contain;">
+            {% if site_settings.header_mark or site_settings.header_wordmark %}
+                <img class="rb-studio-brand-mark" src="{{ (site_settings.header_mark or site_settings.header_wordmark)|imgsrc }}" alt="" width="48" height="48">
             {% endif %}
-            {% if site_settings.header_mark %}
-                <img src="{{ site_settings.header_mark|imgsrc }}" alt="Ri Burom logo mark" style="width: {{ site_settings.header_mark_width }}px; height: {{ site_settings.header_mark_width }}px; object-fit: contain;">
-            {% endif %}
-            {% if not site_settings.header_wordmark and not site_settings.header_mark %}<span class="rb-brand-fallback">RI BUROM<small>Tours &amp; Travels</small></span>{% endif %}
+            <span class="rb-studio-wordmark">RI BUROM</span>
         </a>
 
         <div class="rb-nav-links">

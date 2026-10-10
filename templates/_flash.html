@@ -1,5 +1,5 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-critical-fix.css') }}?v=2">
-<script src="{{ url_for('static', filename='js/ri-burom-critical-fix.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/ri-burom-critical-fix.js') }}?v=2" defer></script>
 {% for category, message in get_flashed_messages(with_categories=true) %}
 <div class="rb-notice {{ category }}" role="{{ 'status' if category == 'success' else 'alert' }}">
     <span>{{ message }}</span><button type="button" data-dismiss-notice aria-label="Dismiss message">×</button>

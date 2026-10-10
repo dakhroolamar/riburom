@@ -2,6 +2,7 @@
   'use strict';
 
   function repairHeroFilmSpacing() {
+    if (document.body.classList.contains('rb-studio-public')) return;
     const hero = document.getElementById('rb-home-hero');
     const film = hero && hero.querySelector('[data-rb-hero-animation-video]');
     const landscape = hero && hero.querySelector('.rb-paper-landscape');
