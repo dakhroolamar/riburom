@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from flask import abort, jsonify, render_template, request, g
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm.exc import StaleDataError
+from sqlalchemy import or_, literal
 
 from models import db, Package, SiteSettings, AboutContent, TeamMember
 from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem, PageSection
@@ -65,7 +66,7 @@ def delivery(path, width=1200):
 
 def collection_media(key, legacy=True):
     collection = MediaCollection.query.filter_by(key=key).first()
-    if collection and collection.items:
+    if collection is not None:
         return [dict(id=i.id, src=delivery(i.asset.path), alt=i.asset.alt,
                      caption=i.asset.caption, credit=i.asset.credit,
                      focal_x=i.focal_x, focal_y=i.focal_y, organization=i.organization,
@@ -92,33 +93,78 @@ def tour_cover(package):
         g.cms_tour_covers = {}
         for collection in MediaCollection.query.filter(MediaCollection.key.like('tour-%')).all():
             visible = next((item for item in collection.items if item.visible), None)
-            if visible:
-                g.cms_tour_covers[collection.key] = delivery(visible.asset.path, 800)
+            g.cms_tour_covers[collection.key] = delivery(visible.asset.path, 800) if visible else ''
     return g.cms_tour_covers.get('tour-' + str(package.id), imgsrc(package.image_file))
 
 
-def asset_usage(asset):
-    uses = [c.title for c in MediaCollection.query.join(MediaCollectionItem)
-            .filter(MediaCollectionItem.asset_id == asset.id).all()]
-    # Include old CMS references, so registering an existing image never makes it deletable.
+def asset_usage_batch(assets):
+    """Resolve references for a page of assets with a fixed number of queries."""
+    if not assets:
+        return {}
+    uses = {asset.id: set() for asset in assets}
+    paths = {asset.path: asset.id for asset in assets}
+    for asset_id, title in db.session.query(MediaCollectionItem.asset_id, MediaCollection.title).join(
+            MediaCollection, MediaCollection.id == MediaCollectionItem.collection_id
+    ).filter(MediaCollectionItem.asset_id.in_(uses)).all():
+        uses[asset_id].add(title)
+    # Include legacy and marketplace references so reused media stays protected.
     for model, fields in ((Package, ['image_file']), (AboutContent, ['hero_image']),
                          (TeamMember, ['photo_file'])):
         for field in fields:
-            if model.query.filter(getattr(model, field) == asset.path).first():
-                uses.append('Existing website content')
-    settings = db.session.get(SiteSettings, 1)
+            column = getattr(model, field)
+            for (path,) in db.session.query(column).filter(column.in_(paths)).distinct():
+                uses[paths[path]].add('Existing website content')
+    from app import get_site_settings
+    settings = get_site_settings()
     if settings:
-        for column in SiteSettings.__table__.columns:
-            if column.name == 'hero_animation_video':
-                continue
-            value = getattr(settings, column.name)
-            if isinstance(value, str) and asset.path in value:
-                uses.append('Site settings')
-                break
-    from media_lifecycle import marketplace_media_is_referenced
-    if marketplace_media_is_referenced(asset.path):
-        uses.append('Marketplace')
-    return sorted(set(uses))
+        values = [getattr(settings, column.name) for column in SiteSettings.__table__.columns
+                  if column.name != 'hero_animation_video']
+        values = [value for value in values if isinstance(value, str)]
+        for path, asset_id in paths.items():
+            if any(path in value for value in values):
+                uses[asset_id].add('Site settings')
+    from marketplace_models import Provider, Service, ServiceImage
+    for model in (Provider, Service, ServiceImage):
+        for (path,) in db.session.query(model.image_url).filter(model.image_url.in_(paths)).distinct():
+            uses[paths[path]].add('Marketplace')
+    return {asset_id: sorted(labels) for asset_id, labels in uses.items()}
+
+
+def asset_usage(asset):
+    return asset_usage_batch([asset])[asset.id]
+
+
+def filter_media_usage(query):
+    usage = request.args.get('usage')
+    if usage not in ('used', 'unused'):
+        return query
+    from app import get_site_settings
+    from marketplace_models import Provider, Service, ServiceImage
+    references = [db.session.query(MediaCollectionItem.id).filter(MediaCollectionItem.asset_id == MediaAsset.id).exists()]
+    for model, field in ((Package, 'image_file'), (AboutContent, 'hero_image'), (TeamMember, 'photo_file'),
+                         (Provider, 'image_url'), (Service, 'image_url'), (ServiceImage, 'image_url')):
+        references.append(db.session.query(model.id).filter(getattr(model, field) == MediaAsset.path).exists())
+    settings = get_site_settings()
+    for column in SiteSettings.__table__.columns:
+        if column.name == 'hero_animation_video':
+            continue
+        value = getattr(settings, column.name)
+        if isinstance(value, str) and value:
+            references.append(literal(value).contains(MediaAsset.path))
+    used = or_(*references)
+    return query.filter(used if usage == 'used' else ~used)
+
+
+def media_page(query, order):
+    """Keep the legacy list API compatible while paginating editor clients."""
+    ordering = order if isinstance(order, tuple) else (order,)
+    if 'page' not in request.args:
+        return query.order_by(*ordering).limit(200).all(), None
+    page = max(1, request.args.get('page', 1, type=int) or 1)
+    page_size = min(100, max(1, request.args.get('page_size', 40, type=int) or 40))
+    result = query.order_by(*ordering).paginate(page=page, per_page=page_size, error_out=False)
+    return result.items, dict(page=page, pages=result.pages, total=result.total,
+                              has_next=result.has_next, has_prev=result.has_prev)
 
 
 def register_cms_pages(app):
@@ -170,8 +216,8 @@ def register_cms_pages(app):
                     cfg.setdefault('content', {})[name] = value.strip()
                 settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
                 add_audit('updated', 'cms_content', section, 'Page section text')
+                notify_indexnow_cms_change(section, stage_only=True)
                 db.session.commit()
-                notify_indexnow_cms_change(section)
             def label(name):
                 for prefix in ('home_about_', 'home_tours_', 'home_why_', 'tours_page_', 'about_page_', 'tour_detail_', 'hero_', 'footer_', 'contact_'):
                     if name.startswith(prefix):
@@ -210,8 +256,8 @@ def register_cms_pages(app):
                 styles.setdefault(style_key, {}).update(values)
                 settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
                 add_audit('updated', 'cms_design', section, 'Section colors')
+                notify_indexnow_cms_change(section, stage_only=True)
                 db.session.commit()
-                notify_indexnow_cms_change(section)
             values = {**defaults, **styles.get(style_key, {})}
             return jsonify(fields=[dict(name=name, label=name.replace('_color', '').capitalize(), value=values[name])
                                    for name in fields], token=public_config_token(settings))
@@ -242,8 +288,8 @@ def register_cms_pages(app):
             cfg.setdefault('theme', {}).setdefault('gallery_behavior', {})[key] = values
             settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
             add_audit('updated', 'cms_gallery_design', key, 'Gallery playback and proportions')
+            notify_indexnow_cms_change(key, stage_only=True)
             db.session.commit()
-            notify_indexnow_cms_change(key)
         return jsonify(values=gallery_settings(key), token=public_config_token(settings))
 
     @app.route('/workspace/media-api/assets', methods=['GET', 'POST'])
@@ -254,11 +300,14 @@ def register_cms_pages(app):
             term = request.args.get('q', '').strip()[:240]
             if term:
                 query = query.filter(MediaAsset.title.ilike('%' + term + '%'))
-            rows = query.order_by(MediaAsset.created_at.desc()).limit(200).all()
-            return jsonify([dict(id=a.id, title=a.title, src=delivery(a.path, 400),
+            query = filter_media_usage(query)
+            rows, pagination = media_page(query, (MediaAsset.created_at.desc(), MediaAsset.id.desc()))
+            usage = asset_usage_batch(rows)
+            items = [dict(id=a.id, version=a.version, title=a.title, src=delivery(a.path, 400),
                                  alt=a.alt, caption=a.caption, credit=a.credit,
                                  width=a.width, height=a.height, byte_size=a.byte_size,
-                                 created_at=a.created_at.isoformat(), usage=asset_usage(a)) for a in rows])
+                                 created_at=a.created_at.isoformat(), usage=usage[a.id]) for a in rows]
+            return jsonify(dict(items=items, **pagination) if pagination else items)
         file = request.files.get('image')
         if not file or not file.filename:
             abort(400, 'Choose an image.')
@@ -282,7 +331,7 @@ def register_cms_pages(app):
         db.session.add(asset)
         add_audit('uploaded', 'cms_media', None, asset.title)
         db.session.commit()
-        return jsonify(id=asset.id, src=delivery(path, 400)), 201
+        return jsonify(id=asset.id, version=asset.version, src=delivery(path, 400)), 201
 
     @app.route('/workspace/media-api/assets/<int:asset_id>', methods=['POST', 'DELETE'])
     @cms_media_required
@@ -307,20 +356,22 @@ def register_cms_pages(app):
             db.session.delete(asset)
         else:
             data = request.get_json() or {}
+            if data.get('version') != asset.version:
+                return jsonify(error='Image details changed. Reload before saving.'), 409
             for field, limit in [('title', 240), ('alt', 500), ('caption', 1000), ('credit', 500)]:
                 if field in data:
                     if not isinstance(data[field], str) or len(data[field]) > limit:
                         abort(400)
                     setattr(asset, field, data[field].strip())
         add_audit('updated', 'cms_media', asset_id, 'Media library updated')
-        db.session.commit()
         if affected_collection_keys:
             paths = []
             for key in affected_collection_keys:
                 paths.extend(public_paths_for_cms_change(key))
             if paths:
-                notify_indexnow_paths(paths)
-        return jsonify(ok=True)
+                notify_indexnow_paths(paths, stage_only=True)
+        db.session.commit()
+        return jsonify(ok=True, version=asset.version)
 
     @app.route('/workspace/media-api/collections/<key>', methods=['GET', 'POST'])
     @cms_media_required
@@ -335,8 +386,8 @@ def register_cms_pages(app):
         if request.method == 'GET':
             return jsonify(version=collection.version if collection else 0,
                            limit=app.config['CMS_COLLECTION_LIMIT'],
-                           legacy=[delivery(p, 400) for p in legacy_paths(key) if p],
-                           items=[dict(id=i.id, asset_id=i.asset_id, src=delivery(i.asset.path, 400), preview_src=delivery(i.asset.path, 1200),
+                           legacy=[delivery(p, 400) for p in legacy_paths(key) if p] if collection is None else [],
+                           items=[dict(id=i.id, asset_id=i.asset_id, version=i.asset.version, src=delivery(i.asset.path, 400), preview_src=delivery(i.asset.path, 1200),
                                        alt=i.asset.alt, caption=i.asset.caption, credit=i.asset.credit,
                                        focal_x=i.focal_x, focal_y=i.focal_y, organization=i.organization,
                                        url=i.url, label=i.label, visible=i.visible, new_tab=i.new_tab)
@@ -347,6 +398,9 @@ def register_cms_pages(app):
         items = data.get('items')
         if not isinstance(items, list) or len(items) > app.config['CMS_COLLECTION_LIMIT']:
             abort(400, 'Too many gallery images.')
+        metadata = data.get('metadata', {})
+        if not isinstance(metadata, dict):
+            abort(400)
         validated = []
         for item in items:
             if not isinstance(item, dict):
@@ -373,6 +427,24 @@ def register_cms_pages(app):
                     abort(400)
                 values[field] = item.get(field, default)
             validated.append(values)
+        metadata_updates = []
+        for asset_id, fields in metadata.items():
+            if not isinstance(asset_id, str) or not asset_id.isdigit() or not isinstance(fields, dict):
+                abort(400)
+            if int(asset_id) not in {item['asset_id'] for item in validated}:
+                abort(400, 'Image details must belong to this gallery.')
+            asset = db.session.get(MediaAsset, int(asset_id))
+            if fields.get('version') != asset.version:
+                return jsonify(error='Shared image details changed. Reload before saving.'), 409
+            fields = {name: value for name, value in fields.items() if name != 'version'}
+            limits = {'title': 240, 'alt': 500, 'caption': 1000, 'credit': 500}
+            if any(name not in limits or not isinstance(value, str) or len(value) > limits[name]
+                   for name, value in fields.items()):
+                abort(400)
+            metadata_updates.append((asset, fields))
+        for asset, fields in metadata_updates:
+            for name, value in fields.items():
+                setattr(asset, name, value.strip())
         if not collection:
             collection = MediaCollection(key=key, title=title)
             db.session.add(collection)
@@ -380,13 +452,19 @@ def register_cms_pages(app):
             collection.version += 1
         collection.items = [MediaCollectionItem(position=n, **values) for n, values in enumerate(validated)]
         add_audit('updated', 'cms_collection', key, f'{len(items)} gallery images')
+        affected = {key}
+        if metadata_updates:
+            affected.update(row[0] for row in db.session.query(MediaCollection.key).join(MediaCollectionItem)
+                            .filter(MediaCollectionItem.asset_id.in_([asset.id for asset, _ in metadata_updates])))
+        paths = [path for collection_key in affected for path in public_paths_for_cms_change(collection_key)]
+        if paths:
+            notify_indexnow_paths(paths, stage_only=True)
         try:
             db.session.commit()
         except StaleDataError:
             db.session.rollback()
             return jsonify(error='Another editor saved first. Reload before saving.'), 409
-        notify_indexnow_cms_change(key)
-        return jsonify(ok=True, version=collection.version)
+        return jsonify(ok=True, version=collection.version, asset_versions={str(i.asset_id): i.asset.version for i in collection.items})
 
     @app.route('/workspace/media-api/hero-placement', methods=['GET', 'POST'])
     @cms_media_required
@@ -409,12 +487,12 @@ def register_cms_pages(app):
             section = PageSection(page='home', key='hero')
             db.session.add(section)
         section.settings = values
+        notify_indexnow_cms_change('home', stage_only=True)
         try:
             db.session.commit()
         except StaleDataError:
             db.session.rollback()
             return jsonify(error='Another editor saved first. Reload before saving.'), 409
-        notify_indexnow_cms_change('home')
         return jsonify(ok=True, version=section.version)
 
     @app.context_processor

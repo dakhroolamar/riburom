@@ -251,6 +251,85 @@ class ControlRoomTests(unittest.TestCase):
         self.assertEqual(self.client.post('/workspace/control/website/home/draft').status_code,403)
         self.assertEqual(self.client.post('/workspace/control/media/metadata/1').status_code,403)
 
+    def test_shared_metadata_rejects_stale_library_and_collection_saves(self):
+        from cms_media_models import MediaAsset
+        asset = MediaAsset(path='uploads/conflict-fixture.jpg', title='Original')
+        self.db.session.add(asset); self.db.session.commit()
+        original = asset.version
+        saved = self.client.post(f'/workspace/control/media/metadata/{asset.id}', data={
+            'version': original, 'title': 'Winner', 'location': 'Shillong'})
+        self.assertEqual(saved.status_code, 200)
+        self.assertGreater(saved.json['version'], original)
+        self.assertEqual(self.client.post(f'/workspace/media-api/assets/{asset.id}', json={
+            'version': original, 'alt': 'Stale'}).status_code, 409)
+        self.assertEqual(self.client.post('/workspace/media-api/collections/hero', json={
+            'version': 0, 'items': [{'asset_id': asset.id}],
+            'metadata': {str(asset.id): {'version': original, 'alt': 'Stale'}}}).status_code, 409)
+        self.assertEqual(self.client.post(f'/workspace/control/media/metadata/{asset.id}', data={
+            'version': original, 'title': 'Stale', 'location': 'Lost'}).status_code, 409)
+        self.db.session.expire_all()
+        self.assertEqual(asset.title, 'Winner')
+        from control_room_models import AssetMetadata
+        self.assertEqual(self.db.session.get(AssetMetadata, asset.id).location, 'Shillong')
+        response = self.client.post('/workspace/media-api/collections/hero', json={
+            'version': 0, 'items': [{'asset_id': asset.id}],
+            'metadata': {str(asset.id): {'version': asset.version, 'alt': 'Gallery winner'}}})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['asset_versions'][str(asset.id)], asset.version)
+        self.assertEqual(asset.alt, 'Gallery winner')
+
+    def test_empty_tour_gallery_omits_legacy_cover_in_public_cards(self):
+        from models import Package
+        tour = Package(title='Empty cover tour', slug='empty-cover-tour', description='Fixture', published=True, featured=True, image_file='uploads/legacy-cover-fixture.jpg')
+        self.db.session.add(tour); self.db.session.commit()
+        self.assertEqual(self.client.post(f'/workspace/media-api/collections/tour-{tour.id}', json={'version':0, 'items':[]}).status_code, 200)
+        for route in ['/', '/all_tours']:
+            html = self.client.get(route).data
+            self.assertNotIn(b'/static/uploads/legacy-cover-fixture.jpg', html)
+            import re
+            card = next(card for card in re.findall(rb'<article\b.*?</article>', html, re.S) if b'Empty cover tour' in card)
+            self.assertNotIn(b'<img', card)
+
+    def test_detail_previews_require_target_and_render_selected_record(self):
+        from control_room_models import WebsiteRevision
+        from models import Package
+        from marketplace_models import Provider
+        tour = Package(title='Preview tour', slug='preview-tour', description='Tour fixture', published=True)
+        provider = Provider(name='Preview provider', slug='preview-provider', status='APPROVED', is_active=True)
+        self.db.session.add_all([tour, provider]); self.db.session.commit()
+        for page, slug, expected in [('tour-detail', tour.slug, b'Preview tour'), ('provider', provider.slug, b'Preview provider')]:
+            revision = WebsiteRevision(page=page, payload_json=json.dumps({'content': {'tour_detail_overview': 'Draft overview fixture'}, '_base': {'content': {}}}), base_token='test', author_id=self.owner.id)
+            self.db.session.add(revision); self.db.session.commit()
+            url = f'/workspace/control/website/revisions/{revision.id}/preview'
+            selection = self.client.get(url)
+            self.assertIn(b'Published record', selection.data)
+            self.assertEqual(selection.headers['Cache-Control'], 'private, no-store')
+            rendered = self.client.get(url, query_string={'slug': slug})
+            self.assertEqual(rendered.status_code, 200)
+            self.assertIn(expected, rendered.data)
+            if page == 'tour-detail':
+                self.assertIn(b'Draft overview fixture', rendered.data)
+            self.assertEqual(self.client.get(url, query_string={'slug': 'unpublished-or-missing'}).status_code, 404)
+
+    def test_opening_film_usage_and_filters(self):
+        from control_room_models import LibraryVideo
+        original = self.settings.hero_animation_video
+        try:
+            live = LibraryVideo(title='Live film', path='uploads/live-film.mp4', byte_size=20)
+            unused = LibraryVideo(title='Unused film', path='uploads/unused-film.mp4', byte_size=20)
+            self.db.session.add_all([live, unused]); self.settings.hero_animation_video = live.path
+            self.db.session.commit()
+            url = '/workspace/control/media/videos?page=1'
+            used = self.client.get(url + '&usage=used').json
+            self.assertEqual([item['id'] for item in used['items']], [live.id])
+            self.assertEqual(used['items'][0]['usage'], ['Homepage opening film'])
+            unused_items = self.client.get(url + '&usage=unused').json['items']
+            self.assertEqual([item['id'] for item in unused_items], [unused.id])
+            self.assertEqual(unused_items[0]['usage'], [])
+        finally:
+            self.settings.hero_animation_video = original
+            self.db.session.commit()
+
     def test_media_metadata_and_replacement_update_current_references(self):
         from unittest.mock import patch
         from PIL import Image
@@ -259,7 +338,7 @@ class ControlRoomTests(unittest.TestCase):
         asset=MediaAsset(path='uploads/control-original.jpg',title='Original')
         package=Package(title='Media reference tour',slug='media-reference-tour',description='Preserved',image_file=asset.path)
         self.db.session.add_all([asset,package]);self.db.session.commit()
-        response=self.client.post(f'/workspace/control/media/metadata/{asset.id}',data={'title':'Updated title','alt':'Accessible description','location':'Shillong','category':'Landscape','tags':'nature'})
+        response=self.client.post(f'/workspace/control/media/metadata/{asset.id}',data={'version':asset.version,'title':'Updated title','alt':'Accessible description','location':'Shillong','category':'Landscape','tags':'nature'})
         self.assertEqual(response.status_code,200)
         self.assertTrue(response.json['ok'])
         image=io.BytesIO();Image.new('RGB',(32,32),(20,60,35)).save(image,format='PNG');image.seek(0)

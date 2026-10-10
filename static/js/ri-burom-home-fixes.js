@@ -74,9 +74,9 @@
 
   function fetchHomeMedia() {
     if (homeMediaPromise) return homeMediaPromise;
-    homeMediaPromise = fetch('/api/public-section-backgrounds', { credentials: 'same-origin' })
+    homeMediaPromise = window.RiBuromPublicMedia || (window.RiBuromPublicMedia = fetch('/api/public-section-backgrounds', { credentials: 'same-origin' })
       .then((response) => response.ok ? response.json() : null)
-      .catch(() => null);
+      .catch(() => null));
     return homeMediaPromise;
   }
 

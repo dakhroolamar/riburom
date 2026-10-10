@@ -142,6 +142,7 @@ class CmsPagesTests(unittest.TestCase):
         self.assertNotIn('data-panel="content"', html)
         self.assertIn('data-panel="media"', html)
         self.assertIn('Typography & colors', html)
+        self.assertIn('id="section-design"', html)
         self.assertNotIn('Navigation & labels', html)
 
         content_user = User(username='content-only', full_name='Content editor', password_hash='disabled',
@@ -155,6 +156,7 @@ class CmsPagesTests(unittest.TestCase):
         content_html = content_client.get('/workspace/pages').get_data(as_text=True)
         self.assertIn('Navigation & labels', content_html)
         self.assertNotIn('Typography & colors', content_html)
+        self.assertNotIn('id="section-design"', content_html)
 
         self.app.config['WTF_CSRF_ENABLED'] = True
         try:
@@ -165,6 +167,26 @@ class CmsPagesTests(unittest.TestCase):
                 self.assertIn('form expired', session['_flashes'][-1][1])
         finally:
             self.app.config['WTF_CSRF_ENABLED'] = False
+
+    def test_explicit_empty_gallery_does_not_restore_legacy_content(self):
+        import json
+        from app import get_site_settings
+        from cms_pages import collection_media
+        settings = get_site_settings(); original = settings.public_config_json
+        try:
+            cfg = json.loads(original)
+            cfg.setdefault('theme', {}).setdefault('galleries', {})['home_gallery'] = ['uploads/legacy-gallery.jpg']
+            settings.public_config_json = json.dumps(cfg); self.db.session.commit()
+            self.assertEqual(len(collection_media('home_gallery')), 1)
+            asset_id = self.asset()
+            url = '/workspace/media-api/collections/home_gallery'
+            filled = self.client.post(url, json={'version': 0, 'items': [{'asset_id': asset_id}]}).json
+            cleared = self.client.post(url, json={'version': filled['version'], 'items': []})
+            self.assertEqual(cleared.status_code, 200)
+            self.assertEqual(collection_media('home_gallery'), [])
+            self.assertEqual(self.client.get(url).json['legacy'], [])
+        finally:
+            settings.public_config_json = original; self.db.session.commit()
 
     def test_anonymous_cannot_write(self):
         response = self.app.test_client().post('/workspace/media-api/collections/hero',json={'version':0,'items':[]})

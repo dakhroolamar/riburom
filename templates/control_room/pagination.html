@@ -1,0 +1,7 @@
+{% for list in list_pages|default([]) %}
+<nav class="cr-toolbar" aria-label="{{ list.label }} pages">
+    <span>{{ list.label }}: {{ list.total }} records · Page {{ list.page }} of {{ list.pages }}</span>
+    {% if list.has_previous %}<a class="cr-button secondary small" href="{{ list.previous }}">Previous {{ list.label|lower }}</a>{% endif %}
+    {% if list.has_next %}<a class="cr-button secondary small" href="{{ list.next }}">Next {{ list.label|lower }}</a>{% endif %}
+</nav>
+{% endfor %}

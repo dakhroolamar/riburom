@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 import logging
 import os
@@ -18,6 +19,7 @@ from flask import (
 )
 from sqlalchemy import inspect, func, desc, text
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.exc import StaleDataError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -353,6 +355,9 @@ def inject_helpers():
         'google_font_families': [FONT_GOOGLE_FAMILIES[k] for k in (body_key, heading_key) if k in FONT_GOOGLE_FAMILIES],
         'public': public,
         'home_order_index': home_order_index,
+        'featured_story_key': hashlib.sha256(json.dumps([
+            settings.blog_title, settings.blog_image, settings.blog_excerpt, settings.blog_url
+        ]).encode('utf-8')).hexdigest(),
     }
 
 
@@ -380,7 +385,14 @@ def get_current_user():
     user_id = session.get('user_id')
     if not user_id:
         return None
-    user = db.session.get(User, user_id)
+    # Keep a strong request-local reference: SQLAlchemy's weak identity map can
+    # otherwise reload the same user for each permission check in a template.
+    cached = request.environ.get('riburom.current_user')
+    if cached is not None and cached[0] == user_id:
+        user = cached[1]
+    else:
+        user = db.session.get(User, user_id)
+        request.environ['riburom.current_user'] = (user_id, user)
     if (
         user is None
         or not user.is_active
@@ -421,6 +433,8 @@ def _run_legacy_migrations():
     _add_column_if_missing('site_settings', 'link_text_color', "VARCHAR(20) DEFAULT '#166534'")
     _add_column_if_missing('about_content', 'hero_image', 'VARCHAR(500)')
     _add_column_if_missing('site_settings', 'public_config_json', 'TEXT')
+    _add_column_if_missing('site_settings', 'version', 'INTEGER NOT NULL DEFAULT 1')
+    _add_column_if_missing('traveller_reviews', 'is_visible', 'BOOLEAN NOT NULL DEFAULT TRUE')
     fields = [
         ('slug', 'VARCHAR(240)'), ('location', 'VARCHAR(200)'), ('duration', 'VARCHAR(100)'),
         ('price', 'VARCHAR(100)'), ('category', 'VARCHAR(100)'), ('best_season', 'VARCHAR(200)'),
@@ -668,7 +682,7 @@ def home():
         featured = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
     total_published = Package.query.filter_by(published=True).count()
     hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
-    reviews = TravellerReview.query.order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
+    reviews = TravellerReview.query.filter_by(is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
     return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings, review_rows=[reviews[::2], reviews[1::2]])
 
 
@@ -1060,9 +1074,9 @@ def add_package():
         featured=bool(request.form.get('featured')), sort_order=sort_order)
     db.session.add(pkg); db.session.flush()
     add_audit('created', 'package', pkg.id, pkg.title)
-    db.session.commit()
     if pkg.published:
-        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'])
+        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'], stage_only=True)
+    db.session.commit()
     flash(f'"{title}" added.', 'success'); return redirect('/workspace')
 
 
@@ -1100,9 +1114,10 @@ def edit_package(id):
     elif request.form.get('remove_image'): pkg.image_file = None
     if new_pdf: pkg.pdf_file = new_pdf
     elif request.form.get('remove_pdf'): pkg.pdf_file = ''
-    db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title); db.session.commit()
+    db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title)
     if was_published or pkg.published:
-        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'])
+        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'], stage_only=True)
+    db.session.commit()
     if (new_image or request.form.get('remove_image')) and old_image != pkg.image_file: delete_media(old_image)
     if (new_pdf or request.form.get('remove_pdf')) and old_pdf != pkg.pdf_file: delete_media(old_pdf)
     flash(f'"{title}" updated.', 'success'); return redirect('/workspace')
@@ -1114,9 +1129,10 @@ def delete_package(id):
     pkg = db.session.get(Package, id)
     if pkg is not None:
         old_image, old_pdf, title, slug, was_published = pkg.image_file, pkg.pdf_file, pkg.title, pkg.slug, pkg.published
-        db.session.delete(pkg); add_audit('deleted', 'package', id, title); db.session.commit(); delete_media(old_image); delete_media(old_pdf)
+        db.session.delete(pkg); add_audit('deleted', 'package', id, title)
         if was_published:
-            notify_indexnow_paths(['/', '/all_tours', f'/tours/{slug}'])
+            notify_indexnow_paths(['/', '/all_tours', f'/tours/{slug}'], stage_only=True)
+        db.session.commit(); delete_media(old_image); delete_media(old_pdf)
     flash('Package deleted.', 'success'); return redirect('/workspace')
 
 
@@ -1148,8 +1164,8 @@ def update_about_structure():
                 sections[key].label = label
 
     add_audit('updated', 'about_structure', 1, ', '.join(ordered_keys))
+    notify_indexnow_cms_change('about', stage_only=True)
     db.session.commit()
-    notify_indexnow_cms_change('about')
     flash('About Us page structure updated.', 'success')
     return redirect('/workspace/cms/structure')
 
@@ -1174,8 +1190,8 @@ def update_team_order():
         members[member_id].sort_order = idx
 
     add_audit('updated', 'team_order', 1, ', '.join(map(str, ordered_ids)))
+    notify_indexnow_cms_change('about', stage_only=True)
     db.session.commit()
-    notify_indexnow_cms_change('about')
     flash('Team profile order updated.', 'success')
     return redirect('/workspace')
 
@@ -1188,8 +1204,9 @@ def update_mission():
     about_row = db.session.get(AboutContent, 1)
     if about_row is None: about_row = AboutContent(id=1, mission=mission); db.session.add(about_row)
     else: about_row.mission = mission
-    add_audit('updated', 'about', 1, 'mission'); db.session.commit()
-    notify_indexnow_cms_change('about')
+    add_audit('updated', 'about', 1, 'mission')
+    notify_indexnow_cms_change('about', stage_only=True)
+    db.session.commit()
     flash('Mission statement updated.', 'success'); return redirect('/workspace')
 
 
@@ -1249,8 +1266,8 @@ def update_about_content():
         settings.logo_meaning_pdf = None
 
     add_audit('updated', 'about_content', 1, 'mission, pillars, editable sections, logo meaning')
+    notify_indexnow_cms_change('about', stage_only=True)
     db.session.commit()
-    notify_indexnow_cms_change('about')
     if (new_pdf or request.form.get('remove_logo_meaning_pdf')) and old_pdf != settings.logo_meaning_pdf:
         delete_media(old_pdf)
     flash('About Us content updated.', 'success')
@@ -1286,8 +1303,8 @@ def update_branding():
             setattr(settings, field, None)
 
     add_audit('updated', 'branding', 1, 'header and hero logos')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
 
     for field, old_value in previous.items():
         new_value = getattr(settings, field)
@@ -1307,8 +1324,8 @@ def update_logo_sizes():
     settings.header_logo_gap = clamp_int(request.form.get('header_logo_gap'), settings.header_logo_gap, 0, 32)
     settings.hero_logo_width = clamp_int(request.form.get('hero_logo_width'), settings.hero_logo_width, 120, 520)
     add_audit('updated', 'branding_sizes', 1, 'logo display sizes')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     flash('Logo sizes updated.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1323,8 +1340,8 @@ def reset_logo_sizes():
     settings.hero_logo_width = 300
     settings.header_logo_position = 'left'
     add_audit('reset', 'branding_sizes', 1, 'logo display sizes and header position')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     flash('Logo sizes reset to the default values.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1342,8 +1359,8 @@ def update_header_layout():
     settings.header_mark_width = clamp_int(request.form.get('header_mark_width'), settings.header_mark_width, 24, 180)
     settings.hero_logo_width = clamp_int(request.form.get('hero_logo_width'), settings.hero_logo_width, 120, 560)
     add_audit('updated', 'header_layout', 1, f'position={position}')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     flash('Header and logo layout saved.', 'success')
     return redirect('/workspace/cms/media')
 
@@ -1367,8 +1384,8 @@ def update_typography():
         if re.fullmatch(r'#[0-9a-fA-F]{6}', value):
             setattr(settings, field, value)
     add_audit('updated', 'typography', 1, f'body_font={body_font}; heading_font={heading_font}')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     flash('Typography settings saved.', 'success')
     return redirect('/workspace/cms')
 
@@ -1434,8 +1451,8 @@ def update_public_site():
 
     settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
     add_audit('updated', 'public_site', 1, 'global public content, theme, and homepage structure')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     flash('Public website settings saved.', 'success')
     return redirect('/workspace/cms')
 
@@ -1478,8 +1495,8 @@ def update_blog():
         settings.blog_image = None
 
     add_audit('updated', 'blog', 1, 'featured blog story')
+    notify_indexnow_paths(['/', '/about', '/stories/featured'], stage_only=True)
     db.session.commit()
-    notify_indexnow_paths(['/', '/about', '/stories/featured'])
     if (new_image or request.form.get('remove_blog_image')) and old_image != settings.blog_image:
         delete_media(old_image)
     flash('Blog feature updated.', 'success')
@@ -1533,8 +1550,8 @@ def update_footer():
         return redirect('/workspace/cms/media')
 
     add_audit('updated', 'footer', 1, 'footer and Instagram settings')
+    notify_indexnow_public_site(stage_only=True)
     db.session.commit()
-    notify_indexnow_public_site()
     if old_qr and old_qr != settings.instagram_qr:
         delete_media(old_qr)
     flash('Footer and Instagram settings updated.', 'success')
@@ -1552,8 +1569,9 @@ def add_team_member():
     except ValueError as e: flash(str(e), 'error'); return redirect('/workspace')
     max_order = db.session.query(db.func.max(TeamMember.sort_order)).scalar() or 0
     member = TeamMember(name=name, position=position, role_type=role_type, sort_order=max_order + 1, description=description, photo_file=photo_file)
-    db.session.add(member); db.session.flush(); add_audit('created', 'team_member', member.id, f'{name} ({role_type})'); db.session.commit()
-    notify_indexnow_cms_change('about')
+    db.session.add(member); db.session.flush(); add_audit('created', 'team_member', member.id, f'{name} ({role_type})')
+    notify_indexnow_cms_change('about', stage_only=True)
+    db.session.commit()
     flash(f'{name} added to the team.', 'success'); return redirect('/workspace')
 
 
@@ -1580,8 +1598,9 @@ def edit_team_member(id):
     member.name = name; member.position = position; member.role_type = role_type; member.description = description
     if new_photo: member.photo_file = new_photo
     elif request.form.get('remove_photo'): member.photo_file = None
-    db.session.flush(); add_audit('updated', 'team_member', member.id, name); db.session.commit()
-    notify_indexnow_cms_change('about')
+    db.session.flush(); add_audit('updated', 'team_member', member.id, name)
+    notify_indexnow_cms_change('about', stage_only=True)
+    db.session.commit()
     if (new_photo or request.form.get('remove_photo')) and old_photo != member.photo_file: delete_media(old_photo)
     flash(f'{name} updated.', 'success'); return redirect('/workspace')
 
@@ -1592,8 +1611,9 @@ def delete_team_member(id):
     member = db.session.get(TeamMember, id)
     if member is not None:
         old_photo, name = member.photo_file, member.name
-        db.session.delete(member); add_audit('deleted', 'team_member', id, name); db.session.commit(); delete_media(old_photo)
-        notify_indexnow_cms_change('about')
+        db.session.delete(member); add_audit('deleted', 'team_member', id, name)
+        notify_indexnow_cms_change('about', stage_only=True)
+        db.session.commit(); delete_media(old_photo)
     flash('Team member removed.', 'success'); return redirect('/workspace')
 
 
@@ -1631,8 +1651,9 @@ def upload_photo():
     about_row = db.session.get(AboutContent, 1)
     if about_row is None: about_row = AboutContent(id=1); db.session.add(about_row)
     else: old_hero = about_row.hero_image
-    about_row.hero_image = hero_image; add_audit('updated', 'hero_image', 1); db.session.commit()
-    notify_indexnow_cms_change('home')
+    about_row.hero_image = hero_image; add_audit('updated', 'hero_image', 1)
+    notify_indexnow_cms_change('home', stage_only=True)
+    db.session.commit()
     if old_hero and old_hero != hero_image: delete_media(old_hero)
     flash('Homepage background updated.', 'success'); return redirect('/workspace')
 
@@ -1795,6 +1816,15 @@ def add_security_headers(response):
 def handle_csrf_error(e):
     flash('The form expired or was submitted from an invalid session. Please try again.', 'error')
     return redirect(url_for('home'))
+
+
+@app.errorhandler(StaleDataError)
+def handle_concurrent_save(e):
+    db.session.rollback()
+    message = 'Another editor saved first. Reload this page before applying your changes again.'
+    if request.is_json or '/media-api/' in request.path:
+        return {'error': message}, 409
+    return render_template('errors/409.html', message=message), 409
 
 
 @app.errorhandler(403)

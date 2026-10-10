@@ -86,6 +86,7 @@ class WebsiteRevision(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     published_at = db.Column(db.DateTime)
+    is_backup = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
 
 class ControlPreference(db.Model):

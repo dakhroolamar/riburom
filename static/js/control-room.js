@@ -44,18 +44,29 @@
   });
   document.querySelector('[data-forgot]')?.addEventListener('click', () => {document.getElementById('cr-login-help').hidden = false;});
   document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
-  const dirtyForms = new Set();
+  const dirtyForms = new Set(), baselines = new WeakMap();
+  const snapshot = form => JSON.stringify([...new FormData(form)].filter(([key]) => !['csrf_token', 'token', 'work_token'].includes(key))
+    .map(([key, value]) => [key, value instanceof File ? (value.name ? [value.name, value.size, value.lastModified] : null) : value]));
+  const refreshDirty = form => {if (snapshot(form) === baselines.get(form)) dirtyForms.delete(form); else dirtyForms.add(form);};
   document.querySelectorAll('[data-dirty-form]').forEach(form => {
-    form.addEventListener('input', () => dirtyForms.add(form));
-    form.addEventListener('submit', () => dirtyForms.delete(form));
+    baselines.set(form, snapshot(form));
+    form.addEventListener('input', () => refreshDirty(form));
+    form.addEventListener('change', () => refreshDirty(form));
+    form.addEventListener('submit', event => {queueMicrotask(() => {if (!event.defaultPrevented) dirtyForms.delete(form);});});
   });
   window.addEventListener('beforeunload', event => {if (dirtyForms.size) {event.preventDefault(); event.returnValue = '';}});
-  document.querySelectorAll('[data-confirm]').forEach(form => form.addEventListener('submit', event => {if (!confirm(form.dataset.confirm)) event.preventDefault();}));
+  document.querySelectorAll('[data-confirm]').forEach(form => form.addEventListener('submit', event => {
+    const unsaved = dirtyForms.size && form.action.includes('/publish');
+    const message = form.dataset.confirm + (unsaved ? ' Unsaved page text will not be included. Continue publishing the saved draft?' : '');
+    if (!confirm(message)) event.preventDefault();
+    else if (unsaved) dirtyForms.clear();
+  }));
   document.querySelectorAll('[data-block-up],[data-block-down]').forEach(button => button.addEventListener('click', () => {
     const block = button.closest('.cr-block');
     if ('blockUp' in button.dataset && block.previousElementSibling) block.parentNode.insertBefore(block,block.previousElementSibling);
     if ('blockDown' in button.dataset && block.nextElementSibling) block.parentNode.insertBefore(block.nextElementSibling,block);
-    const form = block.closest('form'); if (form) dirtyForms.add(form);
+    const form = block.closest('form'); if (form) refreshDirty(form);
   }));
+  document.querySelectorAll('[data-dismiss-notice]').forEach(button => button.addEventListener('click', () => button.parentElement.remove()));
 
 })();

@@ -8,9 +8,9 @@
     const slides = [...track.children];
     const count = gallery.querySelector('[data-gallery-count]');
     const pause = gallery.querySelector('[data-gallery-pause]');
-    if (pause) pause.hidden = true;
     let current = 0;
-    let timer;
+    let timer, visible = false, paused = false, hovered = gallery.matches(':hover'), focused = false, held = false;
+    const interval = [5000, 6000, 7000].includes(Number(gallery.dataset.galleryInterval)) ? Number(gallery.dataset.galleryInterval) : 6000;
     const load = n => {
       const img = slides[n]?.querySelector('img');
       if (!img) return;
@@ -31,13 +31,14 @@
     };
     const schedule = () => {
       clearTimeout(timer);
-      if (slides.length < 2 || document.hidden || reduced.matches) return;
+      if (slides.length < 2 || !visible || paused || hovered || focused || held || document.hidden || reduced.matches ||
+          navigator.connection?.saveData || !gallery.hasAttribute('data-gallery-autoplay')) return;
       timer = setTimeout(() => {
         const next = (current + 1) % slides.length;
         const image = slides[next].querySelector('img');
         if (!image || (image.complete && image.naturalWidth)) show(next);
         schedule();
-      }, 1000);
+      }, interval);
     };
     for (const [selector, direction] of [['[data-gallery-prev]', -1], ['[data-gallery-next]', 1]]) {
       const button = gallery.querySelector(selector);
@@ -53,6 +54,24 @@
     });
     document.addEventListener('visibilitychange', schedule);
     reduced.addEventListener('change', schedule);
+    navigator.connection?.addEventListener('change', schedule);
+    gallery.addEventListener('pointerenter', event => {if (event.pointerType !== 'touch') {hovered = true; schedule();}});
+    gallery.addEventListener('pointerleave', () => {hovered = false; schedule();});
+    gallery.addEventListener('focusin', event => {focused = event.target.matches(':focus-visible'); schedule();});
+    gallery.addEventListener('focusout', event => {focused = gallery.contains(event.relatedTarget) && event.relatedTarget.matches(':focus-visible'); schedule();});
+    gallery.addEventListener('pointerdown', () => {held = true; schedule();}, {passive:true});
+    for (const event of ['pointerup', 'pointercancel']) window.addEventListener(event, () => {if (held) {held = false; schedule();}}, {passive:true});
+    if (pause) {
+      pause.hidden = slides.length < 2 || !gallery.hasAttribute('data-gallery-autoplay');
+      pause.addEventListener('click', () => {
+        paused = !paused;
+        pause.textContent = paused ? '▶' : 'Ⅱ';
+        pause.setAttribute('aria-label', paused ? 'Resume automatic photographs' : 'Pause automatic photographs');
+        pause.setAttribute('aria-pressed', String(paused));
+        schedule();
+      });
+    }
+    new IntersectionObserver(entries => {visible = entries[0].intersectionRatio >= 0.2; schedule();}, {threshold:[0, .2]}).observe(gallery);
     show(0); schedule();
   }
   function init(gallery) {

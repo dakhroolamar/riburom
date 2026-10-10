@@ -49,6 +49,35 @@ def allowed(*permissions):
     return bool(person and (person.role == 'owner' or any(person.has_permission(p) for p in permissions)))
 
 
+def revision_payload(values, home, cfg):
+    """Record only edited fields and their original values for safe rebasing."""
+    changed = {key: value for key, value in values.items() if value != cfg['content'].get(key, '')}
+    base = {'content': {key: cfg['content'].get(key, '') for key in changed}}
+    if home != cfg['home']:
+        base['home'] = deepcopy(cfg['home'])
+    return {'content': changed, 'home': home, '_base': base}
+
+
+def apply_revision(cfg, payload):
+    cfg['content'].update(payload['content'])
+    if '_base' not in payload or 'home' in payload['_base']:
+        cfg['home'] = payload['home']
+    return cfg
+
+
+def list_page(query, ordering, name, label, context):
+    page_number = max(1, request.args.get(name + '_page', 1, type=int) or 1)
+    result = query.order_by(*ordering).paginate(page=page_number, per_page=40, error_out=False)
+    links = {}
+    for direction, number in (('previous', page_number - 1), ('next', page_number + 1)):
+        args = request.args.to_dict()
+        args[name + '_page'] = number
+        links[direction] = url_for('control_room', section=context['section'], **args)
+    context.setdefault('list_pages', []).append(dict(label=label, page=page_number, pages=max(1, result.pages),
+        total=result.total, has_previous=result.has_prev, has_next=result.has_next, **links))
+    return result.items
+
+
 def require(*permissions):
     def decorate(fn):
         @wraps(fn)
@@ -227,7 +256,7 @@ def register_control_room(app):
             abort(403 if section in TITLES else 404)
         context = dict(section=section, title=TITLES[section][0], subtitle=TITLES[section][1],
                        settings=get_site_settings(), today=date.today(), selected=None, stats=[])
-        if section in ('overview', 'enquiries'):
+        if section == 'enquiries':
             page_number = max(1, request.args.get('page', 1, type=int) or 1)
             rows, total = leads(page_number)
             context.update(leads=rows, staff=User.query.filter_by(is_active=True).order_by(User.full_name).all(),
@@ -248,7 +277,7 @@ def register_control_room(app):
                                 ('clock', context['counts']['CONTACTED'], 'Contacted', 'sand'),
                                 ('file', context['counts']['QUOTED'], 'Quoted Enquiries', 'blue'),
                                 ('chart', context['counts']['CONFIRMED'], 'Confirmed', 'sand')]
-        if section in ('overview', 'trips'):
+        if section == 'trips':
             query = Trip.query
             q = request.args.get('q', '')[:200]
             if section == 'trips' and q:
@@ -260,7 +289,7 @@ def register_control_room(app):
                     abort(400)
             if request.args.get('status') in TRIP_STATES:
                 query = query.filter_by(status=request.args['status'])
-            context['trips'] = query.order_by(Trip.start_date.desc()).limit(100).all() if allowed('manage_tours') else []
+            context['trips'] = list_page(query, (Trip.start_date.desc(), Trip.id.desc()), 'trips', 'Trips', context) if allowed('manage_tours') else []
             context['upcoming'] = Trip.query.filter(Trip.start_date >= date.today(), Trip.status != 'CANCELLED').order_by(Trip.start_date).limit(20).all() if allowed('manage_tours') else []
             if section == 'trips':
                 context['selected'] = next((t for t in context['trips'] if str(t.id) == request.args.get('selected')), context['trips'][0] if context['trips'] else None)
@@ -276,7 +305,7 @@ def register_control_room(app):
                                     ('walk', Trip.query.filter_by(status='IN_PROGRESS').count(), 'Trips On Ground', 'sand'),
                                     ('file', Trip.query.filter_by(itinerary_json='[]').count(), 'Pending Itineraries', 'sand'),
                                     ('check', Trip.query.filter(Trip.status == 'COMPLETED', Trip.end_date >= date.today().replace(day=1)).count(), 'Completed This Month', 'green')]
-        if section in ('overview', 'partners', 'marketplace'):
+        if section in ('partners', 'marketplace'):
             can = allowed('view_marketplace', 'manage_marketplace')
             partner_query = Provider.query.options(selectinload(Provider.provider_type_assignments))
             if section == 'partners':
@@ -288,7 +317,7 @@ def register_control_room(app):
                     if not kind.isdigit():
                         abort(400)
                     partner_query = partner_query.filter(Provider.provider_type_assignments.any(provider_type_id=int(kind)))
-            context['partners'] = partner_query.order_by(Provider.name).limit(100).all() if can else []
+            context['partners'] = list_page(partner_query, (Provider.name, Provider.id), 'partners', 'Partners', context) if can else []
             context['partner_total'] = partner_query.count() if can else 0
             context['pending_count'] = Provider.query.filter(Provider.status.in_(['SUBMITTED','UNDER_REVIEW'])).count() if can else 0
             context['pending_partners'] = [p for p in context['partners'] if p.status in ('SUBMITTED', 'UNDER_REVIEW')]
@@ -306,11 +335,12 @@ def register_control_room(app):
                 service_query = Service.query.options(selectinload(Service.provider), selectinload(Service.service_category))
                 if request.args.get('q'):
                     service_query = service_query.filter(Service.name.ilike('%' + request.args['q'][:200] + '%'))
-                context['services'] = service_query.order_by(Service.updated_at.desc()).limit(100).all() if can else []
+                context['services'] = list_page(service_query, (Service.updated_at.desc(), Service.id.desc()), 'services', 'Experiences', context) if can else []
                 ids = [s.id for s in context['services']]
                 context['inventory'] = {i.service_id:i for i in ServiceInventory.query.filter(ServiceInventory.service_id.in_(ids)).all()} if ids else {}
                 context['partner_groups'] = {key:[p for p in context['partners'] if any(key in a.provider_type.name.lower() for a in p.provider_type_assignments)] for key in ('homestay','guide','driver','vehicle')}
-                context['packages'] = Package.query.order_by(Package.updated_at.desc()).limit(100).all()
+                context['packages'] = list_page(Package.query, (Package.updated_at.desc(), Package.id.desc()), 'packages', 'Packages', context)
+                context['partner_choices'] = db.session.query(Provider.id, Provider.name).order_by(Provider.name).all() if allowed('manage_marketplace') else []
                 context['categories'] = ServiceCategory.query.order_by(ServiceCategory.name).all()
                 context['provider_types'] = ProviderType.query.order_by(ProviderType.name).all()
                 context['stats'] = [('walk', Service.query.filter(Service.status.in_(['ACTIVE', 'PUBLISHED']), Service.is_active.is_(True)).count(), 'Active Experiences', 'green'),
@@ -318,16 +348,27 @@ def register_control_room(app):
                                     ('home', Provider.query.count(), 'Partners', 'sand'),
                                     ('users', ProviderType.query.count(), 'Partner Types', 'blue')]
         if section == 'overview':
+            context['counts'] = lead_counts()
+            context['upcoming'] = Trip.query.filter(Trip.start_date >= date.today(), Trip.status != 'CANCELLED').order_by(Trip.start_date).limit(7).all() if allowed('manage_tours') else []
+            pending = Provider.query.filter(Provider.status.in_(['SUBMITTED', 'UNDER_REVIEW']))
+            context['pending_count'] = pending.count() if allowed('view_marketplace', 'manage_marketplace') else 0
+            context['pending_partners'] = pending.order_by(Provider.created_at).limit(4).all() if allowed('view_marketplace', 'manage_marketplace') else []
             prefs = db.session.get(ControlPreference, 'notifications')
             context['notifications'] = json.loads(prefs.value_json) if prefs else {}
-            context['activity'] = TripUpdate.query.order_by(TripUpdate.created_at.desc()).limit(5).all() if allowed('manage_tours') and context['notifications'].get('trip_updates',True) else []
-            context['publishing_activity'] = WebsiteRevision.query.filter(WebsiteRevision.published_at.is_not(None)).order_by(WebsiteRevision.published_at.desc()).limit(5).all() if allowed('manage_about') and context['notifications'].get('marketing_updates',False) else []
+            context['activity'] = TripUpdate.query.options(selectinload(TripUpdate.author)).order_by(TripUpdate.created_at.desc()).limit(5).all() if allowed('manage_tours') and context['notifications'].get('trip_updates',True) else []
+            context['publishing_activity'] = WebsiteRevision.query.filter(WebsiteRevision.published_at.is_not(None), WebsiteRevision.is_backup.is_(False)).order_by(WebsiteRevision.published_at.desc()).limit(5).all() if allowed('manage_about') and context['notifications'].get('marketing_updates',False) else []
             context['stats'] = [('users', context['counts']['NEW'], 'New Enquiries', 'green'),
                 ('calendar', Trip.query.filter(Trip.start_date >= date.today(),Trip.status!='CANCELLED').count() if allowed('manage_tours') else '—', 'Upcoming Trips', 'blue'),
                 ('users', context['pending_count'], 'Partner Approvals', 'sand'),
                 ('box', Package.query.filter_by(published=True).count() if allowed('manage_tours', 'view_marketplace') else '—', 'Active Packages', 'slate')]
         if section == 'website':
             page = request.args.get('page', 'home')
+            if page == 'reviews':
+                if not allowed('manage_about'):
+                    abort(403)
+                from models import TravellerReview
+                context['reviews'] = list_page(TravellerReview.query, (TravellerReview.created_at.desc(), TravellerReview.id.desc()), 'reviews', 'Reviews', context)
+                return render_template('control_room/reviews.html', **context)
             if page == 'stories':
                 if not allowed('manage_about'):
                     abort(403)
@@ -336,7 +377,7 @@ def register_control_room(app):
                 abort(404)
             revisions = WebsiteRevision.query.filter_by(page=page).order_by(WebsiteRevision.id.desc()).limit(20).all()
             cfg = get_public_config(context['settings'])
-            latest = revisions[0] if revisions and not revisions[0].published_at else None
+            latest = revisions[0] if revisions and not revisions[0].published_at and not revisions[0].is_backup else None
             payload = json.loads(latest.payload_json) if latest else {'content': cfg['content'], 'home': cfg['home']}
             section_keys = {'home': ['hero', 'home_about_gallery', 'home_tours', 'home_why', 'home_blog', 'home_contact'], 'footer': ['footer_partners']}.get(page, [page])
             fields = list(dict.fromkeys(name for key in section_keys for name in CONTENT.get(key, [])))
@@ -346,7 +387,7 @@ def register_control_room(app):
                 pages=PAGES, page=page, payload=payload, fields=fields, revisions=revisions,
                 revision=latest, config_token=public_config_token(context['settings']), public=cfg,
                 preview_url={'home': '/', 'tours': '/all_tours', 'marketplace': '/marketplace', 'about': '/about', 'contact': '/#contact'}.get(page, '/'))
-            context['stats'] = [('file', len(PAGES), 'Website Areas', 'green'), ('file', WebsiteRevision.query.filter_by(published_at=None).count(), 'Saved Drafts', 'sand'),
+            context['stats'] = [('file', len(PAGES), 'Website Areas', 'green'), ('file', WebsiteRevision.query.filter_by(published_at=None, is_backup=False).count(), 'Saved Drafts', 'sand'),
                                 ('alert', sum(not cfg['content'].get(n) for n in ('site_title', 'meta_description')), 'SEO Fields Missing', 'rose'),
                                 ('clock', WebsiteRevision.query.filter(WebsiteRevision.created_at >= datetime.utcnow() - timedelta(days=30)).count(), 'Recent Updates', 'blue')]
         if section == 'media':
@@ -358,6 +399,8 @@ def register_control_room(app):
             if user().role != 'owner':
                 abort(403)
             prefs = db.session.get(ControlPreference, 'notifications')
+            from notifications import delivery_preferences
+            context['delivery_preferences'] = delivery_preferences()
             context.update(staff=User.query.order_by(User.full_name).all(), invoices=Invoice.query.order_by(Invoice.id.desc()).limit(50).all(),
                 audits=AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all(), notifications=json.loads(prefs.value_json) if prefs else {},
                 integrations=[('Email notifications', bool(os.getenv('BREVO_API_KEY'))), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
@@ -400,12 +443,28 @@ def register_control_room(app):
         revision = db.get_or_404(WebsiteRevision, revision_id)
         cfg = deepcopy(get_public_config(get_site_settings()))
         payload = json.loads(revision.payload_json)
-        cfg['content'].update(payload['content'])
-        cfg['home'] = payload['home']
+        apply_revision(cfg, payload)
+        arguments = {}
+        if revision.page in ('tour-detail', 'provider'):
+            from app import _public_provider_query
+            targets = (Package.query.filter_by(published=True).order_by(Package.title).all()
+                       if revision.page == 'tour-detail' else _public_provider_query().order_by(Provider.name).all())
+            slug = request.args.get('slug', '')
+            if not slug:
+                response = app.make_response(render_template('control_room/preview_target.html', revision=revision, targets=targets))
+                response.headers['Cache-Control'] = 'private, no-store'
+                return response
+            if not any(target.slug == slug for target in targets):
+                abort(404)
+            endpoint = 'tour_detail' if revision.page == 'tour-detail' else 'marketplace_public_provider'
+            arguments = {'slug': slug}
+        else:
+            endpoint = {'home': 'home', 'tours': 'all_tours', 'about': 'about', 'contact': 'home', 'footer': 'home', 'marketplace': 'marketplace_public_index'}.get(revision.page)
+            if endpoint is None:
+                abort(404)
         g.control_public_preview = cfg
-        endpoint = {'home': 'home', 'tours': 'all_tours', 'about': 'about', 'contact': 'home', 'footer': 'home', 'marketplace': 'marketplace_public_index'}.get(revision.page, 'home')
         try:
-            response = app.make_response(app.view_functions[endpoint]())
+            response = app.make_response(app.view_functions[endpoint](**arguments))
         finally:
             g.pop('control_public_preview', None)
         response.headers['Cache-Control'] = 'private, no-store'
@@ -414,21 +473,28 @@ def register_control_room(app):
     @app.route('/workspace/control/media/assets')
     @require('manage_media')
     def control_media_assets():
-        from cms_pages import delivery, asset_usage
+        from cms_pages import delivery, asset_usage_batch, media_page, filter_media_usage
         query=MediaAsset.query.outerjoin(AssetMetadata,AssetMetadata.asset_id==MediaAsset.id)
+        if request.args.get('asset_id'):
+            asset_id = request.args.get('asset_id', type=int)
+            if asset_id is None:
+                abort(400)
+            query = query.filter(MediaAsset.id == asset_id)
         term=request.args.get('q','').strip()[:200]
         if term:
             query=query.filter(or_(MediaAsset.title.ilike(f'%{term}%'),MediaAsset.path.ilike(f'%{term}%'),
                                    AssetMetadata.location.ilike(f'%{term}%'),AssetMetadata.tags.ilike(f'%{term}%')))
         order=MediaAsset.created_at.asc() if request.args.get('sort')=='oldest' else MediaAsset.created_at.desc()
-        assets=query.order_by(order).limit(200).all()
+        query = filter_media_usage(query)
+        assets, pagination = media_page(query, (order, MediaAsset.id.desc()))
+        usage = asset_usage_batch(assets)
         metadata = {m.asset_id: m for m in AssetMetadata.query.filter(AssetMetadata.asset_id.in_([a.id for a in assets])).all()} if assets else {}
-        return jsonify(items=[dict(id=a.id, title=a.title, src=delivery(a.path, 1200), path=a.path,
+        return jsonify(items=[dict(id=a.id, version=a.version, title=a.title, src=delivery(a.path, 400), preview_src=delivery(a.path, 1200), path=a.path,
             alt=a.alt, caption=a.caption, credit=a.credit, width=a.width, height=a.height, byte_size=a.byte_size,
-            created_at=a.created_at.isoformat(), usage=asset_usage(a), kind='image',
+            created_at=a.created_at.isoformat(), usage=usage[a.id], kind='image',
             location=metadata[a.id].location if a.id in metadata else '', category=metadata[a.id].category if a.id in metadata else '',
             tags=metadata[a.id].tags if a.id in metadata else '')
-            for a in assets])
+            for a in assets], **(pagination or {}))
 
     @app.route('/workspace/control/media/assets/<int:asset_id>/replace', methods=['POST'])
     @require('manage_media')
@@ -480,9 +546,9 @@ def register_control_room(app):
                     pass
         asset.path, asset.width, asset.height, asset.byte_size = path, width, height, len(data)
         add_audit('replaced', 'media_asset', asset.id)
-        db.session.commit()
         from indexnow import notify_indexnow_cms_change
-        notify_indexnow_cms_change('home')
+        notify_indexnow_cms_change('home', stage_only=True)
+        db.session.commit()
         return jsonify(id=asset.id)
 
     @app.route('/workspace/control/leads/<source>/<int:source_id>', methods=['POST'])
@@ -722,7 +788,7 @@ def register_control_room(app):
                 abort(400)
             home['order'] = order
             home['visibility'] = {key: key in request.form.getlist('visible') for key in order}
-        revision = WebsiteRevision(page=page, payload_json=json.dumps({'content': values, 'home': home}),
+        revision = WebsiteRevision(page=page, payload_json=json.dumps(revision_payload(values, home, cfg)),
                                    base_token=token, author_id=user().id)
         db.session.add(revision)
         add_audit('drafted', 'website', page)
@@ -730,28 +796,56 @@ def register_control_room(app):
         flash('Draft saved. The public website is unchanged.', 'success')
         return redirect(url_for('control_room', section='website', page=page))
 
+    @app.post('/workspace/control/reviews/<int:review_id>')
+    @require('manage_about')
+    def control_review(review_id):
+        from models import TravellerReview
+        review = db.get_or_404(TravellerReview, review_id)
+        action = request.form.get('action')
+        if action == 'delete':
+            db.session.delete(review)
+        elif action in ('hide', 'show'):
+            review.is_visible = action == 'show'
+        else:
+            abort(400)
+        add_audit(action, 'traveller_review', review_id)
+        from indexnow import notify_indexnow_cms_change
+        notify_indexnow_cms_change('home', stage_only=True)
+        db.session.commit()
+        flash('Traveller review updated.', 'success')
+        return redirect(url_for('control_room', section='website', page='reviews'))
+
     @app.route('/workspace/control/website/revisions/<int:revision_id>/publish', methods=['POST'])
     @require('manage_about')
     def control_website_publish(revision_id):
         revision = db.get_or_404(WebsiteRevision, revision_id)
+        if revision.published_at or revision.is_backup:
+            abort(409, description='Restore this saved revision as a new draft before publishing it.')
         settings = get_site_settings()
-        if not public_config_token_matches(settings, revision.base_token):
-            abort(409, description='The website changed since this draft. Save a new draft before publishing.')
         payload = json.loads(revision.payload_json)
         cfg = get_public_config(settings)
-        if payload.get('home') != cfg['home'] and not allowed('manage_structure'):
+        base = payload.get('_base')
+        if base is None:
+            conflict = not public_config_token_matches(settings, revision.base_token)
+        else:
+            conflict = any(cfg['content'].get(key, '') not in (original, payload['content'][key])
+                           for key, original in base['content'].items())
+            conflict = conflict or ('home' in base and cfg['home'] not in (base['home'], payload['home']))
+        if conflict:
+            abort(409, description='An edited field changed since this draft. Review those changes before publishing.')
+        changes_home = base is None or 'home' in base
+        if changes_home and payload.get('home') != cfg['home'] and not allowed('manage_structure'):
             abort(403)
         backup = WebsiteRevision(page=revision.page, payload_json=json.dumps({'content': cfg['content'], 'home': cfg['home']}),
-                                 base_token=public_config_token(settings), author_id=user().id, published_at=datetime.utcnow())
+                                 base_token=public_config_token(settings), author_id=user().id, is_backup=True)
         db.session.add(backup)
-        cfg['content'].update(payload['content'])
-        cfg['home'] = payload['home']
+        apply_revision(cfg, payload)
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
         revision.published_at = datetime.utcnow()
         add_audit('published', 'website', revision.page)
-        db.session.commit()
         from indexnow import notify_indexnow_cms_change
-        notify_indexnow_cms_change(revision.page)
+        notify_indexnow_cms_change(revision.page, stage_only=True)
+        db.session.commit()
         flash('Website changes published.', 'success')
         return redirect(url_for('control_room', section='website', page=revision.page))
 
@@ -759,7 +853,10 @@ def register_control_room(app):
     @require('manage_about')
     def control_website_restore(revision_id):
         old = db.get_or_404(WebsiteRevision, revision_id)
-        revision = WebsiteRevision(page=old.page, payload_json=old.payload_json,
+        cfg = get_public_config(get_site_settings())
+        payload = json.loads(old.payload_json)
+        home = payload['home'] if '_base' not in payload or 'home' in payload['_base'] else cfg['home']
+        revision = WebsiteRevision(page=old.page, payload_json=json.dumps(revision_payload(payload['content'], home, cfg)),
                                    base_token=public_config_token(get_site_settings()), author_id=user().id)
         db.session.add(revision)
         db.session.commit()
@@ -770,25 +867,37 @@ def register_control_room(app):
     @require('manage_media')
     def control_asset_metadata(asset_id):
         asset = db.get_or_404(MediaAsset, asset_id)
+        if request.form.get('version', type=int) != asset.version:
+            return jsonify(error='Image details changed. Reload before saving.'), 409
+        # Location/category/tags share this asset's concurrency token too.
+        asset.version += 1
         asset.title, asset.alt, asset.caption = text('title', 240, True), text('alt', 500), text('caption', 1000)
+        db.session.flush([asset])
         metadata = db.session.get(AssetMetadata, asset_id) or AssetMetadata(asset_id=asset_id)
         metadata.location, metadata.category, metadata.tags = text('location', 240), text('category', 100), text('tags', 1000)
         db.session.add(metadata)
         add_audit('updated', 'media_asset', asset.id, 'Image metadata saved')
         db.session.commit()
-        return jsonify(ok=True)
+        return jsonify(ok=True, version=asset.version)
 
     @app.route('/workspace/control/media/videos', methods=['GET', 'POST'])
     @require('manage_media')
     def control_videos():
+        from cms_pages import media_page
         if request.method == 'GET':
             query=LibraryVideo.query
+            live_path = get_site_settings().hero_animation_video
+            if request.args.get('usage') == 'used':
+                query = query.filter(LibraryVideo.path == live_path) if live_path else query.filter(False)
+            elif request.args.get('usage') == 'unused' and live_path:
+                query = query.filter(LibraryVideo.path != live_path)
             term=request.args.get('q','').strip()[:200]
             if term:
                 query=query.filter(LibraryVideo.title.ilike(f'%{term}%'))
             order=LibraryVideo.created_at.asc() if request.args.get('sort')=='oldest' else LibraryVideo.created_at.desc()
-            return jsonify(items=[dict(id=v.id, title=v.title, path=v.path, byte_size=v.byte_size, kind='video', created_at=v.created_at.isoformat())
-                                  for v in query.order_by(order).limit(100)])
+            videos, pagination = media_page(query, (order, LibraryVideo.id.desc()))
+            return jsonify(items=[dict(id=v.id, title=v.title, path=v.path, byte_size=v.byte_size, kind='video', usage=['Homepage opening film'] if live_path and v.path == live_path else [], created_at=v.created_at.isoformat())
+                                  for v in videos], **(pagination or {}))
         from storage import save_video
         upload = request.files.get('file')
         if not upload or not upload.filename:
@@ -812,9 +921,9 @@ def register_control_room(app):
         settings = get_site_settings()
         settings.hero_animation_video = video.path
         add_audit('published', 'library_video', video.id)
-        db.session.commit()
         from indexnow import notify_indexnow_cms_change
-        notify_indexnow_cms_change('home')
+        notify_indexnow_cms_change('home', stage_only=True)
+        db.session.commit()
         return jsonify(ok=True)
 
     @app.route('/workspace/control/settings/notifications', methods=['POST'])
@@ -825,9 +934,20 @@ def register_control_room(app):
         preference = db.session.get(ControlPreference, 'notifications') or ControlPreference(key='notifications')
         preference.value_json = json.dumps({key: key in request.form for key in ('new_enquiries', 'trip_updates', 'partner_activities', 'system_alerts', 'marketing_updates')})
         db.session.add(preference)
+        if 'delivery_preferences' in request.form:
+            delivery = db.session.get(ControlPreference, 'delivery') or ControlPreference(key='delivery')
+            values = {key: ('deliver_' + key) in request.form for key in ('email', 'messaging')}
+            delivery.value_json = json.dumps(values)
+            db.session.add(delivery)
+            from models import NotificationOutbox
+            disabled = [key for key, enabled in values.items() if not enabled]
+            if disabled:
+                db.session.execute(update(NotificationOutbox).where(
+                    NotificationOutbox.channel.in_(disabled), NotificationOutbox.status.in_(['PENDING', 'FAILED'])
+                ).values(status='CANCELLED', last_error='delivery disabled by owner', next_attempt_at=None))
         add_audit('updated', 'notification_preferences', user().id)
         db.session.commit()
-        flash('Control Room notification preferences saved.', 'success')
+        flash('Notification preferences saved for the organisation.', 'success')
         return redirect(url_for('control_room', section='settings'))
 
     @app.route('/workspace/control/invoices', methods=['POST'])

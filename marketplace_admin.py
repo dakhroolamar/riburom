@@ -201,14 +201,14 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('created', 'provider', provider.id, provider.name)
         try:
+            if _provider_is_public(provider):
+                notify_indexnow_paths(_provider_paths(provider.slug), stage_only=True)
             db.session.commit()
         except Exception:
             db.session.rollback()
             if image_url:
                 delete_media(image_url)
             raise
-        if _provider_is_public(provider):
-            notify_indexnow_paths(_provider_paths(provider.slug))
 
         flash(f'Provider "{provider.name}" created.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -266,6 +266,8 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         _sync_provider_types(provider, request.form.getlist('provider_type_ids'))
         add_audit('updated', 'provider', provider.id, provider.name)
         try:
+            if was_public or _provider_is_public(provider):
+                notify_indexnow_paths(_provider_paths(old_slug, provider.slug), stage_only=True)
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -274,8 +276,6 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             raise
         if new_image_url and old_image_url and old_image_url != new_image_url:
             delete_marketplace_media_if_unreferenced(old_image_url)
-        if was_public or _provider_is_public(provider):
-            notify_indexnow_paths(_provider_paths(old_slug, provider.slug))
 
         flash(f'Provider "{provider.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -302,10 +302,10 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         ).delete(synchronize_session=False)
         db.session.delete(provider)
         add_audit('deleted', 'provider', id, name)
+        if was_public:
+            notify_indexnow_paths(_provider_paths(old_slug), stage_only=True)
         db.session.commit()
         delete_marketplace_media_if_unreferenced(old_image_url)
-        if was_public:
-            notify_indexnow_paths(_provider_paths(old_slug))
 
         flash(f'Provider "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -501,14 +501,14 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.flush()
         add_audit('created', 'service', service.id, f'{provider.name}: {service.name}')
         try:
+            if _service_is_public(service):
+                notify_indexnow_paths(_provider_paths(provider.slug), stage_only=True)
             db.session.commit()
         except Exception:
             db.session.rollback()
             if image_url:
                 delete_media(image_url)
             raise
-        if _service_is_public(service):
-            notify_indexnow_paths(_provider_paths(provider.slug))
 
         flash(f'Service "{service.name}" created.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -568,6 +568,8 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
 
         add_audit('updated', 'service', service.id, f'{provider.name}: {service.name}')
         try:
+            if was_public or _service_is_public(service):
+                notify_indexnow_paths(_provider_paths(old_provider_slug, provider.slug), stage_only=True)
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -576,8 +578,6 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
             raise
         if new_image_url and old_image_url and old_image_url != new_image_url:
             delete_marketplace_media_if_unreferenced(old_image_url)
-        if was_public or _service_is_public(service):
-            notify_indexnow_paths(_provider_paths(old_provider_slug, provider.slug))
 
         flash(f'Service "{service.name}" updated.', 'success')
         return redirect(url_for('workspace_marketplace'))
@@ -603,11 +603,11 @@ def register_marketplace_admin(flask_app, view_required, manage_required):
         db.session.delete(service)
         db.session.flush()
         add_audit('deleted', 'service', id, name)
+        if was_public:
+            notify_indexnow_paths(_provider_paths(provider_slug), stage_only=True)
         db.session.commit()
         for media_url in media_urls:
             delete_marketplace_media_if_unreferenced(media_url)
-        if was_public:
-            notify_indexnow_paths(_provider_paths(provider_slug))
 
         flash(f'Service "{name}" deleted.', 'success')
         return redirect(url_for('workspace_marketplace'))

@@ -8,6 +8,8 @@ class MediaAsset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     path = db.Column(db.String(1000), nullable=False, unique=True)
     title = db.Column(db.String(240), nullable=False)
+    version = db.Column(db.Integer, nullable=False, default=1)
+    __mapper_args__ = {'version_id_col': version}
     alt = db.Column(db.String(500), nullable=False, default='')
     caption = db.Column(db.String(1000), nullable=False, default='')
     credit = db.Column(db.String(500), nullable=False, default='')

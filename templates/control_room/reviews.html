@@ -1,0 +1,13 @@
+{% extends 'control_room/base.html' %}
+{% from 'control_room/macros.html' import csrf with context %}
+{% block content %}
+<div class="cr-page-heading"><div><h1>Traveller Reviews</h1><p>Review visitor comments and control which appear on the homepage.</p></div><a class="cr-button secondary" href="{{ url_for('control_room',section='website') }}">Website Manager</a></div>
+<section class="cr-panel">
+{% for review in reviews %}
+<article class="cr-detail-section"><h2>{{ review.name }} · {{ review.rating }} / 5</h2><p>{{ review.comment }}</p><p class="cr-muted">{{ 'Visible on homepage' if review.is_visible else 'Hidden' }} · {{ review.created_at.strftime('%d %b %Y') }}</p><div class="cr-actions">
+<form method="post" action="{{ url_for('control_review',review_id=review.id) }}">{{ csrf() }}<button name="action" value="{{ 'hide' if review.is_visible else 'show' }}">{{ 'Hide review' if review.is_visible else 'Show review' }}</button></form>
+<form method="post" action="{{ url_for('control_review',review_id=review.id) }}" data-confirm="Permanently remove this traveller review?"><input type="hidden" name="action" value="delete">{{ csrf() }}<button class="secondary">Delete review</button></form>
+</div></article>
+{% else %}<p>No traveller reviews have been submitted.</p>{% endfor %}
+</section>{% include 'control_room/pagination.html' %}
+{% endblock %}

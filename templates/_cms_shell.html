@@ -4,6 +4,6 @@
 {% set can_media = owner or current_user.has_permission('manage_media') %}
 {% set can_structure = owner or current_user.has_permission('manage_structure') %}
 {% block title %}Page Media & Design{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/cms-pages.css') }}?v=5"><script src="{{ url_for('static',filename='js/cms-pages.js') }}?v=5" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/cms-pages.css') }}?v=5"><script src="{{ url_for('static',filename='js/cms-pages.js') }}?v=7" defer></script>{% endblock %}
 
 {% block secondary_navigation %}<nav class="cr-toolbar" aria-label="Website editing"><a class="cr-button secondary small" href="{{ url_for('control_room',section='website') }}">Website Manager</a>{% if control_allowed('manage_media') %}<a class="cr-button secondary small" href="{{ url_for('workspace_cms_advanced') }}">Typography & colors</a><a class="cr-button secondary small" href="{{ url_for('workspace_cms_media') }}">Media & Assets</a>{% endif %}{% if control_allowed('manage_about') %}<a class="cr-button secondary small" href="{{ url_for('workspace_cms_advanced') }}">Navigation & labels</a>{% endif %}</nav>{% endblock %}

@@ -32,73 +32,6 @@
     document.head.appendChild(link);
   }
 
-  function initSuccessModal() {
-    const modal = document.getElementById('rbSuccessModal');
-    const closeButton = document.getElementById('rbSuccessClose');
-    const confetti = document.getElementById('rbSuccessConfetti');
-    if (!modal || !closeButton) return;
-
-    document.body.classList.add('rb-success-open');
-
-    if (confetti && !reduceMotion) {
-      const pieces = 34;
-      for (let i = 0; i < pieces; i += 1) {
-        const piece = document.createElement('span');
-        const angle = (Math.PI * 2 * i) / pieces;
-        const distance = 110 + Math.random() * 170;
-        piece.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
-        piece.style.setProperty('--y', `${Math.sin(angle) * distance}px`);
-        piece.style.setProperty('--r', `${Math.round(Math.random() * 720 - 360)}deg`);
-        piece.style.setProperty('--d', `${Math.round(Math.random() * 140)}ms`);
-        piece.style.background = ['#14532d', '#d97706', '#f3c969', '#3b82f6'][i % 4];
-        confetti.appendChild(piece);
-      }
-    }
-
-    const close = () => {
-      modal.remove();
-      document.body.classList.remove('rb-success-open');
-    };
-
-    closeButton.addEventListener('click', close, { once: true });
-    modal.addEventListener('click', (event) => {
-      if (event.target === modal) close();
-    });
-    const escapeHandler = (event) => {
-      if (event.key === 'Escape') {
-        close();
-        document.removeEventListener('keydown', escapeHandler);
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-  }
-
-  function getBrandImage() {
-    const logo = document.querySelector('.rb-hero-permanent-logo');
-    if (logo && logo.currentSrc) return logo.currentSrc;
-    const mark = document.querySelector('.rb-brand img:last-child');
-    if (mark && mark.currentSrc) return mark.currentSrc;
-    const wordmark = document.querySelector('.rb-brand img:first-child');
-    return wordmark ? (wordmark.currentSrc || wordmark.getAttribute('src') || '') : '';
-  }
-
-  function showLoader() {
-    let loader = document.getElementById('rb-page-loader');
-    if (!loader) {
-      loader = document.createElement('div');
-      loader.id = 'rb-page-loader';
-      const src = getBrandImage();
-      loader.innerHTML = '<div class="rb-loader-core">' +
-        (src ? '<img class="rb-loader-mark" src="' + src + '" alt="RI BUROM Tours & Travels logo">' : '<div style="font-weight:800;letter-spacing:.08em">RI BUROM</div>') +
-        '<div class="rb-loader-line" aria-hidden="true"></div></div>';
-      document.body.prepend(loader);
-    }
-    const hide = () => setTimeout(() => loader.classList.add('is-hidden'), reduceMotion ? 120 : 450);
-    if (document.readyState === 'complete') hide();
-    else window.addEventListener('load', hide, { once: true });
-    setTimeout(hide, 1600);
-  }
-
   function makeSoundControl(hero, video) {
     if (hero.querySelector('.rb-hero-video-sound')) return hero.querySelector('.rb-hero-video-sound');
     const button = document.createElement('button');
@@ -149,7 +82,7 @@
       soundButton.hidden = true;
     };
 
-    if (reduceMotion) {
+    if (reduceMotion || navigator.connection?.saveData) {
       hero.classList.add('rb-hero-video-fallback');
       stage.classList.add('is-fallback');
       video.pause();
@@ -166,28 +99,17 @@
     video.addEventListener('error', fallback, { once: true });
     video.addEventListener('abort', fallback, { once: true });
 
-    video.muted = false;
-    video.removeAttribute('muted');
+    video.muted = true;
+    video.setAttribute('muted', '');
+    soundButton.hidden = false;
     let playback;
     try { playback = video.play(); } catch (_) { playback = null; }
     if (playback && typeof playback.catch === 'function') {
       playback.catch(() => {
-        video.muted = true;
-        video.setAttribute('muted', '');
-        soundButton.hidden = false;
-        const mutedPlayback = video.play();
-        if (mutedPlayback && typeof mutedPlayback.catch === 'function') mutedPlayback.catch(fallback);
+        fallback();
       });
     }
 
-    hero.addEventListener('pointerdown', () => {
-      if (!video.muted || video.paused || video.ended) return;
-      video.muted = false;
-      video.removeAttribute('muted');
-      const userPlayback = video.play();
-      if (userPlayback && typeof userPlayback.catch === 'function') userPlayback.catch(() => { video.muted = true; });
-      else soundButton.hidden = true;
-    }, { passive: true });
   }
 
   function fixHeroCta() {
@@ -233,8 +155,8 @@
       about_belief: '#about-belief', about_pillars: '#about-pillars', about_extra1: '#about-extra1', about_extra2: '#about-extra2',
       about_team: '#about-team', about_logo: '#about-logo', about_blog: '#about-blog', footer: '.rb-footer'
     };
-    fetch('/api/public-section-backgrounds', { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : null)
+    window.RiBuromPublicMedia = window.RiBuromPublicMedia || fetch('/api/public-section-backgrounds', { credentials: 'same-origin' }).then(response => response.ok ? response.json() : null).catch(() => null);
+    window.RiBuromPublicMedia
       .then((payload) => {
         if (!payload) return;
         Object.entries(payload.backgrounds || {}).forEach(([key, image]) => {
@@ -255,8 +177,7 @@
 
   function bootstrap() {
     ensureMotionStyles();
-    showLoader();
-    initSuccessModal();
+    document.querySelectorAll('[data-dismiss-notice]').forEach(button => button.addEventListener('click', () => button.parentElement.remove()));
     initHeroAnimationVideo();
     fixHeroCta();
     scrollReveal();

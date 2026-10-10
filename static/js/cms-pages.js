@@ -4,12 +4,21 @@
   const $ = id => document.getElementById(id);
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
   let key = '', state = {items: [], version: 0, limit: 10}, replacement = null, busy = false;
+  let originalCollection = '', pickerPage = 1, libraryPage = 1;
+  const collectionSnapshot = () => JSON.stringify(state.items.map(item => Object.fromEntries(
+    ['asset_id','focal_x','focal_y','organization','url','label','visible','new_tab'].map(name => [name, item[name]]))));
   const status = message => { $('editor-status').textContent = message; };
   const fail = error => status(error.message || 'Unable to save. Please try again.');
   function setBusy(value) {
     busy = value;
     const surface = document.querySelector('.editor-surface');
-    if (surface) surface.inert = value;
+    if (surface) {
+      surface.setAttribute('aria-busy', String(value));
+      surface.querySelectorAll('input,textarea,select,button:not([data-panel])').forEach(control => {
+        if (value) {control.dataset.wasDisabled = String(control.disabled); control.disabled = true;}
+        else if ('wasDisabled' in control.dataset) {control.disabled = control.dataset.wasDisabled === 'true'; delete control.dataset.wasDisabled;}
+      });
+    }
   }
   let contentState = null, contentKey = '', designState = null, selectedIndex = 0;
   let collectionDirty = false, textDirty = false, designDirty = false, logoDirty = false, requestId = 0;
@@ -20,7 +29,7 @@
   const canContent = page?.dataset.canContent === 'true';
   const canMedia = page?.dataset.canMedia === 'true';
   const dirty = () => collectionDirty || textDirty || designDirty || galleryDesignDirty || logoDirty || metadataChanges.size > 0;
-  const changed = () => {collectionDirty = true; summary();};
+  const changed = () => {collectionDirty = collectionSnapshot() !== originalCollection; summary();};
   function summary() {
     if ($('gallery-summary')) $('gallery-summary').textContent = `${state.items.length} of ${state.limit} photographs · ${collectionDirty || metadataChanges.size ? 'Unsaved changes' : 'Saved'}`;
   }
@@ -37,24 +46,30 @@
     $('content-empty').hidden = !!result.fields.length;
     result.fields.forEach(item => {
       const label = el('label', item.label, root), input = el('textarea', undefined, label);
+      item.originalValue = item.value;
       input.value = item.value; input.rows = item.value.length > 150 ? 4 : 2;
-      input.addEventListener('input', () => {item.value = input.value; textDirty = true;});
+      input.addEventListener('input', () => {item.value = input.value; textDirty = result.fields.some(f => f.value !== f.originalValue);});
     });
   }
   async function loadDesign(section, ticket) {
-    if (!canContent) return;
+    if (!canMedia) return;
     const result = await api('design/' + section);
     if (ticket !== requestId) return;
     designState = result;
     $('design-fields').replaceChildren();
     $('section-design').hidden = !result.fields.length;
     $('design-empty').hidden = !!result.fields.length || (canMedia && supportsGallery(section));
-    result.fields.forEach(item => field(item.label, item.value, $('design-fields'), value => {
-      item.value = value; designDirty = true;
-    }, 'color'));
+    result.fields.forEach(item => {
+      item.originalValue = item.value;
+      field(item.label, item.value, $('design-fields'), value => {
+        item.value = value; designDirty = result.fields.some(f => f.value !== f.originalValue);
+      }, 'color');
+    });
   }
   function syncTokens(token) {
     for (const draft of [contentState, designState, galleryDesign]) if (draft) draft.token = token;
+    const draftToken = document.querySelector('#cr-website-form input[name="token"]');
+    if (draftToken) draftToken.value = token;
   }
   async function loadGalleryDesign(section, ticket) {
     if (!canMedia || !supportsGallery(section)) return;
@@ -86,7 +101,7 @@
   }
   function button(text, parent, click) {
     const node = el('button', text, parent); node.type = 'button';
-    node.addEventListener('click', () => Promise.resolve().then(click).catch(fail)); return node;
+    node.addEventListener('click', () => {if (!busy) Promise.resolve().then(click).catch(fail);}); return node;
   }
   function field(label, value, parent, change, type = 'text') {
     const wrap = el('label', label, parent), input = el('input', undefined, wrap);
@@ -99,11 +114,14 @@
     const id = asset.asset_id || asset.id;
     const changes = metadataChanges.get(id) || {};
     for (const [name, label] of [['alt','Alt text'], ['caption','Caption (optional)'], ['credit','Credit / source (optional)']]) {
-      field(label, changes[name] ?? asset[name], card, value => {changes[name] = value; metadataChanges.set(id, changes);});
+      field(label, changes[name] ?? asset[name], card, value => {
+        if (value === (asset[name] || '')) delete changes[name]; else changes[name] = value;
+        if (Object.keys(changes).length) metadataChanges.set(id, changes); else metadataChanges.delete(id);
+      });
     }
     button('Save image details', card, async () => {
-      await api('assets/' + (asset.asset_id || asset.id), changes);
-      Object.assign(asset, changes); metadataChanges.delete(id); status('Image details saved for every use of this photograph.');
+      const result = await api('assets/' + (asset.asset_id || asset.id), {...changes, version:asset.version});
+      Object.assign(asset, changes, {version:result.version}); metadataChanges.delete(id); status('Image details saved for every use of this photograph.');
     });
   }
   function renderItems() {
@@ -143,12 +161,12 @@
     const assetId = item.asset_id || item.id;
     for (const [name,label] of [['alt','Alt text'], ['caption','Caption (optional)']]) {
       field(label, metadataChanges.get(assetId)?.[name] ?? item[name], inspector, value => {
-        metadataChanges.set(assetId, {...metadataChanges.get(assetId), [name]:value}); summary();
+        updateMetadata(item, name, value); summary();
       });
     }
     const advanced = el('details', undefined, inspector); el('summary', 'Credit & crop focus', advanced);
     field('Credit / source', metadataChanges.get(assetId)?.credit ?? item.credit, advanced, value => {
-      metadataChanges.set(assetId, {...metadataChanges.get(assetId), credit:value}); summary();
+      updateMetadata(item, 'credit', value); summary();
     });
     for (const axis of ['x','y']) {
       const input = field(axis === 'x' ? 'Horizontal focus' : 'Vertical focus', item['focal_' + axis] ?? 50, advanced, value => {
@@ -180,6 +198,7 @@
     const result = await api('collections/' + nextKey);
     if (ticket !== requestId) return;
     key = nextKey; state = result; selectedIndex = 0;
+    originalCollection = collectionSnapshot();
     $('media-editor').hidden = false; $('other-media').hidden = true;
     $('collection-title').textContent = title;
     $('collection-limit').textContent = state.limit;
@@ -218,7 +237,7 @@
         try {
           const asset = await upload(selected[n]);
           if ($('media-editor')) {
-            const item = {asset_id: asset.id, src: asset.src, focal_x:50, focal_y:50, visible:true};
+            const item = {asset_id: asset.id, version:asset.version, src: asset.src, focal_x:50, focal_y:50, visible:true};
             if (replaceIndex !== null) state.items[replaceIndex] = item; else state.items.push(item);
             changed(); renderItems();
           }
@@ -229,9 +248,21 @@
     if ($('library-page')) await renderLibrary();
     else status('Uploads are in the library. Save gallery to apply your changes.');
   }
-  async function openPicker(index = null) {replacement = index; await pickerResults(); $('library-picker').showModal();}
+  function updateMetadata(item, name, value) {
+    const id = item.asset_id || item.id, changes = {...metadataChanges.get(id)};
+    if (value === (item[name] || '')) delete changes[name]; else changes[name] = value;
+    if (Object.keys(changes).length) metadataChanges.set(id, changes); else metadataChanges.delete(id);
+  }
+  function paginationControls(result, parent, change) {
+    const nav = el('nav', undefined, parent); nav.className = 'toolbar'; nav.setAttribute('aria-label', 'Media pages');
+    button('Previous', nav, () => change(result.page - 1)).disabled = !result.has_prev;
+    el('span', `Page ${result.page} of ${Math.max(result.pages, 1)} · ${result.total} images`, nav);
+    button('Next', nav, () => change(result.page + 1)).disabled = !result.has_next;
+  }
+  async function openPicker(index = null) {replacement = index; pickerPage = 1; await pickerResults(); $('library-picker').showModal();}
   async function pickerResults() {
-    const assets = await api('assets?q=' + encodeURIComponent($('picker-search').value));
+    const result = await api('assets?page=' + pickerPage + '&q=' + encodeURIComponent($('picker-search').value));
+    const assets = result.items;
     $('picker-results').replaceChildren();
     assets.forEach(asset => {
       const card = el('article', undefined, $('picker-results')); card.className = 'media-card';
@@ -245,11 +276,13 @@
       });
     });
     if (!assets.length) el('p', 'No images found. Upload a photograph to get started.', $('picker-results'));
+    paginationControls(result, $('picker-results'), async next => {pickerPage = next; await pickerResults();});
   }
   async function renderLibrary() {
-    const assets = await api('assets?q=' + encodeURIComponent($('library-search').value));
-    const filter = $('library-filter').value; $('library-results').replaceChildren();
-    assets.filter(a => filter === 'all' || (filter === 'used' ? a.usage.length : !a.usage.length)).forEach(asset => {
+    const filter = $('library-filter').value;
+    const result = await api('assets?page=' + libraryPage + '&q=' + encodeURIComponent($('library-search').value) + '&usage=' + filter);
+    const assets = result.items; $('library-results').replaceChildren();
+    assets.forEach(asset => {
       const card = el('article', undefined, $('library-results')); card.className = 'media-card';
       const image = el('img', undefined, card); image.src = asset.src; image.alt = asset.alt; image.loading = 'lazy';
       el('h2', asset.title, card);
@@ -259,6 +292,7 @@
       const details = el('details', undefined, card); el('summary', 'Image details', details); metadata(asset, details);
       if (!asset.usage.length) button('Remove from library', card, async () => {await api('assets/' + asset.id, null, 'DELETE'); await renderLibrary();});
     });
+    paginationControls(result, $('library-results'), async next => {libraryPage = next; await renderLibrary();});
   }
   async function ensureAppearance() {
     if (!page || appearanceRequest) return appearanceRequest;
@@ -308,7 +342,9 @@
       event.preventDefault(); if (!contentState || busy) return;
       setBusy(true);
       try {
-        contentState = await api('content/' + contentKey, {token:contentState.token, values:Object.fromEntries(contentState.fields.map(f => [f.name,f.value]))});
+        const saved = await api('content/' + contentKey, {token:contentState.token, values:Object.fromEntries(contentState.fields.map(f => [f.name,f.value]))});
+        contentState.token = saved.token;
+        contentState.fields.forEach(f => {f.originalValue = f.value;});
         syncTokens(contentState.token);
         textDirty = false; status('Section text saved.');
       } catch (error) {fail(error);} finally {setBusy(false);}
@@ -317,7 +353,9 @@
       event.preventDefault(); if (!designState || busy) return;
       setBusy(true);
       try {
-        designState = await api('design/' + contentKey, {token:designState.token, values:Object.fromEntries(designState.fields.map(f => [f.name,f.value]))});
+        const saved = await api('design/' + contentKey, {token:designState.token, values:Object.fromEntries(designState.fields.map(f => [f.name,f.value]))});
+        designState.token = saved.token;
+        designState.fields.forEach(f => {f.originalValue = f.value;});
         syncTokens(designState.token);
         designDirty = false; status('Section design saved.');
       } catch (error) {fail(error);} finally {setBusy(false);}
@@ -326,18 +364,20 @@
       if (busy || !key) return;
       setBusy(true); $('save-collection').disabled = true;
       try {
-        const result = await api('collections/' + key, state); state.version = result.version; collectionDirty = false;
+        status('Saving gallery and image details…');
+        const metadata = Object.fromEntries([...metadataChanges].map(([id, values]) => [id, {...values, version:state.items.find(item => (item.asset_id || item.id) === id)?.version}]));
+        const result = await api('collections/' + key, {...state, metadata}); state.version = result.version; collectionDirty = false;
+        state.items.forEach(item => {item.version = result.asset_versions[String(item.asset_id || item.id)];});
         for (const [id, values] of metadataChanges) {
-          await api('assets/' + id, values);
           state.items.filter(item => (item.asset_id || item.id) === id).forEach(item => Object.assign(item, values));
-          metadataChanges.delete(id);
         }
+        metadataChanges.clear(); originalCollection = collectionSnapshot();
         summary(); status('Gallery and image details saved.');
       } catch (error) {summary(); fail(error);} finally {setBusy(false); $('save-collection').disabled = false;}
     };
     $('upload-images').onchange = event => {const input = event.target; uploadFiles(input.files).catch(fail).finally(() => {input.value = '';});};
     $('choose-library').onclick = () => openPicker().catch(fail);
-    $('picker-find').onclick = () => pickerResults().catch(fail);
+    $('picker-find').onclick = () => {pickerPage = 1; pickerResults().catch(fail);};
     $('picker-close').onclick = () => $('library-picker').close();
     $('upload-drop').ondragover = event => event.preventDefault();
     $('upload-drop').ondrop = event => {event.preventDefault(); uploadFiles(event.dataTransfer.files).catch(fail);};
@@ -345,14 +385,15 @@
     selectSection(requested || document.querySelector('[data-section]'));
   }
   if ($('library-page')) {
-    $('library-refresh').onclick = () => renderLibrary().catch(fail);
-    $('library-filter').onchange = () => renderLibrary().catch(fail);
+    $('library-refresh').onclick = () => {libraryPage = 1; renderLibrary().catch(fail);};
+    $('library-filter').onchange = () => {libraryPage = 1; renderLibrary().catch(fail);};
     $('library-upload').onchange = event => uploadFiles(event.target.files).catch(fail);
     renderLibrary().catch(fail);
   }
   if ($('gallery-design')) {
     $('gallery-design').addEventListener('input', () => {
-      galleryDesignDirty = true;
+      galleryDesignDirty = !!galleryDesign && ($('gallery-autoplay').checked !== galleryDesign.values.autoplay ||
+        Number($('gallery-interval').value) !== galleryDesign.values.interval || $('gallery-ratio').value !== galleryDesign.values.ratio);
       $('image-preview').style.aspectRatio = matchMedia('(max-width:600px)').matches ? '4/3' : $('gallery-ratio').value;
     });
     $('gallery-design').onsubmit = async event => {
@@ -378,7 +419,8 @@
     api('hero-placement').then(data => {placement=data; savedPlacement=structuredClone(data); preview();}).catch(fail);
     $('logo-device').onchange = preview;
     for (const k of ['size','x','y']) $('logo-' + k).oninput = () => {
-      placement.settings[$('logo-device').value] = {...values(), [k]:Number($('logo-' + k).value)}; logoDirty = true; preview();
+      placement.settings[$('logo-device').value] = {...values(), [k]:Number($('logo-' + k).value)};
+      logoDirty = JSON.stringify(placement.settings) !== JSON.stringify(savedPlacement.settings); preview();
     };
     $('logo-reset').onclick = () => {placement.settings[$('logo-device').value] = {size:60,x:50,y:50}; logoDirty = true; preview();};
     $('logo-save').onclick = async () => {if (busy) return; setBusy(true); try {const result=await api('hero-placement', placement); placement.version=result.version; savedPlacement=structuredClone(placement); logoDirty = false; status('Logo placement saved.');} catch(error) {fail(error);} finally {setBusy(false);}};

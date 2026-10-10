@@ -143,15 +143,15 @@ class IndexNowTests(unittest.TestCase):
         routes_source = (root / "cms_routes.py").read_text(encoding="utf-8")
         backgrounds_source = (root / "cms_backgrounds.py").read_text(encoding="utf-8")
 
-        self.assertIn("notify_indexnow_public_site()", app_source)
-        self.assertIn("notify_indexnow_cms_change('about')", app_source)
-        self.assertIn("notify_indexnow_cms_change('home')", app_source)
-        self.assertIn("notify_indexnow_cms_change(section)", pages_source)
-        self.assertIn("notify_indexnow_cms_change(key)", pages_source)
-        self.assertIn("notify_indexnow_cms_change(section_key)", backgrounds_source)
-        self.assertIn("notify_indexnow_cms_change(gallery_key)", backgrounds_source)
-        self.assertIn("notify_indexnow_public_site()", routes_source)
-        self.assertIn("notify_indexnow_cms_change('home')", routes_source)
+        self.assertIn("notify_indexnow_public_site(stage_only=True)", app_source)
+        self.assertIn("notify_indexnow_cms_change('about', stage_only=True)", app_source)
+        self.assertIn("notify_indexnow_cms_change('home', stage_only=True)", app_source)
+        self.assertIn("notify_indexnow_cms_change(section, stage_only=True)", pages_source)
+        self.assertIn("notify_indexnow_cms_change(key, stage_only=True)", pages_source)
+        self.assertIn("notify_indexnow_cms_change(section_key, stage_only=True)", backgrounds_source)
+        self.assertIn("notify_indexnow_cms_change(gallery_key, stage_only=True)", backgrounds_source)
+        self.assertIn("notify_indexnow_public_site(stage_only=True)", routes_source)
+        self.assertIn("notify_indexnow_cms_change('home', stage_only=True)", routes_source)
 
     def test_one_time_bootstrap_workflow_submits_live_sitemap(self):
         root = Path(__file__).resolve().parents[1]

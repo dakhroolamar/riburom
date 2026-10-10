@@ -20,5 +20,7 @@ riburom
 
 static/uploads/
 .test-tmp/
+.test-artifacts/
+debug.log
 cms-test-results.txt
 cms-migration-results.txt

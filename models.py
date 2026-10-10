@@ -12,6 +12,7 @@ db = SQLAlchemy()
 class TravellerReview(db.Model):
     __tablename__ = 'traveller_reviews'
     id = db.Column(db.Integer, primary_key=True)
+    is_visible = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     name = db.Column(db.String(80), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.String(600), nullable=False)
@@ -231,6 +232,8 @@ class SiteSettings(db.Model):
     instagram_qr = db.Column(db.String(500))
     instagram_show_qr = db.Column(db.Boolean, default=True, nullable=False)
     public_config_json = db.Column(db.Text, default='')
+    version = db.Column(db.Integer, nullable=False, default=1, server_default='1')
+    __mapper_args__ = {'version_id_col': version}
 
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -287,6 +290,8 @@ class NotificationOutbox(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     sent_at = db.Column(db.DateTime, nullable=True)
+    claim_token = db.Column(db.String(80))
+    next_attempt_at = db.Column(db.DateTime, index=True)
 
 
 class Message(db.Model):

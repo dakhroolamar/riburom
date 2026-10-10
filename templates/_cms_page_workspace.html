@@ -28,7 +28,7 @@
         <label>Desktop image proportions<select id="gallery-ratio"><option value="16/9">Wide · 16:9</option><option value="3/2">Classic · 3:2</option><option value="4/3">Standard · 4:3</option></select></label></div>
         <p class="lede">Mobile photographs use 4:3 to keep the subject clear.</p><button type="submit">Save gallery design</button>
       </form>{% endif %}
-      {% if can_content %}<form id="section-design"><div id="design-fields"></div><button type="submit">Save design</button></form><p id="design-empty" hidden>This section follows the site’s global style.</p>{% endif %}
+      {% if can_media %}<form id="section-design"><div id="design-fields"></div><button type="submit">Save design</button></form><p id="design-empty" hidden>This section follows the site’s global style.</p>{% endif %}
       {% if can_media %}        <section id="logo-editor" hidden>
           <h3>Hero logo placement</h3>
           <label>Preview size

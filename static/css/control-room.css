@@ -37,3 +37,5 @@
 .cr-content-group{border-top:1px solid var(--cr-line);padding:12px 0}.cr-content-group>summary{font-weight:600;cursor:pointer;margin-bottom:10px}
 
 .cr-next-step{display:block;max-width:180px;white-space:normal;overflow-wrap:anywhere;margin-top:5px}.cr-overdue{color:#a54428}
+
+.cr-notice{display:flex;align-items:center;justify-content:space-between;gap:12px}.cr-notice [data-dismiss-notice]{background:transparent;border:0;color:inherit;font-size:20px;padding:2px 8px;flex-shrink:0}.cr-notice [data-dismiss-notice]:focus-visible{outline:2px solid currentColor;outline-offset:2px}

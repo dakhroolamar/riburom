@@ -342,8 +342,9 @@ def register_workspace(flask_app):
                     flash(f'{field.replace("_", " ").title()} is too long.', 'error'); return redirect(url_for('workspace_cms'))
                 cfg['content'][field] = value
         settings.public_config_json = json.dumps(cfg, ensure_ascii=False)
-        add_audit('updated','cms_content',1,'Public-facing text content'); db.session.commit()
-        notify_indexnow_public_site()
+        add_audit('updated','cms_content',1,'Public-facing text content')
+        notify_indexnow_public_site(stage_only=True)
+        db.session.commit()
         flash('Public website text saved.', 'success'); return redirect(url_for('workspace_cms'))
 
     @flask_app.route('/workspace/cms/save-sections', methods=['POST'])
@@ -365,8 +366,9 @@ def register_workspace(flask_app):
                 number = max(0,min(90,number)) if field == 'overlay_opacity' else max(300,min(900,number))
                 current[field] = number
             current['heading_italic'] = bool(request.form.get(f'{key}__heading_italic')); current['body_italic'] = bool(request.form.get(f'{key}__body_italic'))
-        settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_section_styles',1,'Section-specific colours, weight and italic settings'); db.session.commit()
-        notify_indexnow_public_site()
+        settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_section_styles',1,'Section-specific colours, weight and italic settings')
+        notify_indexnow_public_site(stage_only=True)
+        db.session.commit()
         flash('Section appearance settings saved.', 'success'); return redirect(url_for('workspace_cms'))
 
     @flask_app.route('/workspace/cms/save-home-structure', methods=['POST'])
@@ -383,6 +385,7 @@ def register_workspace(flask_app):
         try: visibility = json.loads(request.form.get('home_section_visibility') or '{}')
         except (TypeError, ValueError, json.JSONDecodeError): visibility = {}
         cfg.setdefault('home', {}); cfg['home']['order'] = order; cfg['home']['visibility'] = {key: bool(visibility.get(key, True)) for key in valid}
-        settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_home_structure',1,', '.join(order)); db.session.commit()
-        notify_indexnow_cms_change('home')
+        settings.public_config_json = json.dumps(cfg, ensure_ascii=False); add_audit('updated','cms_home_structure',1,', '.join(order))
+        notify_indexnow_cms_change('home', stage_only=True)
+        db.session.commit()
         flash('Homepage structure saved.', 'success'); return redirect(url_for('workspace_cms_structure'))

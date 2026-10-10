@@ -1,4 +1,4 @@
-"""Optimistic concurrency helpers for the JSON-backed public CMS configuration."""
+"""Editor freshness tokens; SiteSettings.version enforces atomic database writes."""
 
 import hashlib
 import hmac

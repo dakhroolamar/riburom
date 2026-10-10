@@ -40,3 +40,5 @@
     --rb-hero-landscape-gap:clamp(36px,9vw,52px);
   }
 }
+
+.rb-notice{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:900px;margin:16px auto;padding:14px 20px;border:1px solid #c9dbcf;border-radius:10px;background:#edf5ef;color:#16462d}.rb-notice.error{background:#fff0ed;color:#852b21;border-color:#e6bdb6}.rb-notice button{border:0;background:transparent;color:inherit;font-size:24px;cursor:pointer;padding:2px 8px}

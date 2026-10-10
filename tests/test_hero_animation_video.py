@@ -61,6 +61,12 @@ class HeroAnimationVideoTests(unittest.TestCase):
     def _valid_mp4(seed=b'video'):
         return b'\x00\x00\x00\x18ftypisom' + seed + b'\x00' * 32
 
+    def tearDown(self):
+        settings = self.db.session.get(self.SiteSettings, 1)
+        for field in ('hero_animation_video', 'hero_logo', 'header_mark', 'header_wordmark'):
+            setattr(settings, field, None)
+        self.db.session.commit()
+
     @staticmethod
     def _valid_png():
         image = Image.new('RGBA', (32, 32), (20, 83, 45, 255))
@@ -109,7 +115,8 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'rb-hero-video-stage', response.data)
         self.assertIn(b'data-rb-hero-animation-video', response.data)
-        self.assertIn(b'autoplay', response.data)
+        # JavaScript starts playback only when motion/data-saving preferences permit it.
+        self.assertNotIn(b' autoplay', response.data)
         self.assertIn(b'muted', response.data)
         self.assertIn(b'playsinline', response.data)
         self.assertIn(b'preload="metadata"', response.data)

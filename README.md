@@ -115,12 +115,55 @@ not editable public footer fields:
 Email delivery uses Brevo when `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` are
 configured. Optional SMS/WhatsApp delivery uses Twilio configuration.
 
-The request starts an asynchronous attempt for the exact committed outbox rows.
-Failed rows remain durable and can be retried by later enquiry traffic or with:
+The first production request starts one background worker per process. It wakes
+when new work arrives and checks the durable queue every 30 seconds, so retries
+do not depend on later enquiry traffic. Atomic claims lease a record for two
+minutes; failed delivery retries use exponential backoff, up to five attempts.
+An expired lease can be reclaimed after a process exits.
+
+CMS IndexNow updates use the same durable queue. Saving or publishing no longer
+waits for the search-engine HTTP request. Identical waiting indexing batches are
+coalesced. Owner settings distinguish dashboard activity from enquiry email and
+WhatsApp/SMS delivery; disabling delivery cancels that channel's waiting records.
+Recipients still come from the operational environment configuration.
+
+To process waiting notification and indexing records manually:
 
 ```bash
 python scripts/process_notification_outbox.py
 ```
+
+The built-in worker is enabled in production by default. Set
+`OUTBOX_WORKER_ENABLED=false` only when running a separate scheduled or persistent
+worker that invokes this command. Sleeping web instances cannot perform work until
+they wake; use an always-on worker when delivery during web-service sleep is required.
+External delivery is at-least-once: a provider accepting a message immediately before
+a process/database failure can still cause a retry. Leases prevent concurrent workers
+from sending one record simultaneously but cannot make the external provider and
+database commit one atomic transaction.
+
+## CMS editing behavior
+
+- Text and homepage structure use **Save Draft → Preview Saved Draft → Publish**.
+  Drafts retain original values for edited fields, so unrelated live appearance
+  changes do not block publishing. Conflicting edits to the same field require review.
+- Media and appearance apply immediately when saved. Their successful saves refresh
+  the draft form's token. Site settings also use database versions to prevent lost
+  updates from overlapping saves.
+- Revision history labels previous live snapshots separately from publications.
+- Gallery selection and its edited image details save together in one transaction.
+- Media, trips, partners and catalogue lists expose pagination. Media cards use small
+  thumbnails and load a larger image only for the inspector.
+- **Website Manager → Traveller Reviews** lets content staff hide, show or delete
+  reviews. Visitor submissions remain immediately visible until moderated.
+- The homepage honors gallery autoplay/interval settings and keeps pause controls
+  available. Dismissed story cards stay dismissed until the featured content changes.
+- Save feedback uses dismissible status notices, and navigation does not wait behind
+  a full-page loader. Configured opening films start muted and respect reduced-motion
+  and data-saving preferences; sound requires the explicit **Enable sound** action.
+
+Deployments must upgrade through migration `b7d2e9a4c610` before starting the new application.
+The existing deployment migration gate upgrades to this head automatically.
 
 ## Production environment
 

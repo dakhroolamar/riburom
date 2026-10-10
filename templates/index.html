@@ -7,12 +7,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#166534">
-    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=9" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}?v=10" defer></script>
     {% include '_public_theme.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-home-fixes.css') }}?v=9" data-rb-home-fixes-css>
-    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=9" defer></script>
+    <script src="{{ url_for('static', filename='js/ri-burom-home-fixes.js') }}?v=10" defer></script>
     <link rel="stylesheet" href="{{ url_for('static',filename='css/story-notification.css') }}?v=2">
-    <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=2" defer></script>
+    <script src="{{ url_for('static',filename='js/story-notification.js') }}?v=3" defer></script>
 </head>
 <body class="rb-public-site rb-editorial rb-page-enter bg-gray-50 text-gray-800">
     {% include '_nav.html' %}
@@ -22,11 +22,11 @@
     {% set hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark %}
     <header id="rb-home-hero" class="rb-paper-hero rb-paper-edge rb-hero rb-hero-readable" style="order:{{ home_order_index.hero }};">
         <div class="relative z-10 text-white max-w-5xl flex flex-col items-center rb-hero-content rb-hero-copy">
-            {% if hero_logo %}
+            {% if hero_logo or settings.hero_animation_video %}
             {% set placement = cms_logo_placement() %}
             <div class="rb-hero-video-stage{% if placement %} cms-positioned-logo{% endif %}" data-rb-hero-video-stage {% if placement %}style="{% for device, values in placement.items() %}{% for axis in ['x','y','size'] %}--cms-{{ 'logo' if device == 'desktop' else device }}-{{ axis }}:{{ values[axis] }}%;{% endfor %}{% endfor %}"{% endif %}>
-                <img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">
-
+                {% if hero_logo %}<img class="rb-hero-permanent-logo" src="{{ hero_logo|imgsrc }}" alt="Ri Burom Tours and Travels" loading="eager" decoding="async" style="width: {{ settings.hero_logo_width }}px; max-width: 78vw; max-height: 420px; object-fit: contain;">{% endif %}
+                {% if settings.hero_animation_video %}<video src="{{ settings.hero_animation_video|imgsrc }}" muted playsinline preload="metadata" data-rb-hero-animation-video aria-label="RI BUROM opening film"></video>{% endif %}
             </div>
             {% endif %}
             <p class="rb-hero-eyebrow text-amber-200 mb-4">{{ public.content.hero_eyebrow }}</p>
@@ -45,7 +45,7 @@
                 {% include '_paper_landscape.html' %}
                 {% if hero_image %}<img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc }}" alt="Meghalaya landscape featured by RI BUROM" decoding="async">{% endif %}
             </div>
-            <div class="rb-river-gallery cms-public-gallery" data-rb-river-gallery data-cms-gallery data-gallery-autoplay data-gallery-interval="1000" style="--gallery-ratio:{{ river_design.ratio }}" aria-label="RI BUROM photo gallery" hidden>
+            <div class="rb-river-gallery cms-public-gallery" data-rb-river-gallery data-cms-gallery {% if river_design.autoplay %}data-gallery-autoplay{% endif %} data-gallery-interval="{{ river_design.interval }}" style="--gallery-ratio:{{ river_design.ratio }}" aria-label="RI BUROM photo gallery" hidden>
                 <div class="rb-river-gallery-track cms-gallery-track" data-rb-rail-track tabindex="0" aria-label="Gallery photographs"></div>
                 <div class="cms-gallery-controls" aria-label="Photo gallery controls">
                     <button type="button" data-gallery-prev aria-label="Previous photograph">‹</button>
@@ -94,9 +94,10 @@
             <div class="rb-experience-rail rb-stagger" data-rb-rail-track aria-label="Signature Experiences">
                 {% for pkg in packages %}
                 <article data-reveal class="rb-card rb-paper-card rb-experience-card flex flex-col">
-                    <a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
-                        <img class="rb-card-media" src="{{ cms_tour_cover(pkg) }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
-                    </a>
+                    {% set package_cover = cms_tour_cover(pkg) %}
+                    {% if package_cover %}<a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
+                        <img class="rb-card-media" src="{{ package_cover }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
+                    </a>{% endif %}
                     <div class="p-6 flex-grow">
                         <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
                             {% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}
@@ -173,7 +174,7 @@
     {% endif %}
 
     {% if public.home.visibility.blog and settings.blog_enabled and settings.blog_show_home and (settings.blog_image or settings.blog_url) %}
-    <aside id="rb-home-blog" class="rb-story-notification" aria-label="Featured story">
+    <aside id="rb-home-blog" class="rb-story-notification" aria-label="Featured story" data-story-key="{{ featured_story_key }}" hidden>
         <button type="button" class="rb-story-notification-close" aria-label="Dismiss story card">×</button>
         <a class="rb-story-notification-link" href="/stories">
             {% if settings.blog_image %}<img src="{{ settings.blog_image|imgsrc }}" alt="" width="72" height="92" loading="lazy">{% endif %}

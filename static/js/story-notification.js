@@ -1,6 +1,13 @@
-document.querySelector('.rb-story-notification-close')?.addEventListener('click', () => {
-  document.querySelector('.rb-story-notification').hidden = true;
-});
+const storyCard = document.querySelector('.rb-story-notification');
+if (storyCard) {
+  const key = storyCard.dataset.storyKey;
+  try {storyCard.hidden = localStorage.getItem('riburom-dismissed-story') === key;}
+  catch {storyCard.hidden = false;}
+  storyCard.querySelector('.rb-story-notification-close')?.addEventListener('click', () => {
+    storyCard.hidden = true;
+    try {localStorage.setItem('riburom-dismissed-story', key);} catch { /* Storage can be unavailable in private sessions. */ }
+  });
+}
 
 document.querySelector('a[href="#write-review"]')?.addEventListener('click', () => {
   document.getElementById('write-review').open = true;
@@ -16,6 +23,8 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     row.addEventListener('focusin', () => { paused = true; });
     row.addEventListener('focusout', () => { paused = false; });
     row.addEventListener('touchstart', () => { paused = true; }, { passive: true });
+    row.addEventListener('touchend', () => { paused = false; }, { passive: true });
+    row.addEventListener('touchcancel', () => { paused = false; }, { passive: true });
     const tick = now => {
       if (last && !paused && !document.hidden) {
         const end = row.scrollWidth - row.clientWidth;
