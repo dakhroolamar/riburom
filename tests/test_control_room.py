@@ -76,7 +76,7 @@ class ControlRoomTests(unittest.TestCase):
         package = Package(title='Before', slug='stable-tour-url', description='Original', published=False, price='Legacy group rate')
         self.db.session.add(package); self.db.session.commit()
         values = dict(title='Changed title', description='Updated overview', price_mode='amount', price_amount='12500.50',
-                      price_basis='person', nights='3', days='4', itinerary='Day 1: Arrival')
+                      price_basis='person', nights='3', days='4', itinerary='Day 1: Arrival', package_token=package.updated_at.isoformat())
         response = self.client.post(f'/edit_package/{package.id}', data=values)
         self.assertEqual(response.status_code, 302)
         self.db.session.refresh(package)
@@ -88,11 +88,25 @@ class ControlRoomTests(unittest.TestCase):
         preview = self.client.get(f'/workspace/control/packages/{package.id}/preview')
         self.assertEqual(preview.status_code, 200)
         self.assertIn('no-store', preview.headers['Cache-Control'])
+        self.assertIn('noindex', preview.headers['X-Robots-Tag'])
+        self.assertIn(b'<title>Changed title', preview.data)
+        self.assertEqual(preview.data.count(b'<title>'), 1)
+        package.title = 'Escape <unsafe> & preview'
+        self.db.session.commit()
+        escaped_preview = self.client.get(f'/workspace/control/packages/{package.id}/preview')
+        self.assertIn(b'Escape &lt;unsafe&gt; &amp; preview', escaped_preview.data)
+        package.title = 'Changed title'
+        self.db.session.commit()
+        favicon = self.client.get('/favicon.ico')
+        self.assertEqual(favicon.status_code, 200)
+        self.assertEqual(favicon.mimetype, 'image/svg+xml')
+        self.assertIn(b'<svg', favicon.data)
+        favicon.close()
         copy = self.client.get(f'/add_package?copy={package.id}')
         self.assertEqual(copy.status_code, 200)
         self.assertIn(b'Changed title (copy)', copy.data)
         self.assertNotIn(b'name="published" checked', copy.data)
-        invalid = self.client.post(f'/edit_package/{package.id}', data={**values, 'price_amount':'NaN'})
+        invalid = self.client.post(f'/edit_package/{package.id}', data={**values, 'price_amount':'NaN', 'package_token':package.updated_at.isoformat()})
         self.assertEqual(invalid.status_code, 400)
         self.assertIn(b'Updated overview', invalid.data)
         self.db.session.refresh(package)
@@ -144,7 +158,7 @@ class ControlRoomTests(unittest.TestCase):
     def test_partner_private_operational_details_and_package_quote_trip_links(self):
         from models import Package, Message
         from marketplace_models import Provider
-        from control_room_models import PartnerOperations, Quote, Trip
+        from control_room_models import PartnerOperations, Quote, Trip, LeadWorkspace
         partner=Provider(name='Operations Partner',slug='operations-partner',status='DRAFT')
         package=Package(title='Linked Package',slug='linked-package',description='Tour overview')
         message=Message(name='Linked Traveller',email='linked@example.com',message='Tour please')
@@ -154,9 +168,10 @@ class ControlRoomTests(unittest.TestCase):
         operations=self.db.session.get(PartnerOperations,partner.id)
         self.assertEqual(operations.location,'Shillong')
         self.assertNotIn(b'Private agreed rate',self.client.get('/marketplace/providers/'+partner.slug).data)
-        self.assertEqual(self.client.post(f'/workspace/control/quotes/website/{message.id}',data=dict(package_id=package.id,amount='15000',summary='Confirmed custom group price',valid_until='2026-11-01')).status_code,302)
+        self.assertEqual(self.client.post(f'/workspace/control/quotes/website/{message.id}',data=dict(package_id=package.id,amount='15000',summary='Confirmed custom group price',valid_until='2026-11-01',work_token='new')).status_code,302)
         self.assertEqual(Quote.query.one().package_id,package.id)
-        self.assertEqual(self.client.post('/workspace/control/trips/save',data=dict(package_id=package.id,name='Linked Traveller',destination='Shillong',start_date='2026-11-10',end_date='2026-11-13',travellers='4',status='PLANNED',source='website',source_id=message.id)).status_code,302)
+        lead=LeadWorkspace.query.filter_by(source='website',source_id=message.id).one()
+        self.assertEqual(self.client.post('/workspace/control/trips/save',data=dict(package_id=package.id,name='Linked Traveller',destination='Shillong',start_date='2026-11-10',end_date='2026-11-13',travellers='4',status='PLANNED',source='website',source_id=message.id,work_token=lead.updated_at.isoformat())).status_code,302)
         trip=Trip.query.one()
         self.assertEqual(trip.package_id,package.id)
         self.assertEqual(self.client.post(f'/delete_package/{package.id}').status_code,302)
@@ -195,7 +210,7 @@ class ControlRoomTests(unittest.TestCase):
         package=Package(title='Saved package',slug='upload-saved-package',description='Saved overview',published=False)
         self.db.session.add(package);self.db.session.commit()
         with patch('app.save_image',side_effect=ValueError('Invalid photo')):
-            response=self.client.post(f'/edit_package/{package.id}',data=dict(title='Typed replacement name',description='Typed replacement overview'))
+            response=self.client.post(f'/edit_package/{package.id}',data=dict(title='Typed replacement name',description='Typed replacement overview',package_token=package.updated_at.isoformat()))
         self.assertEqual(response.status_code,400)
         self.assertIn(b'Typed replacement name',response.data)
         self.db.session.refresh(package)
@@ -308,7 +323,7 @@ class ControlRoomTests(unittest.TestCase):
         message = Message(name='Workflow Traveller', email='workflow@example.com', message='Original enquiry')
         self.db.session.add(message); self.db.session.commit()
         base = f'/workspace/control/quotes/website/{message.id}'
-        response = self.client.post(base, data={'amount':'12500.50','summary':'Four day guided trip','valid_until':'2026-11-01'})
+        response = self.client.post(base, data={'amount':'12500.50','summary':'Four day guided trip','valid_until':'2026-11-01','work_token':'new'})
         self.assertEqual(response.status_code, 302)
         lead = LeadWorkspace.query.filter_by(source='website',source_id=message.id).one()
         quote = Quote.query.filter_by(lead_id=lead.id).one()
@@ -316,7 +331,7 @@ class ControlRoomTests(unittest.TestCase):
         self.assertIn(b'Four day guided trip', self.client.get(f'/workspace/control/quotes/{quote.id}').data)
         values = dict(name='Workflow Traveller', destination='Shillong', start_date='2026-10-12', end_date='2026-10-15',
                       travellers='4', status='CONFIRMED', guide='Guide', driver='Driver', vehicle='Car',
-                      source='website', source_id=str(message.id), itinerary='Arrival\nForest walk', accommodation='Shillong homestay')
+                      source='website', source_id=str(message.id), itinerary='Arrival\nForest walk', accommodation='Shillong homestay', work_token=lead.updated_at.isoformat())
         self.assertEqual(self.client.post('/workspace/control/trips/save',data=values).status_code,302)
         trip = Trip.query.filter_by(lead_id=lead.id).one()
         self.assertEqual(json.loads(trip.itinerary_json), ['Arrival','Forest walk'])

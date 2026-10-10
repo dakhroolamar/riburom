@@ -55,13 +55,18 @@ fs.mkdirSync(OUT,{recursive:true});
   await page.locator('.cr-table a[href*="selected="]').first().click();
   await page.locator('[data-open=quote-new]').click();
   const quote=page.locator('#quote-new');await quote.locator('[data-package-template]').selectOption(id);
+  assert.ok(await quote.locator('[name=work_token]').inputValue(),'Quote must carry the current enquiry version');
   await quote.locator('[data-apply-package]').click();
   assert.match(await quote.locator('[name=summary]').inputValue(),/Browser workflow package/);
   assert.equal(await quote.locator('[name=amount]').inputValue(),'','Starting price must not silently become group total');
   await quote.locator('[name=amount]').fill('50000');await quote.locator('[name=valid_until]').fill('2026-12-01');
   await quote.getByRole('button',{name:'Create Quote',exact:true}).click();
   await page.getByText('Quote created. Download it to share with the traveller.',{exact:true}).waitFor();
+  // Flash HTML can render before the deferred dialog handlers bind after navigation.
+  await page.waitForLoadState('load');
   await page.locator('[data-open=trip-new]').click();const trip=page.locator('#trip-new');
+  await trip.waitFor({state:'visible'});
+  assert.ok(await trip.locator('[name=work_token]').inputValue(),'Conversion must carry the current enquiry version');
   await trip.locator('[data-package-template]').selectOption(id);await trip.locator('[data-apply-package]').click();
   assert.equal(await trip.locator('[name=destination]').inputValue(),'Shillong');
   assert.match(await trip.locator('[name=itinerary]').inputValue(),/Arrive in Shillong/);

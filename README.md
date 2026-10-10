@@ -150,6 +150,9 @@ database commit one atomic transaction.
 - Media and appearance apply immediately when saved. Their successful saves refresh
   the draft form's token. Site settings also use database versions to prevent lost
   updates from overlapping saves.
+- Package and trip saves use database timestamp versions. Stale edits return 409 and preserve the latest saved version; reload before applying the remaining changes.
+- Quotes and enquiry-to-trip conversion require the current enquiry version. Closed, declined and spam enquiries must be reopened explicitly, and revised quotes preserve confirmed status.
+- Authenticated operational pages and customer documents use private, no-store response caching.
 - Revision history labels previous live snapshots separately from publications.
 - Gallery selection and its edited image details save together in one transaction.
 - Media, trips, partners and catalogue lists expose pagination. Media cards use small
@@ -162,7 +165,7 @@ database commit one atomic transaction.
   a full-page loader. Configured opening films start muted and respect reduced-motion
   and data-saving preferences; sound requires the explicit **Enable sound** action.
 
-Deployments must upgrade through migration `b7d2e9a4c610` before starting the new application.
+Deployments must upgrade through migration `c8f1a2d3e470` before starting the new application.
 The existing deployment migration gate upgrades to this head automatically.
 
 ## Production environment

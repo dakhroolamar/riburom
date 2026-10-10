@@ -42,6 +42,11 @@ class Trip(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     lead = db.relationship('LeadWorkspace')
+    # Reuse the existing timestamp for atomic optimistic locking, without a schema change.
+    __mapper_args__ = {
+        'version_id_col': updated_at,
+        'version_id_generator': lambda previous: datetime.utcnow(),
+    }
 
 
 class TripUpdate(db.Model):

@@ -14,6 +14,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, sen
 from sqlalchemy import func, or_, case, select, literal, union_all, update
 from sqlalchemy.orm import selectinload, undefer
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 from werkzeug.utils import secure_filename
 
 from models import db, User, Message, Package, AuditLog
@@ -120,7 +121,11 @@ def day(name, optional=False):
 def save(target, page, message):
     from app import add_audit
     add_audit('updated', target.__tablename__, getattr(target, 'id', ''), message)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except (IntegrityError, StaleDataError):
+        db.session.rollback()
+        abort(409, description='This record changed. Reload before saving your update.')
     flash(message, 'success')
     selected = f'{target.source}-{target.source_id}' if isinstance(target, LeadWorkspace) else getattr(target, 'id', None)
     if isinstance(target, Quote):
@@ -148,6 +153,47 @@ def lead_record(source, source_id, create=False):
         db.session.add(state)
         db.session.flush()
     return obj, state
+
+
+
+def transition_lead(source, source_id, status):
+    """Keep quote/conversion changes in the same guarded transaction as their record."""
+    obj, state = lead_record(source, source_id)
+    expected = state.updated_at if state else None
+    if request.form.get('work_token') != (expected.isoformat() if expected else 'new'):
+        abort(409, description='This enquiry changed. Reload before creating a quote or trip.')
+    previous = lead_item(obj, source, state).status
+    if previous in ('CLOSED', 'DECLINED', 'SPAM'):
+        abort(409, description='Reopen this enquiry before creating a quote or trip.')
+    # Revised quotes must not move a confirmed booking backwards in the pipeline.
+    destination = 'CONFIRMED' if previous == 'CONFIRMED' else status
+    try:
+        if state:
+            result = db.session.execute(update(LeadWorkspace).where(
+                LeadWorkspace.id == state.id, LeadWorkspace.updated_at == expected
+            ).values(status=destination, updated_at=datetime.utcnow()),
+                execution_options={'synchronize_session': False})
+            if result.rowcount != 1:
+                db.session.rollback()
+                abort(409, description='This enquiry changed. Reload before creating a quote or trip.')
+            db.session.refresh(state)
+        else:
+            state = LeadWorkspace(source=source, source_id=source_id, status=destination)
+            db.session.add(state)
+            db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
+        abort(409, description='This enquiry changed. Reload before creating a quote or trip.')
+    if source == 'marketplace':
+        obj.status = destination
+    else:
+        obj.is_read = True
+    return obj, state
+
+
+def require_trip_token(trip):
+    if request.form.get('trip_token') != trip.updated_at.isoformat():
+        abort(409, description='This trip changed. Reload before saving your update.')
 
 
 def lead_item(obj, source, state=None):
@@ -275,9 +321,8 @@ def register_control_room(app):
                        settings=get_site_settings(), today=date.today(), selected=None, stats=[])
         if section in ('enquiries', 'trips'):
             context['operation_packages'] = Package.query.order_by(Package.title).limit(200).all() if allowed('manage_tours') else []
-            context['operation_partners'] = Provider.query.options(selectinload(Provider.provider_type_assignments)).filter(Provider.is_active.is_(True), Provider.status.in_(['VERIFIED','APPROVED','PUBLISHED','ACTIVE'])).order_by(Provider.name).limit(200).all() if allowed('view_marketplace','manage_marketplace') else []
+            context['operation_partners'] = Provider.query.options(selectinload(Provider.provider_type_assignments)).filter(Provider.is_active.is_(True), Provider.status.in_(['APPROVED','PUBLISHED','ACTIVE'])).order_by(Provider.name).limit(200).all() if allowed('view_marketplace','manage_marketplace') else []
             context['trip_templates'] = Trip.query.order_by(Trip.updated_at.desc()).limit(30).all() if section == 'trips' and allowed('manage_tours') else []
-            context['operation_templates'] = [dict(id=p.id, title=p.title, destination=p.location or '', itinerary=p.itinerary or '', price=p.price or '', summary='\n'.join(filter(None, [p.title, p.duration, p.description, 'Itinerary:\n'+p.itinerary if p.itinerary else '', 'Included:\n'+p.included if p.included else '', 'Excluded:\n'+p.excluded if p.excluded else '']))) for p in context['operation_packages']]
         if section == 'enquiries':
             page_number = max(1, request.args.get('page', 1, type=int) or 1)
             rows, total = leads(page_number)
@@ -319,6 +364,8 @@ def register_control_room(app):
                 if request.args.get('selected','').isdigit():
                     context['selected']=db.get_or_404(Trip,int(request.args['selected']))
                 chosen = context['selected']
+                if chosen and chosen.package_id and not any(p.id == chosen.package_id for p in context['operation_packages']):
+                    context['operation_packages'].append(chosen.package)
                 context.update(itinerary=json.loads(chosen.itinerary_json) if chosen else [],
                                accommodation=json.loads(chosen.accommodation_json) if chosen else [],
                                checklist=json.loads(chosen.checklist_json) if chosen else {},
@@ -448,6 +495,8 @@ def register_control_room(app):
                 integrations=[('Email notifications', bool(os.getenv('BREVO_API_KEY'))), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
                               ('WhatsApp / SMS', bool(os.getenv('TWILIO_ACCOUNT_SID'))), ('IndexNow', bool(os.getenv('INDEXNOW_KEY')))],
                 permission_keys=__import__('models').ROLE_PERMISSIONS['owner'])
+        if 'operation_packages' in context:
+            context['operation_templates'] = [dict(id=p.id, title=p.title, destination=p.location or '', itinerary=p.itinerary or '', price=p.price or '', summary='\n'.join(filter(None, [p.title, p.duration, p.description, 'Itinerary:\n'+p.itinerary if p.itinerary else '', 'Included:\n'+p.included if p.included else '', 'Excluded:\n'+p.excluded if p.excluded else '']))) for p in context['operation_packages']]
         return render_template('control_room/page.html', **context)
 
     @app.route('/workspace/control/partners/<int:id>/edit')
@@ -743,7 +792,7 @@ def register_control_room(app):
     def control_quote_create(source, source_id):
         if not allowed('manage_messages' if source == 'website' else 'manage_marketplace_inquiries'):
             abort(403)
-        obj, lead = lead_record(source, source_id, create=True)
+        obj, lead = transition_lead(source, source_id, 'QUOTED')
         package_id = request.form.get('package_id', '')
         if package_id:
             if not allowed('manage_tours'):
@@ -752,13 +801,8 @@ def register_control_room(app):
                 abort(400)
             db.get_or_404(Package, int(package_id))
         quote = Quote(lead_id=lead.id, package_id=int(package_id) if package_id else None, amount=money('amount'), summary=text('summary', 10000, True), valid_until=day('valid_until'))
-        lead.status = 'QUOTED'
-        if source == 'marketplace':
-            obj.status = 'QUOTED'
-        else:
-            obj.is_read = True
         db.session.add(quote)
-        add_audit('quote_created', 'control_leads', lead.id, 'Quote prepared. Status: QUOTED.')
+        add_audit('quote_created', 'control_leads', lead.id, f'Quote prepared. Status: {lead.status}.')
         return save(quote, 'enquiries', 'Quote created. Download it to share with the traveller.')
 
     @app.route('/workspace/control/quotes/<int:quote_id>')
@@ -773,7 +817,11 @@ def register_control_room(app):
     @require('manage_tours')
     def control_trip_save():
         trip_id = request.form.get('id')
-        trip = db.get_or_404(Trip, int(trip_id)) if trip_id and trip_id.isdigit() else Trip()
+        if trip_id and not trip_id.isdigit():
+            abort(400)
+        trip = db.get_or_404(Trip, int(trip_id)) if trip_id else Trip()
+        if trip.id:
+            require_trip_token(trip)
         package_id = request.form.get('package_id', '')
         if package_id:
             if not package_id.isdigit():
@@ -798,17 +846,12 @@ def register_control_room(app):
         trip.accommodation_json = json.dumps([line.strip() for line in text('accommodation', 10000).splitlines() if line.strip()])
         source, source_id = request.form.get('source'), request.form.get('source_id', type=int)
         if source and source_id and not trip.id:
-            obj, lead = lead_record(source, source_id, create=True)
             if not allowed('manage_messages' if source == 'website' else 'manage_marketplace_inquiries'):
                 abort(403)
+            obj, lead = transition_lead(source, source_id, 'CONFIRMED')
             if Trip.query.filter_by(lead_id=lead.id).first():
                 abort(409, description='This enquiry already has a trip.')
             trip.lead_id = lead.id
-            lead.status = 'CONFIRMED'
-            if source == 'marketplace':
-                obj.status = 'CONFIRMED'
-            else:
-                obj.is_read = True
         db.session.add(trip)
         if trip.lead_id:
             add_audit('trip_updated', 'control_leads', trip.lead_id, 'Trip details saved. Enquiry linked to operational trip.')
@@ -828,6 +871,8 @@ def register_control_room(app):
     def control_trip_update(trip_id):
         trip = db.get_or_404(Trip, trip_id)
         checklist = json.loads(trip.checklist_json)
+        if request.form.get('action') in ('milestones', 'checklist'):
+            require_trip_token(trip)
         if request.form.get('action') == 'milestones':
             itinerary = json.loads(trip.itinerary_json)
             completed = request.form.getlist('completed_days')

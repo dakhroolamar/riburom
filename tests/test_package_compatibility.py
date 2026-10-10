@@ -104,6 +104,7 @@ class PackageCompatibilityTests(unittest.TestCase):
         original_slug = package.slug
 
         edit_response = self.client.post(f'/edit_package/{package_id}', data={
+            'package_token': package.updated_at.isoformat(),
             'title': 'Edited Compatibility Package',
             'description': 'Edited through the existing CMS route.',
             'published': '1',

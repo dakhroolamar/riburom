@@ -22,6 +22,8 @@ The save bar stays available while editing. **Preview saved package** shows the 
 
 ## Prepare a quote and operational trip
 
+Closed, declined and spam enquiries must be reopened before preparing a quote or converting to a trip. Revising a quote for a confirmed enquiry keeps it confirmed.
+
 From an enquiry, choose Create Quote and optionally select a package. Use package details to prefill the itinerary and inclusions, then confirm the final traveller/group total and quote validity date. The package starting price is not automatically used as the group total. Save and open the printable quote from Documents, then share through your usual communication channel.
 
 Use Convert to Trip to retain the enquiry link. Select a package and apply its destination/itinerary, then set the actual travel dates, traveller count and assignments. Approved partner names are suggested where their types match; manual entry remains available. A previous trip can also supply itinerary and assignments. Neither copying method reuses old departure dates or confirms partner availability.
@@ -41,3 +43,7 @@ Give photographs descriptive titles and location/tags so colleagues can find the
 ## Team access
 
 An Owner can apply the **Tourism Operations** preset when creating or editing a team member. It covers packages, enquiries, trips, media and partners, including their management actions. It does not grant user administration or page-text publishing. Owners can adjust the permission checkboxes before saving. Media permission allows immediate changes to public images, so assign it deliberately to staff responsible for those updates.
+
+## Editing alongside colleagues
+
+Packages, trips, checklists and enquiry actions reject a save when someone else has changed that record since you opened it. On a conflict, reload, review the latest saved version and reapply your intended changes. This prevents an older form from replacing a colleague's work.

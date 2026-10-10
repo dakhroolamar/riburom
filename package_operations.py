@@ -7,7 +7,7 @@ from types import SimpleNamespace
 def editor_draft(package, form):
     values = {key: form.get(key, getattr(package, key, '') or '') for key in
               ('title', 'description', 'location', 'duration', 'price', 'category', 'best_season', 'difficulty', 'itinerary', 'included', 'excluded', 'sort_order')}
-    values.update({key: getattr(package, key, None) for key in ('id', 'slug', 'image_file', 'pdf_file')})
+    values.update({key: getattr(package, key, None) for key in ('id', 'slug', 'image_file', 'pdf_file', 'updated_at')})
     values.update(published=bool(form.get('published')), featured=bool(form.get('featured')))
     return SimpleNamespace(**values)
 

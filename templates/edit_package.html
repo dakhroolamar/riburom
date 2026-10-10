@@ -5,7 +5,7 @@
 {% block content %}
 <div class="cr-page-heading"><div><h1>{{ 'New Package' if creating else 'Edit Package' }}</h1><p>{{ 'Copied details are a starting point. Upload new media and save to create a separate package.' if creating and pkg else 'Maintain the itinerary, price and public visibility in one place.' }}</p></div><a class="cr-button secondary" href="{{ url_for('control_room',section='marketplace',tab='packages') }}">Back to packages</a></div>
 <form id="package-editor" class="cr-package-editor" method="post" action="{{ url_for('add_package') if creating else url_for('edit_package',id=pkg.id) }}" enctype="multipart/form-data" data-dirty-form>
-{{ csrf() }}
+{{ csrf() }}{% if not creating %}<input type="hidden" name="package_token" value="{{ pkg.updated_at.isoformat() }}">{% endif %}
 <div class="cr-save-bar"><span data-save-state>{{ 'New package · Not saved' if creating else 'Published · Saving applies changes immediately' if pkg.published else 'Unpublished package' }}</span><div class="cr-actions">{% if not creating %}<a class="cr-button secondary small" target="_blank" rel="noopener" href="{{ url_for('control_package_preview',id=pkg.id) }}">Preview saved package ↗</a><a class="cr-button secondary small" href="{{ url_for('add_package',copy=pkg.id) }}">Duplicate package</a>{% endif %}<button type="submit">{{ 'Create Package' if creating else 'Save Changes' }}</button></div></div>
 {% if missing %}<p class="cr-notice warning">Recommended before publishing: {{ missing|join(', ') }}. Review the itinerary PDF if some details are intentionally supplied there.</p>{% endif %}
 <section class="cr-panel"><h2>Package basics</h2><div class="cr-form-grid">

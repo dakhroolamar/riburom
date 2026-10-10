@@ -650,6 +650,13 @@ def owner_required(view_func):
 # ------------------------------------------------------------
 # Health / readiness
 # ------------------------------------------------------------
+@app.get('/favicon.ico')
+def favicon():
+    response = app.send_static_file('control-room/brand.svg')
+    response.headers['Cache-Control'] = 'public, max-age=86400'
+    return response
+
+
 @app.route('/healthz')
 def healthz():
     return {'status': 'ok'}, 200
@@ -1114,6 +1121,8 @@ def control_package_preview(id):
 def edit_package(id):
     pkg = db.session.get(Package, id)
     if pkg is None: abort(404)
+    if request.form.get('package_token') != pkg.updated_at.isoformat():
+        abort(409, description='This package changed. Reload it before saving.')
     from package_operations import package_input, editor_draft, editor_values, readiness
     try:
         values = package_input(request.form)
@@ -1139,10 +1148,16 @@ def edit_package(id):
     elif request.form.get('remove_image'): pkg.image_file = None
     if new_pdf: pkg.pdf_file = new_pdf
     elif request.form.get('remove_pdf'): pkg.pdf_file = ''
-    db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title)
-    if was_published or pkg.published:
-        notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'], stage_only=True)
-    db.session.commit()
+    try:
+        db.session.flush(); add_audit('updated', 'package', pkg.id, pkg.title)
+        if was_published or pkg.published:
+            notify_indexnow_paths(['/', '/all_tours', f'/tours/{pkg.slug}'], stage_only=True)
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        delete_media(new_image)
+        delete_media(new_pdf)
+        abort(409, description='This package changed while saving. Reload it before saving again.')
     if (new_image or request.form.get('remove_image')) and old_image != pkg.image_file: delete_media(old_image)
     if (new_pdf or request.form.get('remove_pdf')) and old_pdf != pkg.pdf_file: delete_media(old_pdf)
     flash(f'"{title}" updated. ' + ('Changes are live.' if pkg.published else 'Saved as an unpublished package.'), 'success')
@@ -1839,6 +1854,8 @@ def add_security_headers(response):
     response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
     response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    if request.endpoint not in ('static', 'favicon') and (session.get('user_id') or request.path.startswith(('/admin', '/workspace', '/logout'))):
+        response.headers['Cache-Control'] = 'private, no-store'
     if request.is_secure:
         response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     return response

@@ -4,6 +4,7 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
     <link rel="manifest" href="/static/manifest.json">
+    {% if seo_markup is not defined %}<title>{{ pkg.title }} · Package preview | RI BUROM</title>{% endif %}
     {% include '_public_theme.html' %}
     <script src="{{ url_for('static', filename='js/ri-burom-motion.js') }}" defer></script>
 </head>

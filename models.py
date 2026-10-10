@@ -143,6 +143,11 @@ class Package(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    __mapper_args__ = {
+        'version_id_col': updated_at,
+        'version_id_generator': lambda previous: datetime.utcnow(),
+    }
+
     # Phase B: a Package can contain zero or more reusable marketplace Services
     # through PackageItem. This relationship does not change any existing
     # Package fields or public rendering behaviour.
