@@ -294,4 +294,4 @@
 {% for family in google_font_families %}<link rel="preconnect" href="https://fonts.googleapis.com">{% endfor %}
 {% if google_font_families %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?{% for family in google_font_families %}family={{ family|urlencode }}{% if not loop.last %}&{% endif %}{% endfor %}&display=swap" rel="stylesheet">{% endif %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-editorial.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-editorial.css') }}?v=3">

@@ -105,7 +105,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertIn(b'Replace Video', response.data)
         self.assertIn(b'Remove Video', response.data)
 
-    def test_homepage_renders_video_when_configured(self):
+    def test_editorial_homepage_does_not_load_saved_opening_film(self):
         settings = self.db.session.get(self.SiteSettings, 1)
         settings.hero_logo = 'logo.png'
         settings.hero_animation_video = 'uploads/hero.mp4'
@@ -113,14 +113,11 @@ class HeroAnimationVideoTests(unittest.TestCase):
 
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'rb-hero-video-stage', response.data)
-        self.assertIn(b'data-rb-hero-animation-video', response.data)
-        # JavaScript starts playback only when motion/data-saving preferences permit it.
-        self.assertNotIn(b' autoplay', response.data)
-        self.assertIn(b'muted', response.data)
-        self.assertIn(b'playsinline', response.data)
-        self.assertIn(b'preload="metadata"', response.data)
-        self.assertIn(b'rb-hero-permanent-logo', response.data)
+        self.assertIn(b'rb-reference-landscape', response.data)
+        self.assertNotIn(b'data-rb-hero-animation-video', response.data)
+        self.assertNotIn(b'uploads/hero.mp4', response.data)
+        self.assertNotIn(b'rb-hero-permanent-logo', response.data)
+        self.assertEqual(settings.hero_animation_video, 'uploads/hero.mp4')
 
         motion_path = os.path.join(self.app.static_folder, 'js', 'ri-burom-motion.js')
         css_path = os.path.join(self.app.static_folder, 'css', 'ri-burom-motion.css')
@@ -138,7 +135,7 @@ class HeroAnimationVideoTests(unittest.TestCase):
         self.assertIn('.rb-hero.rb-hero-video-playing .rb-hero-content', styles)
         self.assertIn('.rb-hero.rb-hero-video-complete .rb-hero-content', styles)
 
-    def test_homepage_renders_permanent_logo_without_video(self):
+    def test_editorial_homepage_keeps_brand_in_navigation(self):
         settings = self.db.session.get(self.SiteSettings, 1)
         settings.hero_logo = 'logo.png'
         settings.hero_animation_video = None
@@ -146,7 +143,8 @@ class HeroAnimationVideoTests(unittest.TestCase):
 
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'rb-hero-permanent-logo', response.data)
+        self.assertIn(b'rb-studio-wordmark', response.data)
+        self.assertNotIn(b'rb-hero-permanent-logo', response.data)
         self.assertNotIn(b'data-rb-hero-animation-video', response.data)
 
     def test_video_can_be_saved(self):
