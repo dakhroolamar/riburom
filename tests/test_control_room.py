@@ -292,7 +292,7 @@ class ControlRoomTests(unittest.TestCase):
         self.db.session.refresh(settings)
         self.assertEqual((settings.blog_title, settings.blog_image, settings.blog_enabled), before)
 
-    def test_public_review_publishes_immediately_and_escapes_html(self):
+    def test_public_review_requires_approval_and_escapes_html(self):
         from app import limiter
         from models import TravellerReview
         limiter.reset()
@@ -302,11 +302,16 @@ class ControlRoomTests(unittest.TestCase):
             response = client.post('/reviews', data={'name': '<b>Visitor</b>', 'rating': '5', 'comment': '<script>alert(1)</script>Beautiful journey'})
             self.assertEqual(response.status_code, 303)
             page = client.get('/').data
+            self.assertNotIn(b'Beautiful journey', page)
+            review = TravellerReview.query.order_by(TravellerReview.id.desc()).first()
+            self.assertEqual(review.status, 'pending')
+            self.assertIn(b'Beautiful journey', self.client.get('/workspace/control/reviews').data)
+            self.client.post(f'/workspace/control/reviews/{review.id}', data={'action':'approve','expected':'pending'})
+            page = client.get('/').data
             self.assertIn(b'5 out of 5 stars', page)
             self.assertIn(b'&lt;script&gt;alert(1)&lt;/script&gt;Beautiful journey', page)
             self.assertNotIn(b'<script>alert(1)</script>', page)
             self.assertLess(page.index(b'id="reviews"'), page.index(b'id="rb-home-contact"'))
-            self.assertEqual(page.count(b'class="rb-review-scroll"'), 2)
             count = TravellerReview.query.count()
             client.post('/reviews', data={'name': 'Visitor', 'rating': '6', 'comment': 'Invalid rating'})
             self.assertEqual(TravellerReview.query.count(), count)
@@ -405,6 +410,74 @@ class ControlRoomTests(unittest.TestCase):
         invoice=Invoice.query.order_by(Invoice.id.desc()).first()
         self.assertEqual(self.client.post(f'{url}/{invoice.id}',data={'status':'PAID'}).status_code,302)
         self.assertEqual(invoice.status,'PAID')
+
+    def test_business_reply_lifecycle_and_permissions(self):
+        from models import TravellerReview
+        visitor = self.app.test_client()
+        review = TravellerReview(name='Tara', rating=1, comment='Our pickup was late.')
+        self.db.session.add(review)
+        self.db.session.commit()
+        endpoint = f'/workspace/control/reviews/{review.id}'
+        reply = dict(action='save', reply='Thank you <Tara>.', reply_version='0')
+        try:
+            self.assertEqual(self.client.post(endpoint+'/reply', data=reply).status_code, 409)
+            self.client.post(endpoint, data={'action':'approve', 'expected':'pending'})
+            visitor.post(endpoint+'/reply', data=reply)
+            self.assertIsNone(review.reply)
+            self.assertEqual(self.client.post(endpoint+'/reply', data=reply).status_code, 302)
+            self.assertIn(b'Thank you &lt;Tara&gt;', visitor.get('/').data)
+            self.assertEqual(self.client.post(endpoint+'/reply', data=reply).status_code, 409)
+            reply.update(reply='We have revised our pickup schedule.', reply_version='1')
+            self.client.post(endpoint+'/reply', data=reply)
+            self.assertIn(reply['reply'].encode(), visitor.get('/').data)
+            self.client.post(endpoint, data={'action':'unpublish','expected':'published'})
+            self.assertNotIn(reply['reply'].encode(), visitor.get('/').data)
+            self.client.post(endpoint, data={'action':'approve','expected':'pending'})
+            self.client.post(endpoint+'/reply', data={'action':'remove','reply_version':'2'})
+            page = visitor.get('/').data
+            self.assertNotIn(reply['reply'].encode(), page)
+            self.assertIn(b'Our pickup was late.', page)
+        finally:
+            self.db.session.delete(review)
+            self.db.session.commit()
+
+    def test_review_attachments_follow_approval_and_withdrawal(self):
+        from PIL import Image
+        from app import limiter
+        from models import ReviewAttachment, TravellerReview
+        limiter.reset()
+        self.addCleanup(limiter.reset)
+        visitor = self.app.test_client()
+        photo = io.BytesIO()
+        Image.new('RGB', (12, 8), 'green').save(photo, 'PNG')
+        photo.seek(0)
+        form = dict(name='Attachment visitor', rating='4', comment='Waterfall walk',
+                    attachments=[(photo,'walk.png'), (io.BytesIO(bytes.fromhex('1a45dfa3') + bytes(24)), 'waterfall.webm')])
+        self.assertEqual(visitor.post('/reviews', data=form).status_code, 303)
+        review = TravellerReview.query.filter_by(name='Attachment visitor').one()
+        urls = [f'/reviews/media/{item.id}' for item in review.attachments]
+        self.assertEqual(len(urls), 2)
+        moderation = f'/workspace/control/reviews/{review.id}'
+        for url in urls:
+            self.assertEqual(visitor.get(url).status_code, 404)
+            self.assertEqual(self.client.get(url).status_code, 200)
+        visitor.post(moderation, data={'action':'approve'})
+        self.assertEqual(visitor.get(urls[0]).status_code, 404)
+        self.client.post(moderation, data={'action':'approve','expected':'pending'})
+        self.assertEqual(self.client.post(moderation, data={'action':'decline','expected':'pending'}).status_code, 409)
+        self.assertIn(urls[1].encode(), visitor.get('/').data)
+        response = visitor.get(urls[1], headers={'Range':'bytes=0-3'})
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(response.data, bytes.fromhex('1a45dfa3'))
+        self.client.post(moderation, data={'action':'unpublish','expected':'published'})
+        self.assertNotIn(b'Waterfall walk', visitor.get('/').data)
+        self.assertEqual(visitor.get(urls[1]).status_code, 404)
+        self.client.post(moderation, data={'action':'decline','expected':'pending'})
+        self.client.post(moderation, data={'action':'delete','expected':'declined'})
+        self.assertEqual(ReviewAttachment.query.filter_by(review_id=review.id).count(), 0)
+        form.update(attachments=[(io.BytesIO(b'not a photo'), 'broken.jpg')])
+        visitor.post('/reviews', data=form)
+        self.assertIsNone(TravellerReview.query.filter_by(name='Attachment visitor').first())
 
     def test_itemised_invoice_editor_and_word_export(self):
         from docx import Document

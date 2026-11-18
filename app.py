@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, send_from_directory, abort, has_request_context, Response, g,
-    stream_with_context,
+    stream_with_context, send_file,
 )
 from sqlalchemy import inspect, func, desc, text
 from sqlalchemy.orm import selectinload
@@ -32,7 +32,7 @@ load_dotenv()
 
 from models import (
     db, Package, AboutContent, AboutSection, SiteSettings, TeamMember, Message,
-    User, AuditLog, ROLE_PERMISSIONS, ROLE_LABELS, seed_defaults, TravellerReview,
+    User, AuditLog, ROLE_PERMISSIONS, ROLE_LABELS, seed_defaults, TravellerReview, ReviewAttachment,
 )
 from storage import (
     save_image, save_pdf, save_generated_png, delete_media, allowed_file, imgsrc,
@@ -690,8 +690,8 @@ def home():
         featured = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
     total_published = Package.query.filter_by(published=True).count()
     hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
-    reviews = TravellerReview.query.filter_by(is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
-    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings, review_rows=[reviews[::2], reviews[1::2]])
+    reviews = TravellerReview.query.options(selectinload(TravellerReview.attachments)).filter_by(status="published", is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
+    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings, reviews=reviews)
 
 
 @app.post('/reviews')
@@ -702,11 +702,33 @@ def publish_review():
     rating = request.form.get('rating', type=int)
     if not name or len(name) > 80 or not comment or len(comment) > 600 or rating not in range(1, 6):
         flash('Enter your name, a review of up to 600 characters, and a rating from 1 to 5.', 'error')
-        return redirect(url_for('home') + '#reviews', code=303)
-    db.session.add(TravellerReview(name=name, rating=rating, comment=comment))
+        return redirect(url_for('home', review_form=1) + '#write-review', code=303)
+    from storage import prepare_review_attachments
+    try:
+        attachments = prepare_review_attachments(request.files.getlist('attachments'))
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('home', review_form=1) + '#write-review', code=303)
+    review = TravellerReview(name=name, rating=rating, comment=comment, status='pending', is_visible=False)
+    review.attachments = [ReviewAttachment(mimetype=kind, content=data) for kind, data in attachments]
+    db.session.add(review)
     db.session.commit()
-    flash('Thank you! Your review is now published.', 'success')
+    flash('Thank you. Your review has been sent to our team for approval.', 'success')
     return redirect(url_for('home') + '#reviews', code=303)
+
+
+@app.get('/reviews/media/<int:attachment_id>')
+def review_media(attachment_id):
+    attachment = db.get_or_404(ReviewAttachment, attachment_id)
+    review = attachment.review
+    if review.status != 'published' or not review.is_visible:
+        person = get_current_user()
+        if not person or not (person.role == 'owner' or person.has_permission('manage_about')):
+            abort(404)
+    response = send_file(io.BytesIO(attachment.content), mimetype=attachment.mimetype, conditional=True)
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @app.route('/admin/customers')
@@ -1906,6 +1928,9 @@ def not_found(e):
 
 @app.errorhandler(413)
 def too_large(e):
+    if request.path == '/reviews':
+        flash('Choose up to three files totalling 12 MB or less.', 'error')
+        return redirect(url_for('home', review_form=1) + '#write-review', code=303)
     flash('That file is too large (16MB max).', 'error')
     return redirect('/workspace' if request.path.startswith(('/admin', '/workspace')) else url_for('home'))
 

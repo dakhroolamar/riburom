@@ -86,6 +86,25 @@ class ControlMigrationTests(unittest.TestCase):
             self.assertEqual(db.session.execute(text('SELECT body FROM notification_outbox')).scalar(), 'Preserved delivery')
             db.session.remove(); db.engine.dispose()
 
+    def test_review_gate_requeues_visible_legacy_reviews_and_keeps_hidden_ones_hidden(self):
+        from sqlalchemy import text
+        from models import TravellerReview
+        app = Flask(__name__)
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+        db.init_app(app)
+        Migrate(app, db, directory='migrations')
+        with app.app_context():
+            db.create_all()
+            stamp(directory='migrations', revision='ea4cd9f32108')
+            downgrade(directory='migrations', revision='d73b6fc21a80')
+            db.session.execute(text("INSERT INTO traveller_reviews (name, rating, comment, created_at, is_visible) VALUES ('A',1,'Late pickup',CURRENT_TIMESTAMP,true), ('B',5,'Spam',CURRENT_TIMESTAMP,false)"))
+            db.session.commit()
+            upgrade(directory='migrations', revision='ea4cd9f32108')
+            rows = TravellerReview.query.order_by(TravellerReview.id).all()
+            self.assertEqual([(r.status, r.is_visible, r.reply_version) for r in rows],
+                             [('pending', False, 0), ('declined', False, 0)])
+            self.assertEqual([r.comment for r in rows], ['Late pickup', 'Spam'])
+
     def test_reviews_migration_creates_table_and_adopts_bootstrap(self):
         for existing in (False, True):
             with self.subTest(existing=existing):

@@ -1,13 +1,34 @@
 {% extends 'control_room/base.html' %}
 {% from 'control_room/macros.html' import csrf with context %}
+{% from '_review_media.html' import gallery %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/customer-reviews.css') }}">{% endblock %}
 {% block content %}
-<div class="cr-page-heading"><div><h1>Traveller Reviews</h1><p>Review visitor comments and control which appear on the homepage.</p></div><a class="cr-button secondary" href="{{ url_for('control_room',section='website') }}">Website Manager</a></div>
-<section class="cr-panel">
+<div class="cr-page-heading"><div><h1>Customer Reviews</h1><p>Apply the same standard to every rating. Publish genuine first-hand accounts, including criticism. Check for spam, incentives, harassment and private information in text and media.</p></div></div>
+<section class="cr-panel review-desk">
+<nav class="review-tabs" aria-label="Review status">{% for key,label in [('pending','Awaiting approval'),('published','Published'),('declined','Declined')] %}
+<a href="{{ url_for('control_room',section='reviews',status=key) }}" {% if key==review_status %}aria-current="page"{% endif %}>{{ label }} <b>{{ counts.get(key,0) }}</b></a>{% endfor %}</nav>
 {% for review in reviews %}
-<article class="cr-detail-section"><h2>{{ review.name }} · {{ review.rating }} / 5</h2><p>{{ review.comment }}</p><p class="cr-muted">{{ 'Visible on homepage' if review.is_visible else 'Hidden' }} · {{ review.created_at.strftime('%d %b %Y') }}</p><div class="cr-actions">
-<form method="post" action="{{ url_for('control_review',review_id=review.id) }}">{{ csrf() }}<button name="action" value="{{ 'hide' if review.is_visible else 'show' }}">{{ 'Hide review' if review.is_visible else 'Show review' }}</button></form>
-<form method="post" action="{{ url_for('control_review',review_id=review.id) }}" data-confirm="Permanently remove this traveller review?"><input type="hidden" name="action" value="delete">{{ csrf() }}<button class="secondary">Delete review</button></form>
-</div></article>
-{% else %}<p>No traveller reviews have been submitted.</p>{% endfor %}
+<article class="review-entry" id="review-{{ review.id }}">
+<header><h2>{{ review.name }}</h2><time>{{ review.created_at.strftime('%d %b %Y') }}</time></header>
+<p class="journey-stars" aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</p>
+<p class="review-comment">{{ review.comment }}</p>{{ gallery(review) }}
+<form class="cr-actions" method="post" action="{{ url_for('control_review',review_id=review.id) }}">{{ csrf() }}<input type="hidden" name="expected" value="{{ review.status }}">
+{% if review.status=='published' %}<button name="action" value="unpublish" class="secondary">Withdraw publication</button>{% else %}<button name="action" value="approve">Approve and publish</button>{% endif %}
+{% if review.status!='declined' %}<button name="action" value="decline" class="secondary">Decline</button>{% endif %}
+</form>
+{% if review.status=='declined' %}<form method="post" action="{{ url_for('control_review',review_id=review.id) }}" data-confirm="Permanently delete this review and all its attachments?">{{ csrf() }}<input type="hidden" name="expected" value="{{ review.status }}"><button class="secondary small" name="action" value="delete">Delete permanently</button></form>{% endif %}
+{% if review.status=='published' %}
+{% if review.reply %}{% include '_review_reply.html' %}{% endif %}
+<details class="review-reply-editor"><summary>{{ 'Edit reply' if review.reply else 'Reply' }}</summary>
+<form method="post" action="{{ url_for('control_review_reply', review_id=review.id) }}">{{ csrf() }}
+<input type="hidden" name="action" value="save"><input type="hidden" name="reply_version" value="{{ review.reply_version }}">
+<input type="hidden" name="reviews_page" value="{{ request.args.get('reviews_page',1) }}">
+<label>Public reply from RI BUROM<textarea name="reply" rows="4" maxlength="1200" required placeholder="Address the traveller’s experience. Keep booking details private.">{{ review.reply or '' }}</textarea></label>
+<button>{{ 'Save edited reply' if review.reply else 'Publish reply' }}</button></form>
+{% if review.reply %}<form method="post" action="{{ url_for('control_review_reply', review_id=review.id) }}" data-confirm="Remove the public business reply?">{{ csrf() }}
+<input type="hidden" name="action" value="remove"><input type="hidden" name="reply_version" value="{{ review.reply_version }}"><input type="hidden" name="reviews_page" value="{{ request.args.get('reviews_page',1) }}"><button class="secondary small">Delete reply</button></form>{% endif %}
+</details>{% endif %}
+</article>
+{% else %}<p class="review-empty">{{ {'pending':'You’re all caught up. New submissions will appear here.', 'published':'No reviews are published.', 'declined':'No reviews have been declined.'}[review_status] }}</p>{% endfor %}
 </section>{% include 'control_room/pagination.html' %}
 {% endblock %}

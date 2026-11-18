@@ -12,12 +12,26 @@ db = SQLAlchemy()
 class TravellerReview(db.Model):
     __tablename__ = 'traveller_reviews'
     id = db.Column(db.Integer, primary_key=True)
-    is_visible = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    is_visible = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    status = db.Column(db.String(16), nullable=False, default='pending', server_default='pending')
+    reply = db.Column(db.String(1200))
+    reply_updated_at = db.Column(db.DateTime)
+    reply_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    attachments = db.relationship('ReviewAttachment', cascade='all, delete-orphan', back_populates='review', order_by='ReviewAttachment.id')
     name = db.Column(db.String(80), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.String(600), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     __table_args__ = (db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_review_rating'),)
+
+class ReviewAttachment(db.Model):
+    __tablename__ = 'review_attachments'
+    id = db.Column(db.Integer, primary_key=True)
+    review_id = db.Column(db.ForeignKey('traveller_reviews.id', ondelete='CASCADE'), nullable=False, index=True)
+    mimetype = db.Column(db.String(32), nullable=False)
+    content = deferred(db.Column(db.LargeBinary, nullable=False))
+    review = db.relationship('TravellerReview', back_populates='attachments')
+
 
 DEFAULT_MISSION = (
     "Come as a traveller. Leave with a connection. We seek to create "

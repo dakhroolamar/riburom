@@ -1,0 +1,14 @@
+{% macro gallery(review) %}
+{% if review.attachments %}
+<div class="journey-gallery">
+  {% for attachment in review.attachments %}
+    {% set src = url_for('review_media', attachment_id=attachment.id) %}
+    {% if attachment.mimetype.startswith('video/') %}
+      <video controls playsinline preload="none" aria-label="Travel video by {{ review.name }}"><source src="{{ src }}" type="{{ attachment.mimetype }}"></video>
+    {% else %}
+      <a href="{{ src }}" target="_blank" rel="noopener"><img src="{{ src }}" loading="lazy" alt="Travel photo {{ loop.index }} by {{ review.name }}"></a>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

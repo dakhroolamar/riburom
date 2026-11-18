@@ -1,0 +1,32 @@
+/* Traveller journal and moderation previews */
+.journey-journal {width:min(1180px,calc(100% - 2rem));margin:3rem auto;color:#183e32;scroll-margin-top:6rem}
+.journey-banner {display:flex;align-items:center;justify-content:space-between;gap:1.5rem;background:#183e32;color:#fffaf0;padding:clamp(1.5rem,4vw,3.5rem);border-radius:18px 18px 0 0}
+.journey-banner p {font:600 .78rem/1.4 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#e8d4a3;margin:0 0 .6rem}
+#journey-title {font:400 clamp(2rem,4.5vw,3.9rem)/1.05 Georgia,serif;color:inherit;margin:0;letter-spacing:-.035em}
+.journey-banner a,.journey-compose button {background:#fff7e5;color:#163c30;border-radius:6px;padding:.85rem 1.15rem;font:650 .94rem/1.4 system-ui,sans-serif;text-decoration:none;white-space:nowrap}
+.journey-banner a span {margin-left:.6rem}
+.journey-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:1rem;margin:1rem 0}
+.journey-card {padding:clamp(1.1rem,2vw,1.6rem);background:#fffdf7;border:1px solid #d9ded2;border-radius:12px;min-width:0}
+.journey-card header,.review-entry header {display:flex;align-items:center;gap:.8rem}
+.journey-avatar {flex:none;width:2.6rem;height:2.6rem;display:grid;place-items:center;background:#e6ede3;color:#204c37;border-radius:50%;font:600 1.2rem Georgia,serif}
+.journey-card strong,.journey-card time {display:block;overflow-wrap:anywhere}.journey-card time,.review-entry time,.journey-compose small {font:400 .82rem/1.5 system-ui,sans-serif;color:#506556}
+.journey-stars {color:#905a0d;letter-spacing:.12em;margin:.95rem 0 .55rem}
+.journey-card blockquote,.review-comment {margin:0;white-space:pre-line;overflow-wrap:anywhere}
+.journey-card blockquote {font:400 1.14rem/1.6 Georgia,serif}
+.journey-gallery {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:.55rem;margin:1rem 0}
+.journey-gallery img,.journey-gallery video {display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;background:#eef0e8;border-radius:6px}
+.journey-empty,.journey-compose,.journey-more {padding:1.3rem clamp(1rem,3vw,2rem);background:#fffdf7;border:1px solid #d9ded2}
+.journey-empty {margin:0}.journey-compose,.journey-more {margin-top:1rem;border-radius:9px;scroll-margin-top:6rem}
+.journey-compose summary,.journey-more summary {cursor:pointer;font-weight:650}
+.journey-compose form {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:1.5rem 0 .3rem;max-width:800px}
+.journey-compose label {display:grid;gap:.4rem}.journey-compose fieldset {border:0;padding:0;min-width:0}.journey-compose legend {margin-bottom:.4rem}
+.journey-wide {grid-column:1/-1}.journey-compose input:not([type=radio]),.journey-compose textarea {width:100%;padding:.65rem;border:1px solid #a9b8ae;border-radius:5px;color:#193e32;background:white}
+.journey-rating {display:flex;flex-wrap:wrap;gap:.35rem}.journey-rating label {position:relative;cursor:pointer}.journey-rating input {position:absolute;opacity:0}.journey-rating span {padding:.45rem .55rem;border:1px solid #a6b6aa;border-radius:4px}.journey-rating input:checked+span,.journey-compose button {background:#204c37;color:white}.journey-rating input:focus-visible+span {outline:3px solid #b27724}
+.journey-compose button {justify-self:start;border:0;cursor:pointer}.journey-compose p {color:#516153;margin:0}
+.review-tabs {display:flex;gap:.4rem;flex-wrap:wrap;border-bottom:1px solid #d8e0da;padding-bottom:1rem}.review-tabs a {padding:.6rem .8rem;border-radius:6px;color:#244a39}.review-tabs a[aria-current] {background:#173e32;color:white}.review-tabs b {margin-left:.3rem}
+.review-entry {padding:1.4rem 0;border-bottom:1px solid #d8e0da}.review-entry h2 {margin:0;overflow-wrap:anywhere}.review-entry .journey-gallery {max-width:760px}.review-entry form {margin-top:.8rem}.review-empty {padding:1.5rem 0;color:#536454}
+@media(max-width:640px){.journey-banner {align-items:flex-start;flex-direction:column}.journey-compose form{grid-template-columns:1fr}.journey-journal{margin:1.5rem auto}}
+.journey-reply {margin:1.1rem 0 0;padding:.85rem 1rem;background:#eef3eb;border-inline-start:3px solid #74917b;border-radius:0 6px 6px 0;color:#284537}
+.journey-reply strong,.journey-reply time {display:block}.journey-reply time {font:400 .8rem/1.5 system-ui,sans-serif;color:#526759}
+.journey-reply p {white-space:pre-line;overflow-wrap:anywhere;margin:.5rem 0 0}
+.review-reply-editor {margin-top:1rem}.review-reply-editor summary {cursor:pointer;color:#1b503a;font-weight:650}.review-reply-editor label {display:grid;gap:.4rem}.review-reply-editor textarea {max-width:700px}.review-reply-editor button {margin-top:.5rem}

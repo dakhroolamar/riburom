@@ -272,7 +272,7 @@ class CmsReliabilityTests(unittest.TestCase):
         from models import TravellerReview
         review = TravellerReview(name='Moderation fixture', rating=4, comment='Unique moderation comment')
         self.db.session.add(review); self.db.session.commit()
-        self.assertIn(b'Unique moderation comment', self.client.get('/').data)
+        self.assertNotIn(b'Unique moderation comment', self.client.get('/').data)
         self.assertEqual(self.app.test_client().post(f'/workspace/control/reviews/{review.id}', data={'action': 'hide'}).status_code, 302)
         self.client.post(f'/workspace/control/reviews/{review.id}', data={'action': 'hide'})
         self.assertNotIn(b'Unique moderation comment', self.client.get('/').data)

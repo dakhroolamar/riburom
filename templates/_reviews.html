@@ -1,8 +1,28 @@
-<section id="reviews" class="rb-reviews" style="order:{{ home_order_index.contact }}">
-<div class="rb-reviews-heading"><div><p>TRAVELLER VOICES</p><h2>Memories from Meghalaya</h2><p>Public reviews shared by our visitors.</p></div><a href="#write-review">Write a review</a></div>
-{% for row in review_rows %}<div class="rb-review-scroll" aria-label="Traveller reviews row {{ loop.index }}" tabindex="0"><div class="rb-review-track">
-{% for review in row %}<article class="rb-review-card"><div class="rb-review-stars" aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</div><p>{{ review.comment }}</p><strong>{{ review.name }}</strong></article>{% endfor %}
-</div></div>{% endfor %}
-{% if not review_rows[0] %}<p>Be the first to share a memory of your journey.</p>{% endif %}
-<details id="write-review" class="rb-review-form"><summary>Share your experience</summary><form action="/reviews" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><p>Your name, rating and review will be published immediately. Please leave out private contact information.</p><label for="review-name">Your name</label><input id="review-name" name="name" maxlength="80" required autocomplete="name"><fieldset><legend>Your star rating</legend>{% for rating in range(1,6) %}<label><input type="radio" name="rating" value="{{ rating }}" required>{{ rating }} ★</label>{% endfor %}</fieldset><label for="review-comment">Your review</label><textarea id="review-comment" name="comment" maxlength="600" rows="3" required></textarea><button type="submit">Publish review</button></form></details>
+{% from '_review_media.html' import gallery %}
+{% macro card(review) %}
+<article class="journey-card">
+  <header><span class="journey-avatar" aria-hidden="true">{{ review.name[:1]|upper }}</span><div><strong>{{ review.name }}</strong><time datetime="{{ review.created_at.date() }}">{{ review.created_at.strftime('%B %Y') }}</time></div></header>
+  <p class="journey-stars" aria-label="{{ review.rating }} out of 5 stars">{{ '★' * review.rating }}{{ '☆' * (5-review.rating) }}</p>
+  <blockquote>{{ review.comment }}</blockquote>{{ gallery(review) }}
+  {% if review.reply %}{% include '_review_reply.html' %}{% endif %}
+</article>
+{% endmacro %}
+<section id="reviews" class="journey-journal" aria-labelledby="journey-title" style="order:{{ home_order_index.contact }}">
+  <header class="journey-banner"><div><p>Traveller reviews</p><h2 id="journey-title">Memories from Meghalaya</h2></div><a href="#write-review">Write a review <span aria-hidden="true">↗</span></a></header>
+  {% if reviews %}
+    <div class="journey-grid">{% for review in reviews[:6] %}{{ card(review) }}{% endfor %}</div>
+    {% if reviews|length > 6 %}<details class="journey-more"><summary>More traveller reviews</summary><div class="journey-grid">{% for review in reviews[6:] %}{{ card(review) }}{% endfor %}</div></details>{% endif %}
+  {% else %}<p class="journey-empty">Where did your journey take you? Share a memory from your trip.</p>{% endif %}
+  <details id="write-review" class="journey-compose" {% if request.args.get('review_form') %}open{% endif %}>
+    <summary>Share your experience</summary>
+    <form action="{{ url_for('publish_review') }}" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Your public name<input name="name" maxlength="80" required autocomplete="name"></label>
+      <fieldset><legend>Your rating</legend><div class="journey-rating">{% for n in range(1,6) %}<label><input type="radio" name="rating" value="{{ n }}" required><span>{{ n }} ★</span></label>{% endfor %}</div></fieldset>
+      <label class="journey-wide">Your review<textarea name="comment" maxlength="600" rows="4" required placeholder="What stood out on your trip?"></textarea></label>
+      <label class="journey-wide">Photos or videos <small>Optional · Up to 3 files, 12 MB combined · JPEG, PNG, WebP, MP4 or WebM</small><input type="file" name="attachments" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"></label>
+      <p class="journey-wide">Positive and critical reviews are welcome. Share your own experience. Our team checks submissions for spam, incentives, abuse and private information. Share only media you have permission to publish and leave out private contact details.</p>
+      <button type="submit">Submit for review</button>
+    </form>
+  </details>
 </section>

@@ -157,15 +157,14 @@ database commit one atomic transaction.
 - Gallery selection and its edited image details save together in one transaction.
 - Media, trips, partners and catalogue lists expose pagination. Media cards use small
   thumbnails and load a larger image only for the inspector.
-- **Website Manager → Traveller Reviews** lets content staff hide, show or delete
-  reviews. Visitor submissions remain immediately visible until moderated.
+- **Customer Reviews** lets content staff approve, decline or withdraw reviews and their attachments. New and previously visible reviews await approval. Staff can publish, edit or remove one business reply beneath each published review.
 - The homepage honors gallery autoplay/interval settings and keeps pause controls
   available. Dismissed story cards stay dismissed until the featured content changes.
 - Save feedback uses dismissible status notices, and navigation does not wait behind
   a full-page loader. Configured opening films start muted and respect reduced-motion
   and data-saving preferences; sound requires the explicit **Enable sound** action.
 
-Deployments must upgrade through migration `d73b6fc21a80` before starting the new application.
+Deployments must upgrade through migration `ea4cd9f32108` before starting the new application.
 The existing deployment migration gate upgrades to this head automatically.
 
 ## Production environment

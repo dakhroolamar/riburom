@@ -29,10 +29,11 @@ TITLES = {
     'overview': ('Dashboard Overview', 'Your operations command centre for seamless travel experiences.'),
     'enquiries': ('Enquiry Work Desk', 'Accept incoming work, track next steps and follow-ups, then close or reopen each enquiry.'),
     'trips': ('Trips & Operations', 'Plan. Monitor. Deliver extraordinary travel experiences across Meghalaya.'),
-    'marketplace': ('Marketplace Inventory', 'Manage and showcase Meghalaya’s authentic travel experiences.'),
+    'marketplace': ('Marketplace Inventory', 'Manage and showcase Meghalayaâ€™s authentic travel experiences.'),
     'partners': ('Partner Network', 'Our trusted network of local partners powering meaningful travel across Meghalaya.'),
-    'website': ('Website Manager', 'Create, manage and publish your digital presence. Showcase Meghalaya’s extraordinary travel experiences.'),
-    'media': ('Media Library', 'Manage and organize your digital assets for Meghalaya’s travel experiences.'),
+    'website': ('Website Manager', 'Create, manage and publish your digital presence. Showcase Meghalayaâ€™s extraordinary travel experiences.'),
+    'media': ('Media Library', 'Manage and organize your digital assets for Meghalayaâ€™s travel experiences.'),
+    'reviews': ('Customer Reviews', 'Check the full review and attachments before publishing.'),
     'billing': ('Billing & Invoices', 'Prepare traveller invoices and track their payment status.'),
     'settings': ('Settings & System', 'Manage your organisation, team, security and system preferences.'),
 }
@@ -276,8 +277,8 @@ def navigation():
     checks = {'overview': (), 'enquiries': ('view_messages', 'manage_messages', 'view_marketplace_inquiries', 'manage_marketplace_inquiries'),
         'trips': ('manage_tours',), 'marketplace': ('view_marketplace', 'manage_marketplace', 'manage_tours'),
         'partners': ('view_marketplace', 'manage_marketplace'), 'website': ('manage_about', 'manage_media', 'manage_structure'),
-        'media': ('manage_media',), 'billing': ('manage_users',), 'settings': ('manage_users',)}
-    return [(key, {'overview': 'Overview', 'website': 'Website', 'media': 'Media', 'billing': 'Billing & Invoices', 'settings': 'Settings'}.get(key, key.title()))
+        'media': ('manage_media',), 'reviews': ('manage_about',), 'billing': ('manage_users',), 'settings': ('manage_users',)}
+    return [(key, {'overview': 'Overview', 'website': 'Website', 'media': 'Media', 'reviews': 'Customer Reviews', 'billing': 'Billing & Invoices', 'settings': 'Settings'}.get(key, key.title()))
             for key, perms in checks.items() if (not perms or allowed(*perms)) and (key != 'billing' or user().role == 'owner')]
 
 
@@ -442,17 +443,23 @@ def register_control_room(app):
             context['activity'] = TripUpdate.query.options(selectinload(TripUpdate.author)).order_by(TripUpdate.created_at.desc()).limit(5).all() if allowed('manage_tours') and context['notifications'].get('trip_updates',True) else []
             context['publishing_activity'] = WebsiteRevision.query.filter(WebsiteRevision.published_at.is_not(None), WebsiteRevision.is_backup.is_(False)).order_by(WebsiteRevision.published_at.desc()).limit(5).all() if allowed('manage_about') and context['notifications'].get('marketing_updates',False) else []
             context['stats'] = [('users', context['counts']['NEW'], 'New Enquiries', 'green'),
-                ('calendar', Trip.query.filter(Trip.start_date >= date.today(),Trip.status!='CANCELLED').count() if allowed('manage_tours') else '—', 'Upcoming Trips', 'blue'),
+                ('calendar', Trip.query.filter(Trip.start_date >= date.today(),Trip.status!='CANCELLED').count() if allowed('manage_tours') else 'â€”', 'Upcoming Trips', 'blue'),
                 ('users', context['pending_count'], 'Partner Approvals', 'sand'),
-                ('box', Package.query.filter_by(published=True).count() if allowed('manage_tours', 'view_marketplace') else '—', 'Active Packages', 'slate')]
+                ('box', Package.query.filter_by(published=True).count() if allowed('manage_tours', 'view_marketplace') else 'â€”', 'Active Packages', 'slate')]
+        if section == 'reviews':
+            from models import TravellerReview
+            status = request.args.get('status', 'pending')
+            if status not in ('pending', 'published', 'declined'):
+                abort(400)
+            query = TravellerReview.query.filter_by(status=status).options(selectinload(TravellerReview.attachments))
+            context['reviews'] = list_page(query, (TravellerReview.created_at.desc(), TravellerReview.id.desc()), 'reviews', 'Reviews', context)
+            context['review_status'] = status
+            context['counts'] = dict(db.session.query(TravellerReview.status, func.count(TravellerReview.id)).group_by(TravellerReview.status).all())
+            return render_template('control_room/reviews.html', **context)
         if section == 'website':
             page = request.args.get('page', 'home')
             if page == 'reviews':
-                if not allowed('manage_about'):
-                    abort(403)
-                from models import TravellerReview
-                context['reviews'] = list_page(TravellerReview.query, (TravellerReview.created_at.desc(), TravellerReview.id.desc()), 'reviews', 'Reviews', context)
-                return render_template('control_room/reviews.html', **context)
+                return redirect(url_for('control_room', section='reviews'))
             if page == 'stories':
                 if not allowed('manage_about'):
                     abort(403)
@@ -701,7 +708,7 @@ def register_control_room(app):
         else:
             abort(400)
         actor = db.session.get(User, values['assigned_user_id']) if values['assigned_user_id'] else None
-        details = f'{action.title()}: {previous.status} → {values["status"]}. Assigned to: {actor.full_name if actor else "Unassigned"}.'
+        details = f'{action.title()}: {previous.status} â†’ {values["status"]}. Assigned to: {actor.full_name if actor else "Unassigned"}.'
         details += f' Next action: {values["next_action"] or "None"}. Follow-up: {values["follow_up"] or "None"}.'
         if note:
             details += '\n' + note
@@ -771,7 +778,7 @@ def register_control_room(app):
                     obj.status = status
                 else:
                     obj.is_read = status != 'NEW'
-                add_audit('work_updated', 'control_leads', state.id, f'Bulk {action}: {previous} → {status}.')
+                add_audit('work_updated', 'control_leads', state.id, f'Bulk {action}: {previous} â†’ {status}.')
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
@@ -978,16 +985,50 @@ def register_control_room(app):
         flash('Draft saved. The public website is unchanged.', 'success')
         return redirect(url_for('control_room', section='website', page=page))
 
+    @app.post('/workspace/control/reviews/<int:review_id>/reply')
+    @require('manage_about')
+    def control_review_reply(review_id):
+        from models import TravellerReview
+        review = db.get_or_404(TravellerReview, review_id)
+        action = request.form.get('action')
+        if action not in ('save', 'remove'):
+            abort(400)
+        body = text('reply', 1200, required=True) if action == 'save' else None
+        version = request.form.get('reply_version', type=int)
+        if version is None:
+            abort(400)
+        changed = TravellerReview.query.filter_by(id=review_id, status='published', is_visible=True,
+                                                   reply_version=version).update({
+            'reply': body, 'reply_updated_at': datetime.utcnow() if body else None,
+            'reply_version': TravellerReview.reply_version + 1,
+        })
+        if changed != 1:
+            abort(409, description='The review or reply changed. Reload before saving.')
+        add_audit('reply_saved' if body else 'reply_removed', 'traveller_review', review_id)
+        db.session.commit()
+        flash('Business reply published.' if body else 'Business reply removed.', 'success')
+        return redirect(url_for('control_room', section='reviews', status='published',
+                                reviews_page=request.form.get('reviews_page', 1, type=int),
+                                _anchor=f'review-{review_id}'))
+
     @app.post('/workspace/control/reviews/<int:review_id>')
     @require('manage_about')
     def control_review(review_id):
         from models import TravellerReview
-        review = db.get_or_404(TravellerReview, review_id)
+        review = TravellerReview.query.filter_by(id=review_id).with_for_update().first_or_404()
         action = request.form.get('action')
+        expected = request.form.get('expected', review.status)
         if action == 'delete':
+            if expected != review.status:
+                abort(409)
             db.session.delete(review)
-        elif action in ('hide', 'show'):
-            review.is_visible = action == 'show'
+        elif action in ('approve', 'decline', 'unpublish', 'hide', 'show'):
+            status = {'approve':'published', 'show':'published', 'unpublish':'pending',
+                      'hide':'declined', 'decline':'declined'}[action]
+            changed = TravellerReview.query.filter_by(id=review.id, status=expected).update(
+                {'status': status, 'is_visible': status == 'published'})
+            if changed != 1:
+                abort(409)
         else:
             abort(400)
         add_audit(action, 'traveller_review', review_id)
@@ -995,7 +1036,7 @@ def register_control_room(app):
         notify_indexnow_cms_change('home', stage_only=True)
         db.session.commit()
         flash('Traveller review updated.', 'success')
-        return redirect(url_for('control_room', section='website', page='reviews'))
+        return redirect(url_for('control_room', section='reviews', status=expected))
 
     @app.route('/workspace/control/website/revisions/<int:revision_id>/publish', methods=['POST'])
     @require('manage_about')

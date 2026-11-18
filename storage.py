@@ -271,3 +271,32 @@ def imgsrc(value, default='default.jpg'):
     if value.startswith('http://') or value.startswith('https://'):
         return value
     return f'/static/{value}'
+
+def prepare_review_attachments(files):
+    """Validate an entire submission before saving the review or any media."""
+    from PIL import ImageOps
+    files = [upload for upload in files if upload.filename]
+    if len(files) > 3 or sum(_video_size(upload) for upload in files) > 12 * 1024 * 1024:
+        raise ValueError('Choose up to three files totalling 12 MB or less.')
+    prepared = []
+    for upload in files:
+        ext = upload.filename.rsplit('.', 1)[-1].lower()
+        if ext in ALLOWED_IMAGE_EXTENSIONS:
+            try:
+                with Image.open(upload.stream) as image:
+                    if image.format not in ('JPEG', 'PNG', 'WEBP') or image.width * image.height > 24_000_000:
+                        raise ValueError('Choose a JPEG, PNG or WebP photo under 24 megapixels.')
+                    image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                    photo = ImageOps.exif_transpose(image).convert('RGB')
+                    photo.info.clear()
+                    output = io.BytesIO()
+                    photo.save(output, format='JPEG', quality=85)
+            except (OSError, Image.DecompressionBombError) as exc:
+                raise ValueError('One photo could not be read. Please choose another file.') from exc
+            prepared.append(('image/jpeg', output.getvalue()))
+        elif ext in ALLOWED_VIDEO_EXTENSIONS:
+            _validate_video(upload, ext)
+            prepared.append(('video/' + ext, upload.read()))
+        else:
+            raise ValueError('Choose JPEG, PNG, WebP, MP4 or WebM files.')
+    return prepared
