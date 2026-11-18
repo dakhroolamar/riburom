@@ -1,0 +1,16 @@
+{% extends 'control_room/base.html' %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/invoice.css') }}">{% endblock %}
+{% block content %}
+<nav class="invoice-links"><a href="{{ url_for('control_room',section='billing') }}">← Billing & Invoices</a>
+<a href="{{ url_for('control_invoice',invoice_id=invoice.id,edit=1) }}">Edit invoice</a>
+<a class="cr-button" href="{{ url_for('control_invoice',invoice_id=invoice.id,format='docx') }}">Export Word</a><button class="secondary" data-print>Print / Save PDF</button></nav>
+<article class="invoice-sheet cr-panel"><header class="invoice-brand"><img src="{{ url_for('static',filename='control-room/ri-burom-mark.png') }}" alt="">RI BUROM TOURS &amp; TRAVELS</header>
+<p class="invoice-copy">{{ data.supplier }}</p>{% if data.supplier_gstin %}<p>Supplier GSTIN · {{ data.supplier_gstin }}</p>{% endif %}
+<h1>{{ title }}</h1><p>Issued {{ data.issued }} · Due {{ invoice.due_date }} · {{ invoice.status.title() }}</p>
+<h2>Billed to</h2><strong>{{ invoice.customer }}</strong><p class="invoice-copy">{{ data.recipient }}</p>{% if data.recipient_gstin %}<p>Recipient GSTIN · {{ data.recipient_gstin }}</p>{% endif %}
+{% if data.place %}<p>Place of supply · {{ data.place }}</p>{% endif %}<p>Reverse charge · {{ data.reverse }}</p>
+<div class="cr-table-wrap"><table class="cr-table"><thead><tr><th>Description / SAC</th><th>Qty</th><th>Rate (₹)</th><th>GST %</th><th>Value (₹)</th></tr></thead><tbody>
+{% for line in data.lines %}<tr><td class="invoice-copy">{{ line.description }}{% if line.code %}<br>{{ line.code }}{% endif %}</td><td>{{ line.qty }}</td><td>{{ line.rate }}</td><td>{{ line.gst if data.mode!='No GST' else '0' }}</td><td>{{ '{:,.2f}'.format(amounts.amounts[loop.index0]) }}</td></tr>{% endfor %}
+</tbody></table></div><div class="invoice-summary">{% for label,value in [('Subtotal', amounts.subtotal)] + amounts.taxes + [('Invoice total', amounts.total)] %}<p><strong>{{ label }}</strong> ₹ {{ '{:,.2f}'.format(value) }}</p>{% endfor %}</div>
+{% for key,label in [('payment','Payment instructions'),('terms','Terms and conditions')] %}{% if data.get(key) %}<h2>{{ label }}</h2><p class="invoice-copy">{{ data[key] }}</p>{% endif %}{% endfor %}
+<p class="invoice-signature">Authorised signature and seal</p></article>{% endblock %}

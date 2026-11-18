@@ -99,8 +99,8 @@ class ControlRoomTests(unittest.TestCase):
         self.db.session.commit()
         favicon = self.client.get('/favicon.ico')
         self.assertEqual(favicon.status_code, 200)
-        self.assertEqual(favicon.mimetype, 'image/svg+xml')
-        self.assertIn(b'<svg', favicon.data)
+        self.assertEqual(favicon.mimetype, 'image/x-icon')
+        self.assertTrue(favicon.data.startswith(bytes.fromhex('00000100')))
         favicon.close()
         copy = self.client.get(f'/add_package?copy={package.id}')
         self.assertEqual(copy.status_code, 200)
@@ -405,6 +405,36 @@ class ControlRoomTests(unittest.TestCase):
         invoice=Invoice.query.order_by(Invoice.id.desc()).first()
         self.assertEqual(self.client.post(f'{url}/{invoice.id}',data={'status':'PAID'}).status_code,302)
         self.assertEqual(invoice.status,'PAID')
+
+    def test_itemised_invoice_editor_and_word_export(self):
+        from docx import Document
+        from control_room_models import Invoice
+        from zipfile import ZipFile
+        url = '/workspace/control/invoices'
+        self.assertIn(b'Create invoice', self.client.get('/workspace/control/billing').data)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        form = dict(customer='Traveller', issued='2026-11-18', due_date='2026-12-02',
+                    supplier='Office address', recipient='Customer address', mode='CGST + SGST',
+                    reverse='No', item=['Cab', 'Guide'], code=['', ''], qty=['2', '1'],
+                    rate=['100', '300'], gst=['5', '18'], tax_name=['Local tax'], tax_rate=['2'])
+        response = self.client.post(url, data=form)
+        self.assertEqual(response.status_code, 302)
+        view = response.location
+        invoice = Invoice.query.order_by(Invoice.id.desc()).first()
+        self.assertEqual(str(invoice.amount), '574.00')
+        self.assertIn(b'574.00', self.client.get(view).data)
+        self.assertIn(b'Customer address', self.client.get(view+'?edit=1').data)
+        docx = self.client.get(view+'?format=docx')
+        doc = Document(io.BytesIO(docx.data))
+        self.assertEqual(doc.tables[0].rows[1].cells[0].text, 'Cab')
+        self.assertIn('Office address', [p.text for p in doc.paragraphs])
+        with ZipFile(io.BytesIO(docx.data)) as package:
+            self.assertIn(b'sdtContentLocked', package.read('word/header1.xml'))
+            self.assertNotIn(b'sdtContentLocked', package.read('word/document.xml'))
+        form.update(customer='Updated guest', mode='IGST', version=str(invoice.version))
+        self.assertEqual(self.client.post(view, data=form).status_code, 302)
+        self.assertEqual(self.client.post(view, data=form).status_code, 409)
+        self.assertIn(b'Updated guest', self.client.get(view).data)
 
     def test_read_only_user_cannot_mutate_workflows(self):
         from models import User

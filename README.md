@@ -165,7 +165,7 @@ database commit one atomic transaction.
   a full-page loader. Configured opening films start muted and respect reduced-motion
   and data-saving preferences; sound requires the explicit **Enable sound** action.
 
-Deployments must upgrade through migration `c8f1a2d3e470` before starting the new application.
+Deployments must upgrade through migration `d73b6fc21a80` before starting the new application.
 The existing deployment migration gate upgrades to this head automatically.
 
 ## Production environment

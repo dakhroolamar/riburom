@@ -115,6 +115,9 @@ class ControlPreference(db.Model):
 
 class Invoice(db.Model):
     __tablename__ = 'control_invoices'
+    details = db.Column(db.JSON)
+    version = db.Column(db.Integer, nullable=False, default=1, server_default='1')
+    __mapper_args__ = {'version_id_col': version}
     id = db.Column(db.Integer, primary_key=True)
     customer = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)

@@ -653,7 +653,7 @@ def owner_required(view_func):
 # ------------------------------------------------------------
 @app.get('/favicon.ico')
 def favicon():
-    response = app.send_static_file('control-room/brand.svg')
+    response = app.send_static_file('control-room/favicon.ico')
     response.headers['Cache-Control'] = 'public, max-age=86400'
     return response
 

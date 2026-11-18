@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Choose draft preview</title></head>
+<html lang="en"><head><link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static',filename='control-room/ri-burom-mark.png') }}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Choose draft preview</title></head>
 <body><main><h1>Choose a {{ 'tour' if revision.page == 'tour-detail' else 'provider' }} to preview</h1>
 <p>The saved page draft will be shown using this published record. Previewing does not publish the draft.</p>
 {% if targets %}<form method="get"><label for="preview-slug">Published record</label><select id="preview-slug" name="slug" required>{% for target in targets %}<option value="{{ target.slug }}">{{ target.title if revision.page == 'tour-detail' else target.name }}</option>{% endfor %}</select><button type="submit">Preview saved draft</button></form>

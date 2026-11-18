@@ -33,6 +33,7 @@ TITLES = {
     'partners': ('Partner Network', 'Our trusted network of local partners powering meaningful travel across Meghalaya.'),
     'website': ('Website Manager', 'Create, manage and publish your digital presence. Showcase Meghalaya’s extraordinary travel experiences.'),
     'media': ('Media Library', 'Manage and organize your digital assets for Meghalaya’s travel experiences.'),
+    'billing': ('Billing & Invoices', 'Prepare traveller invoices and track their payment status.'),
     'settings': ('Settings & System', 'Manage your organisation, team, security and system preferences.'),
 }
 LEAD_STATES = ('NEW', 'CONTACTED', 'IN_PROGRESS', 'QUOTED', 'CONFIRMED', 'DECLINED', 'CLOSED', 'SPAM')
@@ -275,9 +276,9 @@ def navigation():
     checks = {'overview': (), 'enquiries': ('view_messages', 'manage_messages', 'view_marketplace_inquiries', 'manage_marketplace_inquiries'),
         'trips': ('manage_tours',), 'marketplace': ('view_marketplace', 'manage_marketplace', 'manage_tours'),
         'partners': ('view_marketplace', 'manage_marketplace'), 'website': ('manage_about', 'manage_media', 'manage_structure'),
-        'media': ('manage_media',), 'settings': ('manage_users',)}
-    return [(key, {'overview': 'Overview', 'website': 'Website', 'media': 'Media', 'settings': 'Settings'}.get(key, key.title()))
-            for key, perms in checks.items() if not perms or allowed(*perms)]
+        'media': ('manage_media',), 'billing': ('manage_users',), 'settings': ('manage_users',)}
+    return [(key, {'overview': 'Overview', 'website': 'Website', 'media': 'Media', 'billing': 'Billing & Invoices', 'settings': 'Settings'}.get(key, key.title()))
+            for key, perms in checks.items() if (not perms or allowed(*perms)) and (key != 'billing' or user().role == 'owner')]
 
 
 def register_control_room(app):
@@ -481,6 +482,8 @@ def register_control_room(app):
                                 ('camera', MediaAsset.query.count(), 'Photos', 'sand'),
                                 ('video', LibraryVideo.query.count(), 'Videos', 'blue'),
                                 ('database', f'{((db.session.query(func.sum(MediaAsset.byte_size)).scalar() or 0) + (db.session.query(func.sum(LibraryVideo.byte_size)).scalar() or 0)) / 1048576:.1f} MB', 'Known Storage Used', 'purple')]
+        if section == 'billing':
+            context['invoices'] = list_page(Invoice.query, [Invoice.id.desc()], 'invoices', 'Invoices', context)
         if section == 'settings':
             if user().role != 'owner':
                 abort(403)
@@ -490,7 +493,7 @@ def register_control_room(app):
             context['delivery_counts'] = dict(db.session.query(NotificationOutbox.status, func.count(NotificationOutbox.id)).filter(NotificationOutbox.event_type == 'new_enquiry').group_by(NotificationOutbox.status).all())
             context['delivery_failures'] = NotificationOutbox.query.filter_by(event_type='new_enquiry', status='FAILED').order_by(NotificationOutbox.updated_at.desc()).limit(5).all()
             context['delivery_preferences'] = delivery_preferences()
-            context.update(staff=User.query.order_by(User.full_name).all(), invoices=Invoice.query.order_by(Invoice.id.desc()).limit(50).all(),
+            context.update(staff=User.query.order_by(User.full_name).all(),
                 audits=AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all(), notifications=json.loads(prefs.value_json) if prefs else {},
                 integrations=[('Email notifications', bool(os.getenv('BREVO_API_KEY'))), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
                               ('WhatsApp / SMS', bool(os.getenv('TWILIO_ACCOUNT_SID'))), ('IndexNow', bool(os.getenv('INDEXNOW_KEY')))],
@@ -1129,15 +1132,38 @@ def register_control_room(app):
         flash('Notification preferences saved for the organisation.', 'success')
         return redirect(url_for('control_room', section='settings'))
 
-    @app.route('/workspace/control/invoices', methods=['POST'])
+    from invoice_document import FIELDS, MODES, clean, details_for, parse_details, totals, word_file
+
+    def invoice_editor(invoice=None):
+        return render_template('control_room/invoice_editor.html', section='billing', title='Edit invoice' if invoice else 'Create invoice',
+                               invoice=invoice, data=details_for(invoice, get_site_settings()), fields=FIELDS, modes=MODES)
+
+    def store_invoice(invoice):
+        details = parse_details(request.form)
+        calculated = totals(details)
+        invoice.customer = clean(text('customer', 200, True), 200)
+        invoice.due_date = day('due_date')
+        invoice.description = details['lines'][0]['description']
+        invoice.amount = calculated['total']
+        invoice.details = details
+        if invoice.id is None:
+            db.session.add(invoice)
+        save(invoice, 'billing', 'Invoice saved.')
+        return redirect(url_for('control_invoice', invoice_id=invoice.id))
+
+    @app.route('/workspace/control/invoices', methods=['GET', 'POST'])
     @require('manage_users')
     def control_invoice_create():
         if user().role != 'owner':
             abort(403)
+        if request.method == 'GET':
+            return invoice_editor()
+        if 'issued' in request.form:
+            return store_invoice(Invoice())
         invoice = Invoice(customer=text('customer', 200, True), description=text('description', 10000, True),
                           amount=money('amount'), due_date=day('due_date'))
         db.session.add(invoice)
-        return save(invoice, 'settings', 'Invoice issued.')
+        return save(invoice, 'billing', 'Invoice issued.')
 
     @app.route('/workspace/control/invoices/<int:invoice_id>', methods=['GET', 'POST'])
     @require('manage_users')
@@ -1146,9 +1172,21 @@ def register_control_room(app):
             abort(403)
         invoice = db.get_or_404(Invoice, invoice_id)
         if request.method == 'POST':
+            if 'version' in request.form and request.form.get('version', type=int) != invoice.version:
+                abort(409, description='This invoice changed. Reopen it before saving.')
+            if 'issued' in request.form:
+                return store_invoice(invoice)
             invoice.status = request.form.get('status')
             if invoice.status not in ('ISSUED', 'PAID', 'VOID'):
                 abort(400)
-            return save(invoice, 'settings', 'Invoice status updated.')
-        return render_template('control_room/document.html', heading=f'Invoice RB-I-{invoice.id:05d}', customer=invoice.customer,
-                               description=invoice.description, amount=invoice.amount, deadline=invoice.due_date, settings=get_site_settings())
+            return save(invoice, 'billing', 'Invoice status updated.')
+        if 'edit' in request.args:
+            return invoice_editor(invoice)
+        data = details_for(invoice, get_site_settings())
+        amounts = totals(data)
+        if request.args.get('format') == 'docx':
+            return send_file(word_file(invoice, data, amounts), as_attachment=True,
+                             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                             download_name=f'RB-I-{invoice.id:05d}.docx')
+        return render_template('control_room/invoice_preview.html', section='billing', title=f'Invoice RB-I-{invoice.id:05d}',
+                               invoice=invoice, data=data, amounts=amounts)

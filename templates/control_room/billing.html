@@ -1,0 +1,10 @@
+<section class="cr-panel">
+  <div class="cr-panel-heading"><h2>Invoice register</h2><a class="cr-button" href="{{ url_for('control_invoice_create') }}">{{ icon('plus') }}Create invoice</a></div>
+  <div class="cr-table-wrap"><table class="cr-table"><thead><tr><th>Invoice</th><th>Billed to</th><th>Due date</th><th>Total</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for inv in invoices %}<tr>
+    <td><a href="{{ url_for('control_invoice', invoice_id=inv.id) }}">RB-I-{{ '%05d'|format(inv.id) }}</a></td>
+    <td>{{ inv.customer }}</td><td>{{ inv.due_date }}</td><td>₹ {{ '{:,.2f}'.format(inv.amount) }}</td>
+    <td><form action="{{ url_for('control_invoice', invoice_id=inv.id) }}" method="post">{{ csrf() }}<input type="hidden" name="version" value="{{ inv.version }}"><select name="status" aria-label="Invoice status">{% for status in ['ISSUED','PAID','VOID'] %}<option {% if inv.status==status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select> <button class="secondary small">Save</button></form></td>
+    <td><a href="{{ url_for('control_invoice', invoice_id=inv.id, edit=1) }}">Edit</a> · <a href="{{ url_for('control_invoice', invoice_id=inv.id, format='docx') }}">Word</a></td>
+  </tr>{% else %}<tr><td colspan="6">No invoices yet. Create an invoice to add your first billing record.</td></tr>{% endfor %}</tbody></table></div>
+</section>

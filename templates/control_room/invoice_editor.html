@@ -1,0 +1,31 @@
+{% extends 'control_room/base.html' %}
+{% from 'control_room/macros.html' import field, csrf with context %}
+{% macro area(key) %}<label>{{ fields[key] }}<textarea name="{{ key }}" maxlength="3000">{{ data.get(key,'') }}</textarea></label>{% endmacro %}
+{% macro item(row) %}
+<div class="invoice-row" data-row>
+  <label>Description<textarea name="item" maxlength="10000" required>{{ row.description }}</textarea></label>
+  {{ field('code','HSN / SAC',row.code) }}{{ field('qty','Quantity',row.qty,'number',true) }}
+  {{ field('rate','Unit rate (₹)',row.rate,'number',true) }}{{ field('gst','GST rate (%)',row.gst,'number',true) }}
+  <button type="button" class="secondary small" data-remove>Remove item</button>
+</div>{% endmacro %}
+{% macro tax(row) %}<div class="invoice-tax" data-row>{{ field('tax_name','Tax name',row.name,'text',true) }}{{ field('tax_rate','Rate (%)',row.pct,'number',true) }}<button type="button" class="secondary small" data-remove>Remove tax</button></div>{% endmacro %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/invoice.css') }}">{% endblock %}
+{% block content %}
+<a href="{{ url_for('control_room',section='billing') }}">← Billing & Invoices</a><h1>{{ title }}</h1>
+<form method="post" class="invoice-sheet cr-panel">{{ csrf() }}
+{% if invoice %}<input type="hidden" name="version" value="{{ invoice.version }}">{% endif %}
+<header class="invoice-brand"><img src="{{ url_for('static',filename='control-room/ri-burom-mark.png') }}" alt="">RI BUROM TOURS &amp; TRAVELS</header>
+<div class="cr-form-grid">{{ area('supplier') }}{{ field('supplier_gstin',fields.supplier_gstin,data.supplier_gstin) }}
+{{ field('issued','Issue date',data.issued,'date',true) }}{{ field('due_date','Due date',invoice.due_date if invoice else '', 'date',true) }}</div>
+<h2>Billed to</h2><div class="cr-form-grid">{{ field('customer','Customer or organisation',invoice.customer if invoice else '', 'text',true) }}{{ area('recipient') }}
+{{ field('recipient_gstin',fields.recipient_gstin,data.recipient_gstin) }}{{ field('place',fields.place,data.place) }}</div>
+<h2>Items and taxes</h2><div class="cr-form-grid"><label>GST treatment<select name="mode">{% for mode in modes %}<option {% if mode==data.mode %}selected{% endif %}>{{ mode }}</option>{% endfor %}</select></label>
+<label>Reverse charge<select name="reverse">{% for v in ['No','Yes'] %}<option {% if v==data.reverse %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label></div>
+<div id="lines">{% for line in data.lines %}{{ item(line) }}{% endfor %}</div><button type="button" class="secondary" data-add="lines">+ Add item</button>
+<h3>Additional taxes</h3><p>Each rate applies to the item subtotal.</p><div id="taxes">{% for t in data.taxes %}{{ tax(t) }}{% endfor %}</div><button type="button" class="secondary" data-add="taxes">+ Add tax</button>
+<h2>Payment and terms</h2><div class="cr-form-grid">{{ area('payment') }}{{ area('terms') }}</div>
+<div class="cr-form-actions"><button>Save and review invoice</button></div>
+<template id="lines-template">{{ item(dict(description='',code='',qty='1',rate='',gst='0')) }}</template>
+<template id="taxes-template">{{ tax(dict(name='',pct='')) }}</template>
+</form>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static',filename='js/invoice.js') }}"></script>{% endblock %}

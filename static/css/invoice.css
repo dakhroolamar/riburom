@@ -1,0 +1,8 @@
+.invoice-sheet{max-width:1000px;margin:1rem auto;padding:clamp(1rem,4vw,3rem)}
+.invoice-brand{display:flex;align-items:center;gap:1rem;color:#193e33;font-size:clamp(1rem,2vw,1.5rem);font-weight:700;border-bottom:2px solid #305848;padding-bottom:.8rem;margin-bottom:1.3rem}
+.invoice-brand img{width:64px;height:64px}.invoice-sheet h2{margin:1.6rem 0 .8rem}.invoice-sheet label{display:grid;gap:.3rem;min-width:0}
+.invoice-row,.invoice-tax{display:grid;grid-template-columns:2.8fr 1fr .8fr 1fr 1fr auto;align-items:end;gap:.6rem;margin:.8rem 0;padding:.8rem 0;border-bottom:1px solid #dce4df}
+.invoice-row textarea{min-height:42px}.invoice-row input,.invoice-tax input{width:100%}.invoice-tax{grid-template-columns:2fr 1fr auto}
+.invoice-copy{white-space:pre-line;overflow-wrap:anywhere}.invoice-summary{margin:1.5rem 0 1.5rem auto;max-width:340px}.invoice-summary p{display:flex;justify-content:space-between}.invoice-signature{text-align:right;margin-top:3rem}.invoice-links{display:flex;flex-wrap:wrap;gap:1rem;align-items:center}
+@media(max-width:900px){.invoice-row,.invoice-tax{grid-template-columns:repeat(2,minmax(0,1fr))}.invoice-row label:first-child{grid-column:1/-1}}
+@media print{.cr-sidebar,.cr-topbar,.invoice-links,.cr-notice,.cr-skip,.cr-menu-button{display:none!important}.cr-shell,.cr-workspace,.cr-main{display:block!important;padding:0!important;margin:0!important}.invoice-sheet{border:0;box-shadow:none}.cr-table-wrap{overflow:visible}.cr-table{min-width:0!important}.invoice-signature{break-inside:avoid}}
