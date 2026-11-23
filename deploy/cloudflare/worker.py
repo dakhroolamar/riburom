@@ -32,6 +32,10 @@ class Default(WorkerEntrypoint):
                 })
             if path.startswith("/static/"):
                 return await self.env.ASSETS.fetch(Request.new(f"https://assets.local{path}"))
+        if mode == "application" and path == "/__staging/bootstrap":
+            if request.method != "POST":
+                return Response("Method not allowed", status=405)
+            return await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
         return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
@@ -61,6 +65,22 @@ class FlaskApplication(DurableObject):
             return await wsgi.fetch(app, request, self.env)
         finally:
             request_sql.reset(token)
+
+    async def bootstrap_staging(self):
+        # Refuse this privileged operation outside the exact isolated Worker.
+        if not (
+            self.env.RIBUROM_MODE == "application"
+            and self.env.RIBUROM_HOST == "riburom-application-staging.dakhroo.workers.dev"
+            and self.env.RIBUROM_STAGING_ACCESS_REQUIRED == "true"
+        ):
+            return Response("Unavailable", status=404)
+        from staging_setup import initialize_staging
+        from worker_runtime import get_application
+
+        payload, status = initialize_staging(
+            get_application(self.env), self.env.RIBUROM_STAGING_ACCESS_TOKEN
+        )
+        return Response.json(payload, status=status)
 
     async def run_outbox(self):
         from worker_runtime import get_application
