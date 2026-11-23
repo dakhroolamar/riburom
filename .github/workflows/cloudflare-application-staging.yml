@@ -166,6 +166,37 @@ jobs:
             exit 1
           fi
 
+      - name: Verify anonymous public cache and uncached homepage
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          test -n "$STAGING_ACCESS_PASSWORD"
+          hits=0
+          for attempt in 1 2 3 4; do
+            status=$(curl --silent --show-error --max-time 25 --retry 2 \
+              --user "rehearsal:$STAGING_ACCESS_PASSWORD" \
+              --dump-header "$RUNNER_TEMP/riburom-cache-header" \
+              --output "$RUNNER_TEMP/riburom-cache-body" \
+              --write-out '%{http_code}' "$STAGING_URL/all_tours")
+            test "$status" = 200
+            if grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-cache-header"; then
+              hits=$((hits+1))
+            fi
+          done
+          printf 'Public tours cache hits: %s/4\n' "$hits"
+          if [ "$hits" -lt 1 ]; then
+            echo "::error::No cache hits from four same-runner requests; cache optimization not verified."
+            exit 1
+          fi
+          status=$(curl --silent --show-error --max-time 25 --retry 2 \
+            --user "rehearsal:$STAGING_ACCESS_PASSWORD" \
+            --dump-header "$RUNNER_TEMP/riburom-home-header" \
+            --output "$RUNNER_TEMP/riburom-home-body" \
+            --write-out '%{http_code}' "$STAGING_URL/")
+          test "$status" = 200
+          ! grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-home-header"
+          echo "Homepage CSRF form is never served from the public page cache."
+
       - name: Verify staging Control Room login and session
         if: ${{ !cancelled() }}
         env:
