@@ -92,13 +92,24 @@ def main():
         _, content = fetch(base + "/workspace", secret=secret, jar=jar, output=output)
         if "control room" not in content.lower():
             raise AssertionError("Authenticated workspace did not render Control Room")
-        sections = ("overview", "trips", "partners", "marketplace", "website", "media", "billing", "settings")
-        for section in sections:
+        from html import unescape
+        sections = {
+            "overview": "Dashboard Overview",
+            "trips": "Trips & Operations",
+            "partners": "Partner Network",
+            "marketplace": "Marketplace Inventory",
+            "website": "Website Manager",
+            "media": "Media Library",
+            "billing": "Billing & Invoices",
+            "settings": "Settings & System",
+        }
+        for section, expected_title in sections.items():
             _, page = fetch(
                 base + "/workspace/control/" + section,
                 secret=secret, jar=jar, output=output,
             )
-            if "control room" not in page.lower() or "service unavailable" in page.lower():
+            readable = unescape(page).lower()
+            if expected_title.lower() not in readable or "service unavailable" in readable:
                 raise AssertionError(f"Staging Control Room section failed to render: {section}")
             print(f"Authenticated Control Room section {section}: PASS")
     print("Staging Owner login, CSRF, workspace and section navigation: PASS")
