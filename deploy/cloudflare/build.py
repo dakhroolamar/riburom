@@ -67,6 +67,10 @@ def main():
             vars={
                 "RIBUROM_MODE": "application",
                 "RIBUROM_HOST": "riburom-application-staging.dakhroo.workers.dev",
+                # New staging-only object: first instantiation hints Singapore
+                # proximity, where the separate Neon project is located.
+                "RIBUROM_DO_NAME": "web-apac-se-staging-v1",
+                "RIBUROM_DO_LOCATION": "apac-se",
                 "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
                 "PUBLIC_BASE_URL": "https://riburom-application-staging.dakhroo.workers.dev",
                 "CLOUDINARY_STAGING_FOLDER": "riburom-cloudflare-staging",
