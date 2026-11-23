@@ -14,7 +14,9 @@ uv run pywrangler deploy
 
 The checked-in configuration deploys `riburom-free-compatibility-probe` with disposable SQLite data and a simulated mail transport. It forwards a small list of read-only routes to Flask. The staging outbox endpoint reports the status of a single synthetic job. The first scheduled attempt fails deliberately and the next eligible invocation retries it. The job never calls the Brevo API or sends mail.
 
-To build from GitHub, connect this Worker in **Settings → Builds**, select the staging branch and use the repository root directory. Set the build command to `python deploy/cloudflare/build.py` and the deploy command to `cd deploy/cloudflare/build && uv run pywrangler deploy`. Make Python, Node.js and uv available to the build. A push to the selected branch updates the synthetic staging Worker. [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+For the database connection check, set `RIBUROM_STAGING_HYPERDRIVE_ID` to the isolated staging Hyperdrive configuration ID before building. The schedule runs a read-only PostgreSQL query and records successful connectivity in the Durable Object. The status endpoint exposes the result as `postgres_verified`.
+
+To build from GitHub, connect this Worker in **Settings → Builds**, select the staging branch and set the root directory to `deploy/cloudflare`. Set the build command to `python build.py` and the deploy command to `cd build && uv run pywrangler deploy`. Set `RIBUROM_STAGING_HYPERDRIVE_ID` in the build environment to include the isolated database check. A push to the selected branch updates the synthetic staging Worker. [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
 
 ## Prepare a deployment with real services
 

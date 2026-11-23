@@ -26,14 +26,17 @@ def worker_scrypt(password, *, salt, n, r, p, maxmem=0, dklen=64):
     return scrypt(password, salt, dklen, n, r, p)
 
 
-def configure_application(env):
+def hyperdrive_url(connection):
     from sqlalchemy import URL
 
-    connection = env.HYPERDRIVE
-    database = URL.create(
+    return URL.create(
         "postgresql+pg8000", username=connection.user, password=connection.password,
         host=connection.host, port=int(connection.port), database=connection.database,
     )
+
+
+def configure_application(env):
+    database = hyperdrive_url(env.HYPERDRIVE)
     os.environ.update({
         key: value for key in PROVIDER_SETTINGS
         if (value := getattr(env, key, None)) is not None

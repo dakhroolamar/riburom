@@ -40,8 +40,8 @@ class FlaskApplication(DurableObject):
         token = request_sql.set(self.ctx.storage.sql)
         try:
             if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
-                from worker_fixture import outbox_status
-                return Response.json(outbox_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
+                from worker_fixture import fixture_status
+                return Response.json(fixture_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
             return await wsgi.fetch(app, request, self.env)
         finally:
             request_sql.reset(token)
@@ -54,8 +54,10 @@ class FlaskApplication(DurableObject):
         app = get_application(self.env)
         with app.app_context():
             if self.env.RIBUROM_MODE == "fixture":
-                from worker_fixture import process_fixture_outbox
+                from worker_fixture import check_fixture_database, process_fixture_outbox
                 result = process_fixture_outbox(sql)
+                if connection := getattr(self.env, "HYPERDRIVE", None):
+                    check_fixture_database(sql, connection)
             else:
                 from notifications import process_pending_notifications
                 result = process_pending_notifications(limit=2)
