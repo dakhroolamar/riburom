@@ -1,3 +1,5 @@
+from base64 import b64encode
+from hmac import compare_digest
 from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
@@ -16,6 +18,20 @@ class Default(WorkerEntrypoint):
                 return Response("Preview route unavailable", status=404)
         elif mode != "application" or urlsplit(request.url).hostname != self.env.RIBUROM_HOST:
             return Response("Unknown site", status=404)
+        if getattr(self.env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true":
+            secret = getattr(self.env, "RIBUROM_STAGING_ACCESS_TOKEN", None)
+            if not secret:
+                return Response("Staging access unavailable", status=404)
+            encoded = b64encode(f"rehearsal:{secret}".encode("utf-8"))
+            authorization = (request.headers.get("Authorization") or "").encode("utf-8")
+            if not compare_digest(authorization, b"Basic " + encoded):
+                return Response("Authentication required", status=401, headers={
+                    "WWW-Authenticate": 'Basic realm="RI BUROM staging", charset="UTF-8"',
+                    "Cache-Control": "no-store",
+                    "X-Robots-Tag": "noindex, nofollow",
+                })
+            if path.startswith("/static/"):
+                return await self.env.ASSETS.fetch(request)
         return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
@@ -54,10 +70,11 @@ class FlaskApplication(DurableObject):
         app = get_application(self.env)
         with app.app_context():
             if self.env.RIBUROM_MODE == "fixture":
-                from worker_fixture import check_fixture_database, process_fixture_outbox
+                from worker_fixture import check_fixture_database, check_fixture_mail_relay, process_fixture_outbox
                 result = process_fixture_outbox(sql)
                 if connection := getattr(self.env, "HYPERDRIVE", None):
                     check_fixture_database(sql, connection)
+                check_fixture_mail_relay(sql)
             else:
                 from notifications import process_pending_notifications
                 result = process_pending_notifications(limit=2)

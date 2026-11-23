@@ -25,6 +25,10 @@ def main():
         "--application-staging", action="store_true",
         help="Build the separate application Worker with public routes and email scheduling disabled.",
     )
+    parser.add_argument(
+        "--enable-staging-url", action="store_true",
+        help="Enable the application staging URL behind its required access secret.",
+    )
     args = parser.parse_args()
     build = args.output.resolve()
     hyperdrive_id = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
@@ -32,6 +36,8 @@ def main():
         raise SystemExit("Expected a Cloudflare staging Hyperdrive configuration ID.")
     if args.application_staging and not hyperdrive_id:
         raise SystemExit("Application staging requires the isolated Hyperdrive configuration.")
+    if args.enable_staging_url and not args.application_staging:
+        raise SystemExit("Only the application staging profile supports --enable-staging-url.")
     if build.exists() and any(build.iterdir()):
         raise SystemExit(f"Build directory must be empty: {build}")
     tracked = subprocess.check_output(
@@ -56,10 +62,12 @@ def main():
     if args.application_staging:
         config.update(
             name="riburom-application-staging",
-            workers_dev=False,
+            workers_dev=args.enable_staging_url,
+            assets={"directory": "./public", "binding": "ASSETS", "run_worker_first": True},
             vars={
                 "RIBUROM_MODE": "application",
                 "RIBUROM_HOST": "riburom-application-staging.dakhroo.workers.dev",
+                "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
                 "OUTBOX_SCHEDULED": "false",
             },
             triggers={"crons": []},
