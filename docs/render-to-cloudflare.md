@@ -24,7 +24,7 @@ Wrangler deployed a synthetic staging build into the verified RI BUROM Cloudflar
 
 The staging Worker also reached a separate empty Neon Free project through cache-disabled Hyperdrive. A Cron Trigger retried a deliberately failed outbox job and recorded success on attempt two using a simulated Brevo transport. Real Brevo delivery, live Cloudinary uploads and the production Neon connection still need end-to-end verification.
 
-The staging Worker configuration and Python packaging are on GitHub at `codex/cloudflare-free-hosting`. Cloudflare Workers Builds can build this branch and invokes the Wrangler deployment command. The production release and DNS switch are a separate cutover. Retire Render after the production web app and background delivery job pass independently on the canonical domain. [GitHub integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/) · [Build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+The staging Worker configuration and Python packaging are on GitHub at `codex/cloudflare-free-hosting`. GitHub Actions builds that branch and invokes Wrangler using a token scoped to the staging Worker. The workflow uses the `cloudflare-staging` GitHub environment, which allows only that branch. The production release and DNS switch are a separate cutover. Retire Render after the production web app and background delivery job pass independently on the canonical domain. [Staging workflow](../.github/workflows/cloudflare-staging.yml) · [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/authorization/workers/)
 
 ## Archived alternative · Paid Containers (outside current scope)
 

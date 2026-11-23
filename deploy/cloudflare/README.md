@@ -16,7 +16,7 @@ The checked-in configuration deploys `riburom-free-compatibility-probe` with dis
 
 For the database connection check, set `RIBUROM_STAGING_HYPERDRIVE_ID` to the isolated staging Hyperdrive configuration ID before building. The schedule runs a read-only PostgreSQL query and records successful connectivity in the Durable Object. The status endpoint exposes the result as `postgres_verified`.
 
-To build from GitHub, connect this Worker in **Settings → Builds**, select the staging branch and set the root directory to `deploy/cloudflare`. Set the build command to `python build.py` and the deploy command to `cd build && uv run pywrangler deploy`. Set `RIBUROM_STAGING_HYPERDRIVE_ID` in the build environment to include the isolated database check. A push to the selected branch updates the synthetic staging Worker. [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+The [GitHub Actions workflow](../../.github/workflows/cloudflare-staging.yml) builds and deploys changes from `codex/cloudflare-free-hosting`. Configure the `cloudflare-staging` GitHub environment to allow only that branch. Set environment variables `CLOUDFLARE_ACCOUNT_ID` and `RIBUROM_STAGING_HYPERDRIVE_ID`, and save an Individual Workers Editor token for `riburom-free-compatibility-probe` as the environment secret `CLOUDFLARE_WORKER_DEPLOY_TOKEN`. The workflow checks the HTTPS health endpoint and the recorded result of the synthetic outbox and PostgreSQL test. It uses a standard Linux runner with an eight-minute timeout. [Cloudflare Worker permissions](https://developers.cloudflare.com/workers/authorization/workers/)
 
 ## Prepare a deployment with real services
 
