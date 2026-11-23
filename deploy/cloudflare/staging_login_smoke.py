@@ -33,11 +33,11 @@ def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
     if code not in (("200",) if follow_redirects else ("302", "303")):
         title = re.search(r"<title>(.*?)</title>", body, re.IGNORECASE | re.DOTALL)
         header_text = output.with_suffix(".headers").read_text(errors="replace")
-        error_class = re.findall(
-            r"^x-riburom-staging-error-class:\\s*([^\\r\\n]+)",
-            header_text,
-            flags=re.IGNORECASE | re.MULTILINE,
-        )
+        error_class = [
+            line.partition(":")[2].strip()
+            for line in header_text.splitlines()
+            if line.lower().startswith("x-riburom-staging-error-class:")
+        ]
         raise AssertionError(
             f"Control Room request failed: HTTP {code}; "
             f"page title: {(title.group(1).strip() if title else 'unknown')[:100]}; "
