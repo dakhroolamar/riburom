@@ -92,7 +92,16 @@ def main():
         _, content = fetch(base + "/workspace", secret=secret, jar=jar, output=output)
         if "control room" not in content.lower():
             raise AssertionError("Authenticated workspace did not render Control Room")
-    print("Staging Owner login, CSRF and authenticated workspace: PASS")
+        sections = ("overview", "trips", "partners", "marketplace", "website", "media", "billing", "settings")
+        for section in sections:
+            _, page = fetch(
+                base + "/workspace/control/" + section,
+                secret=secret, jar=jar, output=output,
+            )
+            if "control room" not in page.lower() or "service unavailable" in page.lower():
+                raise AssertionError(f"Staging Control Room section failed to render: {section}")
+            print(f"Authenticated Control Room section {section}: PASS")
+    print("Staging Owner login, CSRF, workspace and section navigation: PASS")
 
 
 if __name__ == "__main__":
