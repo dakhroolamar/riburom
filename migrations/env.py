@@ -33,18 +33,24 @@ def run_migrations_offline():
 
 
 def run_migrations_online():
-    connectable = current_app.extensions['migrate'].db.engine
+    connection = config.attributes.get('connection')
+    if connection is not None:
+        run_on_connection(connection)
+    else:
+        with current_app.extensions['migrate'].db.engine.connect() as connection:
+            run_on_connection(connection)
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-            render_as_batch=True,
-        )
 
-        with context.begin_transaction():
-            context.run_migrations()
+def run_on_connection(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        render_as_batch=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():

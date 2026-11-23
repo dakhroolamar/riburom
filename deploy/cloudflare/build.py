@@ -21,11 +21,17 @@ def copy(source, destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=BASE / "build")
+    parser.add_argument(
+        "--application-staging", action="store_true",
+        help="Build the separate application Worker with public routes and email scheduling disabled.",
+    )
     args = parser.parse_args()
     build = args.output.resolve()
     hyperdrive_id = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
     if hyperdrive_id and not re.fullmatch(r"[0-9a-f]{32}", hyperdrive_id):
         raise SystemExit("Expected a Cloudflare staging Hyperdrive configuration ID.")
+    if args.application_staging and not hyperdrive_id:
+        raise SystemExit("Application staging requires the isolated Hyperdrive configuration.")
     if build.exists() and any(build.iterdir()):
         raise SystemExit(f"Build directory must be empty: {build}")
     tracked = subprocess.check_output(
@@ -43,12 +49,23 @@ def main():
         copy(BASE / name, build / "src" / name)
     for name in ("pyproject.toml", "wrangler.jsonc"):
         copy(BASE / name, build / name)
+    config_path = build / "wrangler.jsonc"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
     if hyperdrive_id:
-        config_path = build / "wrangler.jsonc"
-        config = json.loads(config_path.read_text(encoding="utf-8"))
         config["hyperdrive"] = [{"binding": "HYPERDRIVE", "id": hyperdrive_id}]
-        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    print(f"Assembled synthetic Worker project at {build}")
+    if args.application_staging:
+        config.update(
+            name="riburom-application-staging",
+            workers_dev=False,
+            vars={
+                "RIBUROM_MODE": "application",
+                "RIBUROM_HOST": "riburom-application-staging.dakhroo.workers.dev",
+                "OUTBOX_SCHEDULED": "false",
+            },
+            triggers={"crons": []},
+        )
+    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    print(f"Assembled {config['name']} at {build}")
 
 
 if __name__ == "__main__":

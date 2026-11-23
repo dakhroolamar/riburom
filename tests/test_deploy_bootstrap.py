@@ -51,6 +51,32 @@ class DeployBootstrapIsolationTests(unittest.TestCase):
             """
         )
 
+    def test_migration_gate_initializes_a_blank_database_and_can_rerun(self):
+        self._run_python(
+            """
+            import runpy
+
+            from alembic.config import Config
+            from alembic.script import ScriptDirectory
+            from sqlalchemy import inspect, text
+
+            runpy.run_path('scripts/debug_migration.py', run_name='__main__')
+            runpy.run_path('scripts/debug_migration.py', run_name='__main__')
+
+            from app import app, db
+
+            with app.app_context(), db.engine.connect() as connection:
+                config = Config('migrations/alembic.ini')
+                config.set_main_option('script_location', 'migrations')
+                head = ScriptDirectory.from_config(config).get_current_head()
+                assert connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one() == head
+                assert connection.execute(text('SELECT count(*) FROM users')).scalar_one() == 1
+                assert connection.execute(text('SELECT count(*) FROM service_categories')).scalar_one() > 0
+                tables = set(inspect(connection).get_table_names())
+                assert {'cms_media_assets', 'notification_outbox', 'review_attachments', 'control_invoices'} <= tables
+            """
+        )
+
     def test_explicit_bootstrap_creates_initial_owner_once(self):
         self._run_python(
             """
