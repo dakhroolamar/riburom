@@ -32,6 +32,7 @@ jobs:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: node tests/cloudflare_parallel_browser_qa.cjs
       - name: Measure anonymous and concurrent public responses
+        if: ${{ !cancelled() }}
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: python deploy/cloudflare/benchmark_public.py

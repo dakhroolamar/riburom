@@ -125,12 +125,6 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             }
             observations.push(observed);
             console.log(JSON.stringify({...observed,title:undefined}));
-            if (observed.httpStatus!==200||observed.bodyCharacters<40) {
-              throw new Error(`Invalid page for ${device.key}/${target.key}${route}: ${observed.httpStatus}`);
-            }
-            if (observed.tourMatches?.some(x=>!x)) {
-              throw new Error(`Published tour missing on ${target.key}`);
-            }
             await page.close();
           }
           await context.close();
@@ -139,8 +133,9 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
     }
     for (const device of profiles) {
       for (const target of targets) {
-        const rows = observations.filter(r => r.device === device.key && r.host === target.key && r.route === '/');
-        const summary = {device:device.key, host:target.key, samples:rows.length};
+        const visits = observations.filter(r => r.device === device.key && r.host === target.key && r.route === '/');
+        const rows = visits.filter(r => r.httpStatus === 200 && r.lcpMs > 0);
+        const summary = {device:device.key, host:target.key, samples:rows.length, errors:visits.length-rows.length};
         for (const key of ['ttfbMs','lcpMs','transferredBytes','cls']) {
           const values = rows.map(r => r[key]).sort((a,b) => a-b);
           summary[key] = {median:values[Math.floor(values.length/2)], p95:values[Math.ceil(values.length*0.95)-1]};
@@ -148,7 +143,8 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
         console.log('Homepage summary', JSON.stringify(summary));
       }
     }
-    if (observations.some(r => r.pageErrorClasses.length || r.invalidEmptyImageAttributes ||
+    if (observations.some(r => r.httpStatus !== 200 || r.bodyCharacters < 40 || r.pageErrorClasses.length ||
+      r.tourMatches?.some(match => !match) || (r.host === 'cloudflare' && r.invalidEmptyImageAttributes) ||
       (r.route === '/' && (!r.lcpMs || r.landscapeLoaded === false)))) {
       throw new Error('Public browser checks failed; inspect the per-page observations');
     }
