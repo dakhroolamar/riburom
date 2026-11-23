@@ -31,7 +31,7 @@ class Default(WorkerEntrypoint):
                     "X-Robots-Tag": "noindex, nofollow",
                 })
             if path.startswith("/static/"):
-                return await self.env.ASSETS.fetch(request.url)
+                return await self.env.ASSETS.fetch(request)
         return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
