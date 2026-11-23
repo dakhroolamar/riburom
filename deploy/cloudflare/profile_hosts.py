@@ -41,11 +41,11 @@ def one(url, protected, path, headers):
     except ValueError:
         return {"status": "invalid_response"}
     raw = headers.read_text(errors="replace")
-    timing = re.findall(r"^server-timing:\\s*(.+)$", raw, re.I | re.M)
+    timing = re.findall(r"^server-timing:\s*(.+)$", raw, re.I | re.M)
     if timing:
         for label, value in re.findall(r"(flask|sql);dur=([0-9.]+)", timing[-1]):
             row[label + "_ms"] = round(float(value))
-    sql_count = re.findall(r"^x-riburom-staging-sql-count:\\s*([0-9]+)", raw, re.I | re.M)
+    sql_count = re.findall(r"^x-riburom-staging-sql-count:\s*([0-9]+)", raw, re.I | re.M)
     if sql_count:
         row["sql_count"] = int(sql_count[-1])
     return row
