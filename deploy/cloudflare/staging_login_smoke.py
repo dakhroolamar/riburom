@@ -9,13 +9,15 @@ import subprocess
 import tempfile
 
 
-def fetch(url, *, secret, jar, output, fields=None):
+def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
     args = [
-        "curl", "--silent", "--show-error", "--location", "--max-time", "30",
+        "curl", "--silent", "--show-error", "--max-time", "30",
         "--user", "rehearsal:" + secret, "--user-agent", "curl/8.0",
         "--cookie", str(jar), "--cookie-jar", str(jar),
-        "--output", str(output), "--write-out", "%{http_code} %{url_effective}",
+        "--output", str(output), "--write-out", "%{http_code} %{redirect_url}",
     ]
+    if follow_redirects:
+        args.append("--location")
     if fields:
         # Flask-WTF checks the same-origin Referer for secure form POSTs.
         # Real browsers send this header; curl does not unless instructed.
@@ -27,7 +29,7 @@ def fetch(url, *, secret, jar, output, fields=None):
         raise AssertionError("Control Room HTTP client failed with curl code " + str(result.returncode))
     code, location = result.stdout.strip().split(" ", 1)
     body = output.read_text(encoding="utf-8", errors="replace")
-    if code != "200":
+    if code not in (("200",) if follow_redirects else ("302", "303")):
         title = re.search(r"<title>(.*?)</title>", body, re.IGNORECASE | re.DOTALL)
         raise AssertionError(
             f"Control Room request failed: HTTP {code}; "
@@ -52,6 +54,7 @@ def main():
         location, login_body = fetch(
             base + "/admin/login", secret=secret, jar=jar, output=output,
             fields={"username": "staging-owner", "password": secret, "csrf_token": token.group(1)},
+            follow_redirects=False,
         )
         if not location.startswith(base + "/workspace"):
             from urllib.parse import urlsplit
@@ -65,8 +68,8 @@ def main():
                 if marker.lower() in login_body.lower():
                     hints.append(marker)
             raise AssertionError(
-                "Staging sign-in did not reach workspace; "
-                + "final path=" + urlsplit(location).path
+                "Staging sign-in did not redirect toward workspace; "
+                + "redirect path=" + urlsplit(location).path
                 + "; known message=" + (", ".join(hints) if hints else "none")
             )
         _, content = fetch(base + "/workspace", secret=secret, jar=jar, output=output)
