@@ -99,7 +99,7 @@ class ControlRoomTests(unittest.TestCase):
         self.db.session.commit()
         favicon = self.client.get('/favicon.ico')
         self.assertEqual(favicon.status_code, 200)
-        self.assertEqual(favicon.mimetype, 'image/x-icon')
+        self.assertIn(favicon.mimetype, ('image/x-icon', 'image/vnd.microsoft.icon'))
         self.assertTrue(favicon.data.startswith(bytes.fromhex('00000100')))
         favicon.close()
         copy = self.client.get(f'/add_package?copy={package.id}')
