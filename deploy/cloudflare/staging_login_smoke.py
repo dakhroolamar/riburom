@@ -28,7 +28,9 @@ def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
     result = subprocess.run(args + [url], capture_output=True, text=True, timeout=35)
     if result.returncode != 0:
         raise AssertionError("Control Room HTTP client failed with curl code " + str(result.returncode))
-    code, location = result.stdout.strip().split(" ", 1)
+    # Preserve an empty redirect URL for normal 200 responses.
+    code, _, location = result.stdout.partition(" ")
+    code, location = code.strip(), location.strip()
     body = output.read_text(encoding="utf-8", errors="replace")
     if code not in (("200",) if follow_redirects else ("302", "303")):
         title = re.search(r"<title>(.*?)</title>", body, re.IGNORECASE | re.DOTALL)
