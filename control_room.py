@@ -495,14 +495,14 @@ def register_control_room(app):
             if user().role != 'owner':
                 abort(403)
             prefs = db.session.get(ControlPreference, 'notifications')
-            from notifications import delivery_preferences
+            from notifications import brevo_configured, delivery_preferences
             from models import NotificationOutbox
             context['delivery_counts'] = dict(db.session.query(NotificationOutbox.status, func.count(NotificationOutbox.id)).filter(NotificationOutbox.event_type == 'new_enquiry').group_by(NotificationOutbox.status).all())
             context['delivery_failures'] = NotificationOutbox.query.filter_by(event_type='new_enquiry', status='FAILED').order_by(NotificationOutbox.updated_at.desc()).limit(5).all()
             context['delivery_preferences'] = delivery_preferences()
             context.update(staff=User.query.order_by(User.full_name).all(),
                 audits=AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all(), notifications=json.loads(prefs.value_json) if prefs else {},
-                integrations=[('Email notifications', bool(os.getenv('BREVO_API_KEY'))), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
+                integrations=[('Email notifications', brevo_configured()), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
                               ('WhatsApp / SMS', bool(os.getenv('TWILIO_ACCOUNT_SID'))), ('IndexNow', bool(os.getenv('INDEXNOW_KEY')))],
                 permission_keys=__import__('models').ROLE_PERMISSIONS['owner'])
         if 'operation_packages' in context:

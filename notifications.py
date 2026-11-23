@@ -22,6 +22,8 @@ from sqlalchemy import and_, or_, update
 
 
 BREVO_EMAIL_API_URL = 'https://api.brevo.com/v3/smtp/email'
+BREVO_TOKEN_API_URL = 'https://api.brevo.com/realms/partner/oauth/token'
+BREVO_TRANSACTIONAL_SCOPE = 'transactional.email:write'
 OUTBOX_MAX_ATTEMPTS = 5
 OUTBOX_RETRY_BATCH = 25
 OUTBOX_LEASE_SECONDS = 120
@@ -58,11 +60,48 @@ def _recipient_phone(fallback=''):
 
 
 def _brevo_missing_config():
-    required = {
-        'BREVO_API_KEY': os.environ.get('BREVO_API_KEY'),
-        'BREVO_SENDER_EMAIL': os.environ.get('BREVO_SENDER_EMAIL'),
-    }
-    return [name for name, value in required.items() if not (value or '').strip()]
+    credentials = ('BREVO_CLIENT_ID', 'BREVO_CLIENT_SECRET') if _use_brevo_oauth() else ('BREVO_API_KEY',)
+    return [name for name in (*credentials, 'BREVO_SENDER_EMAIL') if not os.getenv(name, '').strip()]
+
+
+def _use_brevo_oauth():
+    return bool(os.getenv('BREVO_CLIENT_ID', '').strip() or os.getenv('BREVO_CLIENT_SECRET', '').strip())
+
+
+def brevo_configured():
+    return not _brevo_missing_config()
+
+
+def _brevo_http(request, *, read_body=False):
+    transport = current_app.config.get('BREVO_HTTP_TRANSPORT') if has_app_context() else None
+    if transport:
+        return transport(request, read_body=read_body)
+    with urlopen(request, timeout=10) as response:
+        return response.status, response.read(16_384) if read_body else None
+
+
+def _brevo_authorization():
+    if not _use_brevo_oauth():
+        return {'api-key': os.environ['BREVO_API_KEY'].strip()}
+
+    request = Request(
+        BREVO_TOKEN_API_URL,
+        data=urlencode({
+            'grant_type': 'client_credentials',
+            'client_id': os.environ['BREVO_CLIENT_ID'].strip(),
+            'client_secret': os.environ['BREVO_CLIENT_SECRET'].strip(),
+            'scope': BREVO_TRANSACTIONAL_SCOPE,
+        }).encode('ascii'),
+        headers={'accept': 'application/json', 'content-type': 'application/x-www-form-urlencoded'},
+        method='POST',
+    )
+    status, body = _brevo_http(request, read_body=True)
+    if status != 200:
+        raise HTTPError(BREVO_TOKEN_API_URL, status, 'Brevo token exchange failed', None, None)
+    token = json.loads(body)['access_token']
+    if not isinstance(token, str) or not token or any(char.isspace() for char in token):
+        raise ValueError('Brevo token response is invalid')
+    return {'Authorization': f'Bearer {token}'}
 
 
 def _brevo_send(subject, body, recipient):
@@ -86,13 +125,13 @@ def _brevo_send(subject, body, recipient):
         data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
         headers={
             'accept': 'application/json',
-            'api-key': os.environ['BREVO_API_KEY'].strip(),
             'content-type': 'application/json',
+            **_brevo_authorization(),
         },
         method='POST',
     )
-    with urlopen(request, timeout=10) as response:
-        return 200 <= response.status < 300
+    status, _ = _brevo_http(request)
+    return 200 <= status < 300
 
 
 def _twilio_send(from_number, body, to_number):

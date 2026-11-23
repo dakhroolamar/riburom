@@ -16,6 +16,16 @@ ALLOWED_VIDEO_MIMETYPES = {'video/mp4', 'video/webm', 'application/octet-stream'
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 PROTECTED_STATIC_FILES = {'default.jpg', 'logo.png', 'manifest.json', 'robots.txt', 'sw.js'}
+CLOUDINARY_STAGING_FOLDER = os.getenv('CLOUDINARY_STAGING_FOLDER', '').strip().strip('/')
+
+
+def _cloudinary_folder_options(subfolder=''):
+    root = CLOUDINARY_STAGING_FOLDER or 'riburom'
+    folder = '/'.join(filter(None, (root, subfolder)))
+    options = {'folder': folder}
+    if CLOUDINARY_STAGING_FOLDER:
+        options['overwrite'] = False
+    return options
 
 
 def _meaningful(value):
@@ -106,7 +116,7 @@ def save_image(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
         buf = io.BytesIO()
         image.save(buf, format=pillow_format, **save_kwargs)
         buf.seek(0)
-        result = cloudinary.uploader.upload(buf, resource_type='image', folder='riburom')
+        result = cloudinary.uploader.upload(buf, resource_type='image', **_cloudinary_folder_options())
         return result['secure_url']
 
     os.makedirs(upload_folder, exist_ok=True)
@@ -122,7 +132,7 @@ def save_generated_png(png_bytes, upload_folder=DEFAULT_UPLOAD_FOLDER):
         return None
     if USING_CLOUDINARY:
         buf = io.BytesIO(png_bytes)
-        result = cloudinary.uploader.upload(buf, resource_type='image', folder='riburom/generated')
+        result = cloudinary.uploader.upload(buf, resource_type='image', **_cloudinary_folder_options('generated'))
         return result['secure_url']
     os.makedirs(upload_folder, exist_ok=True)
     safe_name = f"{uuid.uuid4().hex}.png"
@@ -144,7 +154,7 @@ def save_pdf(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
 
     if USING_CLOUDINARY:
         result = cloudinary.uploader.upload(
-            file_storage, resource_type='raw', folder='riburom', format='pdf'
+            file_storage, resource_type='raw', format='pdf', **_cloudinary_folder_options()
         )
         return result['secure_url']
 
@@ -193,7 +203,7 @@ def save_video(file_storage, upload_folder=DEFAULT_UPLOAD_FOLDER):
         result = cloudinary.uploader.upload(
             file_storage,
             resource_type='video',
-            folder='riburom',
+            **_cloudinary_folder_options(),
         )
         return result['secure_url']
 
@@ -236,6 +246,8 @@ def delete_media(value):
                 return
             public_id = _cloudinary_public_id(value)
             if not public_id:
+                return
+            if CLOUDINARY_STAGING_FOLDER and not public_id.startswith(CLOUDINARY_STAGING_FOLDER + '/'):
                 return
             if '/video/upload/' in value:
                 resource_type = 'video'

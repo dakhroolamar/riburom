@@ -1,0 +1,70 @@
+name: Cloudflare application staging
+
+on:
+  push:
+    branches: [codex/cloudflare-free-hosting]
+    paths:
+      - '.github/workflows/cloudflare-application-staging.yml'
+      - '*.py'
+      - 'deploy/cloudflare/**'
+      - 'static/**'
+      - 'templates/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-application-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.CLOUDFLARE_APPLICATION_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: cloudflare-application-staging
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      STAGING_URL: https://riburom-application-staging.dakhroo.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Assemble the protected application Worker
+        env:
+          RIBUROM_STAGING_HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+        run: |
+          python deploy/cloudflare/build.py --application-staging --enable-staging-url
+          python -m pip install uv==0.13.9
+          npm install --prefix deploy/cloudflare/build --no-save --no-audit --no-fund wrangler@4.166.0
+          uv sync --directory deploy/cloudflare/build --python "$(cat .python-version)"
+
+      - name: Deploy using the application staging token
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          uv run --no-sync pywrangler deploy
+
+      - name: Check that anonymous requests are denied
+        run: |
+          for path in /healthz /static/control-room/ri-burom-mark.png; do
+            status=$(curl --silent --show-error --max-time 20 --retry 4 --output /dev/null \
+              --write-out '%{http_code}' "$STAGING_URL$path")
+            if [ "$status" != 401 ]; then
+              printf 'Expected 401 for %s, got %s\n' "$path" "$status"
+              exit 1
+            fi
+          done

@@ -11,7 +11,9 @@ _application = None
 PROVIDER_SETTINGS = (
     "SECRET_KEY", "ADMIN_PASSWORD_HASH", "PUBLIC_BASE_URL",
     "CLOUDINARY_URL", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
+    "CLOUDINARY_STAGING_FOLDER",
     "BREVO_API_KEY", "BREVO_SENDER_EMAIL", "BREVO_SENDER_NAME", "NOTIFICATION_EMAIL",
+    "BREVO_CLIENT_ID", "BREVO_CLIENT_SECRET",
     "INITIAL_OWNER_EMAIL", "INDEXNOW_KEY", "GOOGLE_SITE_VERIFICATION", "BING_SITE_VERIFICATION",
     "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_FROM", "TWILIO_FROM_NUMBER",
     "NOTIFICATION_PHONE", "WHATSAPP_PHONE",
@@ -47,6 +49,22 @@ def configure_application(env):
     )
 
 
+def worker_brevo_http(request, *, read_body=False):
+    from js import AbortSignal, Object, fetch
+    from pyodide.ffi import run_sync, to_js
+
+    options = to_js({
+        "method": request.get_method(),
+        "headers": dict(request.header_items()),
+        "body": request.data.decode("utf-8"),
+        "redirect": "manual",
+        "signal": AbortSignal.timeout(10_000),
+    }, dict_converter=Object.fromEntries)
+    response = run_sync(fetch(request.full_url, options))
+    body = run_sync(response.text()) if read_body and response.status == 200 else None
+    return response.status, body
+
+
 def get_application(env):
     global _application
     if _application is not None:
@@ -68,6 +86,9 @@ def get_application(env):
         hashlib.scrypt = worker_scrypt
 
     from wsgi import app
+
+    if env.RIBUROM_MODE == "application":
+        app.config["BREVO_HTTP_TRANSPORT"] = worker_brevo_http
 
     flask_wsgi = app.wsgi_app
 

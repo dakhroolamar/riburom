@@ -31,11 +31,8 @@ def outbox_status(sql):
 
 def fixture_status(sql):
     sql.exec("CREATE TABLE IF NOT EXISTS database_fixture (id INTEGER PRIMARY KEY CHECK (id = 1))")
-    sql.exec("CREATE TABLE IF NOT EXISTS mail_relay_fixture (id INTEGER PRIMARY KEY, verified INTEGER NOT NULL)")
     result = outbox_status(sql)
     result["postgres_verified"] = bool(sql.exec("SELECT count(*) AS count FROM database_fixture").one().count)
-    relay = sql.exec("SELECT verified FROM mail_relay_fixture WHERE id = 1").toArray()
-    result["brevo_smtp_tls_verified"] = bool(relay[0].verified) if len(relay) else None
     return result
 
 
@@ -55,24 +52,6 @@ def check_fixture_database(sql, connection):
             raise RuntimeError("Unexpected staging PostgreSQL readiness result")
     sql.exec("INSERT OR IGNORE INTO database_fixture (id) VALUES (1)")
     print("Isolated PostgreSQL readiness check passed")
-
-
-def check_fixture_mail_relay(sql):
-    from ssl import create_default_context
-    from smtplib import SMTP_SSL, SMTPException
-
-    import certifi
-
-    if fixture_status(sql)["brevo_smtp_tls_verified"] is not None:
-        return
-    try:
-        context = create_default_context(cafile=certifi.where())
-        with SMTP_SSL("smtp-relay.brevo.com", 465, timeout=6, context=context) as relay:
-            verified = relay.ehlo()[0] == 250
-    except (OSError, SMTPException) as exc:
-        print(f"Brevo TLS handshake failed: {type(exc).__name__}")
-        verified = False
-    sql.exec("INSERT OR IGNORE INTO mail_relay_fixture (id, verified) VALUES (1, ?)", int(verified))
 
 
 def process_fixture_outbox(sql):

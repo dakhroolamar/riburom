@@ -70,11 +70,10 @@ class FlaskApplication(DurableObject):
         app = get_application(self.env)
         with app.app_context():
             if self.env.RIBUROM_MODE == "fixture":
-                from worker_fixture import check_fixture_database, check_fixture_mail_relay, process_fixture_outbox
+                from worker_fixture import check_fixture_database, process_fixture_outbox
                 result = process_fixture_outbox(sql)
                 if connection := getattr(self.env, "HYPERDRIVE", None):
                     check_fixture_database(sql, connection)
-                check_fixture_mail_relay(sql)
             else:
                 from notifications import process_pending_notifications
                 result = process_pending_notifications(limit=2)

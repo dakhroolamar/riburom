@@ -1,14 +1,19 @@
 import json
 import os
 import unittest
+from urllib.parse import parse_qs
 from unittest.mock import patch
 
 import notifications
 
 
 class _FakeResponse:
-    def __init__(self, status=201):
+    def __init__(self, status=201, body=b''):
         self.status = status
+        self.body = body
+
+    def read(self, limit):
+        return self.body[:limit]
 
     def __enter__(self):
         return self
@@ -26,7 +31,8 @@ class BrevoTransportTests(unittest.TestCase):
         }
         self.patcher = patch.dict(os.environ, self.env, clear=False)
         self.patcher.start()
-        for key in ('SMTP_HOST', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM', 'SMTP_USE_TLS'):
+        for key in ('BREVO_CLIENT_ID', 'BREVO_CLIENT_SECRET', 'SMTP_HOST', 'SMTP_PORT',
+                    'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM', 'SMTP_USE_TLS'):
             os.environ.pop(key, None)
 
     def tearDown(self):
@@ -72,6 +78,31 @@ class BrevoTransportTests(unittest.TestCase):
     def test_non_success_brevo_response_is_not_reported_as_sent(self):
         with patch.object(notifications, 'urlopen', return_value=_FakeResponse(500)):
             self.assertFalse(notifications._brevo_send('Subject', 'Body', 'visitor@example.com'))
+
+    def test_brevo_oauth_requests_a_scoped_token_and_uses_it_for_delivery(self):
+        with patch.dict(os.environ, {'BREVO_CLIENT_ID': 'test-client', 'BREVO_CLIENT_SECRET': 'test-secret'}), \
+                patch.object(notifications, 'urlopen', side_effect=[
+                    _FakeResponse(200, b'{"access_token":"test-token"}'), _FakeResponse(201),
+                ]) as api:
+            self.assertTrue(notifications._brevo_send('Test', 'Café', 'visitor@example.com'))
+
+        token_request, email_request = (call.args[0] for call in api.call_args_list)
+        self.assertEqual(token_request.full_url, notifications.BREVO_TOKEN_API_URL)
+        self.assertEqual(parse_qs(token_request.data.decode('ascii')), {
+            'client_id': ['test-client'], 'client_secret': ['test-secret'],
+            'grant_type': ['client_credentials'], 'scope': ['transactional.email:write'],
+        })
+        self.assertEqual(email_request.full_url, notifications.BREVO_EMAIL_API_URL)
+        self.assertEqual(email_request.get_header('Authorization'), 'Bearer test-token')
+        self.assertIsNone(email_request.get_header('Api-key'))
+        self.assertEqual(json.loads(email_request.data)['textContent'], 'Café')
+
+    def test_partial_oauth_config_does_not_fall_back_to_api(self):
+        with patch.dict(os.environ, {'BREVO_CLIENT_ID': 'test-client'}), \
+                patch.object(notifications, 'urlopen') as api:
+            self.assertEqual(notifications._brevo_missing_config(), ['BREVO_CLIENT_SECRET'])
+            self.assertFalse(notifications._brevo_send('Test', 'Body', 'visitor@example.com'))
+            api.assert_not_called()
 
     def test_recipient_fallback_is_preserved(self):
         os.environ['INITIAL_OWNER_EMAIL'] = 'owner@example.com'
