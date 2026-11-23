@@ -36,7 +36,8 @@ class Default(WorkerEntrypoint):
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
             try:
-                return await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
+                result = await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
+                return Response.json(result)
             except Exception as exc:
                 # Staging-only diagnostic: no database details, configuration or secrets.
                 return Response.json(
@@ -80,7 +81,7 @@ class FlaskApplication(DurableObject):
             and self.env.RIBUROM_HOST == "riburom-application-staging.dakhroo.workers.dev"
             and self.env.RIBUROM_STAGING_ACCESS_REQUIRED == "true"
         ):
-            return Response("Unavailable", status=404)
+            return {"status": "unavailable"}
         try:
             from staging_setup import initialize_staging
             from worker_runtime import get_application
@@ -88,13 +89,10 @@ class FlaskApplication(DurableObject):
             payload, status = initialize_staging(
                 get_application(self.env), self.env.RIBUROM_STAGING_ACCESS_TOKEN
             )
-            return Response.json(payload, status=status)
+            return {**payload, "setup_http_status": status}
         except Exception as exc:
             # Do not include exception strings or credentials in HTTP responses.
-            return Response.json(
-                {"status": "bootstrap_failed", "exception": type(exc).__name__},
-                status=503,
-            )
+            return {"status": "bootstrap_failed", "exception": type(exc).__name__}
 
     async def run_outbox(self):
         from worker_runtime import get_application
