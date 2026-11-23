@@ -95,7 +95,7 @@
                 <article data-reveal class="rb-card rb-paper-card rb-experience-card flex flex-col">
                     {% set package_cover = covers.get('tour-' ~ pkg.id, pkg.image_file|imgsrc) %}
                     {% if package_cover %}<a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
-                        <img class="rb-card-media" src="{{ package_cover }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
+                        <img class="rb-card-media" src="{{ package_cover }}" {% set card_srcset = cms_card_srcset(package_cover) if cms_card_srcset is defined else '' %}{% if card_srcset %}srcset="{{ card_srcset }}" sizes="(min-width: 768px) 32vw, calc(100vw - 3rem)"{% endif %} alt="{{ pkg.title }}" loading="lazy" decoding="async">
                     </a>{% endif %}
                     <div class="p-6 flex-grow">
                         <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">

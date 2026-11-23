@@ -75,6 +75,27 @@ def landscape_srcset(path):
     return ', '.join(f'{delivery(path, width)} {width}w' for width in (480, 800, 1440, 1920))
 
 
+def card_srcset(path):
+    """Small, width-limited tour-card images without rewriting signed URLs.
+
+    Existing CMS collection covers are delivered as our known 800px Cloudinary
+    variant; remove *only that exact variant* before building the srcset.
+    Other transformations, remote hosts, query strings and signed URLs are
+    returned untouched by templates via their original src attribute.
+    """
+    if not path:
+        return ''
+    url = re.sub(
+        r'(/image/upload/)f_auto,q_auto,w_800,c_limit/',
+        r'\1', imgsrc(path), count=1,
+    )
+    if not re.fullmatch(
+        r'https://res\.cloudinary\.com/[\w-]+/image/upload/v\d+/[^?#\s,]+', url
+    ):
+        return ''
+    return ', '.join(f'{delivery(url, width)} {width}w' for width in (360, 640))
+
+
 def public_collections(keys):
     rows = MediaCollection.query.options(joinedload(MediaCollection.items)).filter(
         MediaCollection.key.in_(keys)
@@ -205,7 +226,7 @@ def register_cms_pages(app):
 
     app.config.setdefault('CMS_COLLECTION_LIMIT', 10)
     app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_covers=tour_covers,
-                                 cms_landscape_srcset=landscape_srcset, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
+                                 cms_landscape_srcset=landscape_srcset, cms_card_srcset=card_srcset, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
 
     @app.route('/workspace/pages')
     @app.route('/workspace/pages/<page>')
