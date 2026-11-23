@@ -173,6 +173,21 @@ jobs:
         run: |
           python deploy/cloudflare/staging_login_smoke.py
 
+      - name: Profile public routes and staging SQL time
+        if: ${{ !cancelled() }}
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: python deploy/cloudflare/profile_hosts.py
+
+      - name: Upload baseline performance profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riburom-performance-profile
+          path: ${{ runner.temp }}/riburom-profile.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Compare public Render and Cloudflare response times (read only)
         if: ${{ always() && vars.RIBUROM_BENCHMARK_ENABLED == 'true' }}
         env:
