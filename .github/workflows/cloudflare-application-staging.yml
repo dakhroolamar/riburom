@@ -101,6 +101,35 @@ jobs:
             exit 1
           fi
 
+      - name: Initialize isolated staging Owner and demonstration tours
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          test -n "$STAGING_ACCESS_PASSWORD"
+          status=$(curl --silent --show-error --max-time 30 --retry 2 \
+            --user "rehearsal:$STAGING_ACCESS_PASSWORD" --request POST \
+            --output "$RUNNER_TEMP/riburom-staging-init.json" \
+            --write-out '%{http_code}' "$STAGING_URL/__staging/bootstrap")
+          if [ "$status" != 200 ]; then
+            printf 'Staging-only bootstrap failed: HTTP %s\n' "$status"
+            cat "$RUNNER_TEMP/riburom-staging-init.json"
+            exit 1
+          fi
+          python -c 'import json,sys; data=json.load(open(sys.argv[1])); assert data["status"] in ("initialized","already_initialized"), data; print("Staging data:", data["status"])' \
+            "$RUNNER_TEMP/riburom-staging-init.json"
+
+      - name: Verify staging Control Room login and session
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          python deploy/cloudflare/staging_login_smoke.py
+
+      - name: Compare public Render and Cloudflare response times (read only)
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          python deploy/cloudflare/compare_hosts.py
+
       - name: Smoke-test protected public pages and static media
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
@@ -130,3 +159,12 @@ jobs:
             echo "::error::Staging static brand asset failed."
             exit 1
           fi
+
+      - name: Save latency comparison report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riburom-host-comparison
+          path: ${{ runner.temp }}/riburom-host-comparison.json
+          if-no-files-found: ignore
+          retention-days: 7
