@@ -58,6 +58,20 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           uv run --no-sync pywrangler deploy
 
+      - name: Install staging access password when provided by GitHub
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          if [ -n "$STAGING_ACCESS_PASSWORD" ]; then
+            printf '%s' "$STAGING_ACCESS_PASSWORD" |
+              ./node_modules/.bin/wrangler secret put RIBUROM_STAGING_ACCESS_TOKEN --name riburom-application-staging
+          else
+            echo "No GitHub staging password provided; checking for a previously configured Cloudflare secret."
+          fi
+
       - name: Check that anonymous requests are denied
         run: |
           for path in /healthz /static/control-room/ri-burom-mark.png; do
@@ -65,6 +79,24 @@ jobs:
               --write-out '%{http_code}' "$STAGING_URL$path")
             if [ "$status" != 401 ]; then
               printf 'Expected 401 for %s, got %s\n' "$path" "$status"
+              if [ "$status" = 404 ]; then
+                echo "::error::Check that RIBUROM_STAGING_ACCESS_TOKEN exists on the application staging Worker. Set it in Cloudflare, or set the same named GitHub environment secret for automatic provisioning."
+              fi
               exit 1
             fi
           done
+
+      - name: Verify authenticated application readiness when possible
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$STAGING_ACCESS_PASSWORD" ]; then
+            echo "Authenticated check skipped: staging password is stored only in Cloudflare."
+            exit 0
+          fi
+          status=$(curl --silent --show-error --max-time 30 --retry 3 --output /dev/null \
+            --write-out '%{http_code}' --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
+          if [ "$status" != 200 ]; then
+            printf 'Authenticated /readyz expected 200, got %s\n' "$status"
+            exit 1
+          fi
