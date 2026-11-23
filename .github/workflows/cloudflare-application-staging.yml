@@ -125,6 +125,7 @@ jobs:
           python deploy/cloudflare/staging_login_smoke.py
 
       - name: Compare public Render and Cloudflare response times (read only)
+        if: always()
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: |
