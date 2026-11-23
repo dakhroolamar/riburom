@@ -34,7 +34,7 @@ def initialize_staging(app, password):
             username="staging-owner",
             full_name="Staging Demo Owner",
             password_hash=generate_password_hash(
-                password, method="pbkdf2:sha256:260000"
+                password, method="scrypt:16384:8:1"
             ),
             role="owner",
             is_active=True,
