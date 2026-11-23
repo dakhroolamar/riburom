@@ -47,6 +47,10 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               new PerformanceObserver(list => {
                 for (const item of list.getEntries()) {
                   window.__riburomQA.lcp = item.startTime;
+                  window.__riburomQA.lcpElement = item.element
+                    ? {tag:item.element.tagName, className:String(item.element.className||'').slice(0,100)}
+                    : null;
+                  window.__riburomQA.lcpUrl = item.url ? new URL(item.url).hostname : null;
                 }
               }).observe({type:'largest-contentful-paint', buffered:true});
               new PerformanceObserver(list => {
@@ -67,7 +71,11 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               bodyCharacters:document.body?.innerText?.length||0,
               visibleTourHeadings:document.body?.innerText||'',
               lcpMs:Math.round(window.__riburomQA?.lcp||0),
+              lcpElement:window.__riburomQA?.lcpElement||null,
+              lcpHost:window.__riburomQA?.lcpUrl||null,
               cls:Number((window.__riburomQA?.cls||0).toFixed(4)),
+              staticResourceCount:performance.getEntriesByType('resource').filter(e=>e.initiatorType==='img').length,
+              slowestImageMs:Math.round(Math.max(0,...performance.getEntriesByType('resource').filter(e=>e.initiatorType==='img').map(e=>e.duration))),
               domContentLoadedMs:nav?Math.round(nav.domContentLoadedEventEnd):null,
               resourceRequests:performance.getEntriesByType('resource').length,
               brokenLoadedImages:[...document.images].filter(img=>img.complete && !img.naturalWidth).length,
@@ -83,7 +91,9 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             device:device.key,host:target.key,route,
             httpStatus:response?.status()||0,
             navigationWallMs:Date.now()-started,
-            lcpMs:result.lcpMs,cls:result.cls,
+            lcpMs:result.lcpMs,lcpElement:result.lcpElement,lcpHost:result.lcpHost,
+            slowestImageMs:result.slowestImageMs,staticResourceCount:result.staticResourceCount,
+            cls:result.cls,
             domContentLoadedMs:result.domContentLoadedMs,
             bodyCharacters:result.bodyCharacters,resourceRequests:result.resourceRequests,
             brokenLoadedImages:result.brokenLoadedImages,
