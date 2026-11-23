@@ -11,25 +11,25 @@ import statistics
 import subprocess
 
 
-PATHS = ("/", "/all_tours", "/about", "/marketplace")
+PATHS = ("/", "/all_tours", "/about")
 TARGETS = (
     ("Render public website", "https://riburomtours.com", False),
     ("Cloudflare staging", "https://riburom-application-staging.dakhroo.workers.dev", True),
 )
-REPETITIONS = 5
+REPETITIONS = 4
 
 
 def request(base, path, protected=False):
     args = [
         "curl", "--silent", "--show-error", "--location",
-        "--max-time", "16", "--output", os.devnull,
+        "--max-time", "12", "--output", os.devnull,
         "--write-out", "%{http_code} %{time_starttransfer} %{time_total}",
     ]
     if protected:
         args.extend(["--user", "rehearsal:" + os.environ["STAGING_ACCESS_PASSWORD"]])
     args.append(base + path)
     try:
-        outcome = subprocess.run(args, text=True, capture_output=True, timeout=20, check=False)
+        outcome = subprocess.run(args, text=True, capture_output=True, timeout=16, check=False)
         if outcome.returncode:
             return {"status": "network_error", "code": outcome.returncode}
         code, ttfb, total = outcome.stdout.strip().split()
@@ -57,7 +57,7 @@ def summarize(records):
 
 def main():
     report = {
-        "method": "Five sequential HTTP GETs per public route from a GitHub-hosted runner; not a browser UX test",
+        "method": "Four sequential HTTP GETs per public route from a GitHub-hosted runner; not a browser UX test",
         "limitations": [
             "Runner geography may differ from actual visitors",
             "Staging uses isolated synthetic data; Render uses live production content",
