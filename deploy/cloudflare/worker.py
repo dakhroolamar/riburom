@@ -36,6 +36,7 @@ class Default(WorkerEntrypoint):
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
             return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
+        return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
         if self.env.OUTBOX_SCHEDULED == "true":
