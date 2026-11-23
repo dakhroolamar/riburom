@@ -94,7 +94,8 @@ jobs:
             echo "Authenticated check skipped: staging password is stored only in Cloudflare."
             exit 0
           fi
-          status=$(curl --silent --show-error --max-time 30 --retry 3 --output /dev/null \
+          status=$(curl --silent --show-error --max-time 30 --retry 3 \
+            --output "$RUNNER_TEMP/riburom-readyz.txt" \
             --write-out '%{http_code}' --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
           if [ "$status" != 200 ]; then
             printf 'Authenticated /readyz expected 200, got %s\n' "$status"
@@ -102,6 +103,7 @@ jobs:
           fi
 
       - name: Initialize isolated staging Owner and demonstration tours
+        if: ${{ !cancelled() }}
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: |
@@ -150,6 +152,7 @@ jobs:
           fi
 
       - name: Verify staging Control Room login and session
+        if: ${{ !cancelled() }}
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: |
