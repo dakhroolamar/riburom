@@ -1,0 +1,62 @@
+from urllib.parse import urlsplit
+
+from workers import DurableObject, Response, WorkerEntrypoint, wsgi
+
+
+APP_INSTANCE = "web"
+FIXTURE_ROUTES = {"/", "/healthz", "/readyz", "/favicon.ico", "/__staging/outbox"}
+
+
+class Default(WorkerEntrypoint):
+    async def fetch(self, request):
+        path = urlsplit(request.url).path
+        mode = self.env.RIBUROM_MODE
+        if mode == "fixture":
+            if request.method != "GET" or path not in FIXTURE_ROUTES:
+                return Response("Preview route unavailable", status=404)
+        elif mode != "application" or urlsplit(request.url).hostname != self.env.RIBUROM_HOST:
+            return Response("Unknown site", status=404)
+        return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
+
+    async def scheduled(self, controller, env, ctx):
+        if self.env.OUTBOX_SCHEDULED == "true":
+            await self.env.FLASK_APP.getByName(APP_INSTANCE).run_outbox()
+
+
+class FlaskApplication(DurableObject):
+    def __init__(self, ctx, env):
+        super().__init__(ctx, env)
+        self.ctx.storage.sql.exec(
+            "CREATE TABLE IF NOT EXISTS rate_limits "
+            "(key TEXT PRIMARY KEY, hits INTEGER NOT NULL, expires INTEGER NOT NULL)"
+        )
+        self.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits (expires)")
+
+    async def fetch(self, request):
+        from worker_runtime import get_application
+        from durable_rate_limits import request_sql
+
+        app = get_application(self.env)
+        token = request_sql.set(self.ctx.storage.sql)
+        try:
+            if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
+                from worker_fixture import outbox_status
+                return Response.json(outbox_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
+            return await wsgi.fetch(app, request, self.env)
+        finally:
+            request_sql.reset(token)
+
+    async def run_outbox(self):
+        from worker_runtime import get_application
+
+        sql = self.ctx.storage.sql
+        sql.exec("DELETE FROM rate_limits WHERE expires <= unixepoch()")
+        app = get_application(self.env)
+        with app.app_context():
+            if self.env.RIBUROM_MODE == "fixture":
+                from worker_fixture import process_fixture_outbox
+                result = process_fixture_outbox(sql)
+            else:
+                from notifications import process_pending_notifications
+                result = process_pending_notifications(limit=2)
+        print(f"Outbox processed: sent={result['sent']} failed={result['failed']} skipped={result['skipped']}")

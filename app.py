@@ -117,6 +117,13 @@ else:
     database_url = 'sqlite:///' + os.path.join(BASE_DIR, 'riburom.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+if os.environ.get('RIBUROM_HYPERDRIVE') == '1':
+    from sqlalchemy.pool import NullPool
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'poolclass': NullPool,
+        'hide_parameters': True,
+        'connect_args': {'ssl_context': False, 'timeout': 5},
+    }
 
 db.init_app(app)
 Migrate(app, db)

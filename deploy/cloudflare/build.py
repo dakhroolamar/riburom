@@ -1,0 +1,43 @@
+"""Assemble the Worker and tracked Flask sources into an isolated Wrangler project."""
+
+import argparse
+from pathlib import Path
+import shutil
+import subprocess
+
+
+BASE = Path(__file__).resolve().parent
+ROOT = BASE.parents[1]
+
+
+def copy(source, destination):
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=BASE / "build")
+    build = parser.parse_args().output.resolve()
+    if build.exists() and any(build.iterdir()):
+        raise SystemExit(f"Build directory must be empty: {build}")
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "*.py", "templates", "static"], cwd=ROOT
+    ).decode().split("\0")
+    for name in filter(None, tracked):
+        source = ROOT / name
+        if name.startswith("static/"):
+            copy(source, build / "public" / name)
+        elif name.startswith("templates/") or ("/" not in name and name.endswith(".py")):
+            copy(source, build / "src" / name)
+    for name in ("sw.js", "robots.txt", "control-room/favicon.ico", "control-room/ri-burom-mark.png"):
+        copy(ROOT / "static" / name, build / "src" / "static" / name)
+    for name in ("worker.py", "worker_runtime.py", "worker_fixture.py", "durable_rate_limits.py"):
+        copy(BASE / name, build / "src" / name)
+    for name in ("pyproject.toml", "wrangler.jsonc"):
+        copy(BASE / name, build / name)
+    print(f"Assembled synthetic Worker project at {build}")
+
+
+if __name__ == "__main__":
+    main()

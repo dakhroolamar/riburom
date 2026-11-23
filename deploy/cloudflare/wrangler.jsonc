@@ -1,0 +1,19 @@
+{
+  "name": "riburom-free-compatibility-probe",
+  "main": "src/worker.py",
+  "compatibility_date": "2026-11-23",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {"directory": "./public"},
+  "rules": [
+    {"type": "Data", "globs": ["**/*.png", "**/*.ico"], "fallthrough": true},
+    {"type": "Text", "globs": ["**/static/*.js", "**/static/*.txt"], "fallthrough": true}
+  ],
+  "durable_objects": {
+    "bindings": [{"name": "FLASK_APP", "class_name": "FlaskApplication"}]
+  },
+  "migrations": [{"tag": "probe-v1", "new_sqlite_classes": ["FlaskApplication"]}],
+  "vars": {"RIBUROM_MODE": "fixture", "OUTBOX_SCHEDULED": "true"},
+  "triggers": {"crons": ["*/2 * * * *"]}
+}
