@@ -46,6 +46,7 @@ def configure_application(env):
     os.environ.update(
         APP_ENV="production", DATABASE_URL=database.render_as_string(hide_password=False),
         RIBUROM_HYPERDRIVE="1",
+        RIBUROM_READ_ONLY=getattr(env, "RIBUROM_READ_ONLY", "false"),
     )
 
 
