@@ -48,6 +48,13 @@ jobs:
           npm install --prefix deploy/cloudflare/build --no-save --no-audit --no-fund wrangler@4.166.0
           uv sync --directory deploy/cloudflare/build --python "$(cat .python-version)"
 
+      - name: Record prior staging resource usage
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+        run: python deploy/cloudflare/staging_usage.py
+
       - name: Deploy using the application staging token
         working-directory: deploy/cloudflare/build
         env:
@@ -95,9 +102,11 @@ jobs:
             exit 0
           fi
           status=$(curl --silent --show-error --max-time 30 --retry 3 \
-            --output "$RUNNER_TEMP/riburom-readyz.txt" \
-            --write-out '%{http_code}' --retry-all-errors --retry-delay 1 --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
-          if [ "$status" != 200 ]; then
+            --dump-header "$RUNNER_TEMP/ready-headers" --output "$RUNNER_TEMP/riburom-readyz.txt" \
+            --write-out '%{http_code} %{time_total}' --retry-all-errors --retry-delay 1 --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
+          printf 'First authenticated readiness probe (HTTP, seconds): %s\n' "$status"
+          grep -i '^x-riburom-staging-first-request:' "$RUNNER_TEMP/ready-headers" || true
+          if [ "${status%% *}" != 200 ]; then
             printf 'Authenticated /readyz expected 200, got %s\n' "$status"
             exit 1
           fi
@@ -181,6 +190,8 @@ jobs:
             test "$status" = 200
             if grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-cache-header"; then
               hits=$((hits+1))
+              grep -qi '^cache-control:.*no-store' "$RUNNER_TEMP/riburom-cache-header"
+              if grep -qi '^x-riburom-staging-sql-count:' "$RUNNER_TEMP/riburom-cache-header"; then exit 1; fi
             fi
           done
           printf 'Public tours cache hits: %s/4\n' "$hits"
@@ -194,7 +205,13 @@ jobs:
             --output "$RUNNER_TEMP/riburom-home-body" \
             --write-out '%{http_code}' "$STAGING_URL/")
           test "$status" = 200
-          ! grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-home-header"
+          if grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-home-header"; then exit 1; fi
+          status=$(curl --silent --show-error --max-time 25 --cookie 'ri_cache_check=1' \
+            --user "rehearsal:$STAGING_ACCESS_PASSWORD" --dump-header "$RUNNER_TEMP/riburom-cookie-header" \
+            --output /dev/null --write-out '%{http_code}' "$STAGING_URL/all_tours")
+          test "$status" = 200
+          if grep -qi '^x-riburom-cache: HIT' "$RUNNER_TEMP/riburom-cookie-header"; then exit 1; fi
+          grep -qi '^x-riburom-staging-sql-count: [1-9]' "$RUNNER_TEMP/riburom-cookie-header"
           echo "Homepage CSRF form is never served from the public page cache."
 
       - name: Verify staging Control Room login and session

@@ -74,6 +74,8 @@ def install_staging_timing(app):
     from sqlalchemy import event
     from sqlalchemy.engine import Engine
 
+    first_profiled_request = True
+
     def profiled():
         return (
             has_request_context()
@@ -82,7 +84,10 @@ def install_staging_timing(app):
 
     @app.before_request
     def _start_staging_profile():
+        nonlocal first_profiled_request
         if profiled():
+            g._ri_first = first_profiled_request
+            first_profiled_request = False
             g._ri_started = perf_counter()
             g._ri_sql_ms = 0.0
             g._ri_sql_count = 0
@@ -103,6 +108,7 @@ def install_staging_timing(app):
     def _send_staging_profile(response):
         if profiled() and hasattr(g, "_ri_started"):
             elapsed_ms = (perf_counter() - g._ri_started) * 1000.0
+            response.headers["X-Riburom-Staging-First-Request"] = str(int(g._ri_first))
             response.headers["Server-Timing"] = (
                 f"flask;dur={elapsed_ms:.1f}, "
                 f"sql;dur={g._ri_sql_ms:.1f}"

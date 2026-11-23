@@ -137,10 +137,10 @@
         <p class="text-sm text-gray-500 mb-5">Provided by {{ provider.name }}</p>
         {% set gallery = service.images|list %}
         {% if not gallery and service.image_url %}
-            <div class="mb-5 rounded-xl overflow-hidden bg-gray-100 aspect-[16/9]"><img src="{{ service.image_url|imgsrc }}" alt="{{ service.name|e }}" class="marketplace-gallery-image"></div>
+            <div class="mb-5 rounded-xl overflow-hidden bg-gray-100 aspect-[16/9]"><img loading="lazy" decoding="async" src="{{ service.image_url|imgsrc }}" alt="{{ service.name|e }}" class="marketplace-gallery-image"></div>
         {% elif gallery %}
-            <div class="mb-4 rounded-xl overflow-hidden bg-gray-100 aspect-[16/9]"><img src="{{ gallery[0].image_url|imgsrc }}" alt="{{ gallery[0].alt_text or service.name|e }}" class="marketplace-gallery-image" data-gallery-main="{{ service.id }}"></div>
-            {% if gallery|length > 1 %}<div class="flex gap-2 overflow-x-auto mb-5">{% for image in gallery %}<button type="button" data-gallery-thumb="{{ service.id }}" data-gallery-url="{{ image.image_url|imgsrc|e }}"><img src="{{ image.image_url|imgsrc }}" alt="{{ image.alt_text or service.name|e }}" class="marketplace-gallery-thumb{% if loop.first %} active{% endif %}"></button>{% endfor %}</div>{% endif %}
+            <div class="mb-4 rounded-xl overflow-hidden bg-gray-100 aspect-[16/9]"><img loading="lazy" decoding="async" src="{{ gallery[0].image_url|imgsrc }}" alt="{{ gallery[0].alt_text or service.name|e }}" class="marketplace-gallery-image" data-gallery-main="{{ service.id }}"></div>
+            {% if gallery|length > 1 %}<div class="flex gap-2 overflow-x-auto mb-5">{% for image in gallery %}<button type="button" data-gallery-thumb="{{ service.id }}" data-gallery-url="{{ image.image_url|imgsrc|e }}"><img loading="lazy" decoding="async" src="{{ image.image_url|imgsrc }}" alt="{{ image.alt_text or service.name|e }}" class="marketplace-gallery-thumb{% if loop.first %} active{% endif %}"></button>{% endfor %}</div>{% endif %}
         {% endif %}
         {% if service.description %}<p class="text-gray-600 leading-relaxed mb-5 whitespace-pre-line">{{ service.description }}</p>{% endif %}
         <div class="flex flex-col sm:flex-row gap-3">

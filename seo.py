@@ -198,9 +198,7 @@ def _page_metadata(endpoint):
             ("Home", SEO_BASE_URL + "/"),
             ("Tours & Experiences", canonical),
         ]
-        packages = Package.query.filter_by(published=True).order_by(
-            Package.sort_order.asc(), Package.id.asc()
-        ).all()
+        packages = sorted(g.seo_packages, key=lambda pkg: (pkg.sort_order, pkg.id))
         if packages:
             item_list_id = canonical + "#experiences"
             main_entity = {"@id": item_list_id}
@@ -269,10 +267,7 @@ def _page_metadata(endpoint):
             ("Home", SEO_BASE_URL + "/"),
             ("Marketplace", canonical),
         ]
-        providers = Provider.query.filter(
-            Provider.is_active.is_(True),
-            Provider.status.in_(PUBLIC_PROVIDER_STATUSES),
-        ).order_by(Provider.id.asc()).all()
+        providers = sorted(g.seo_providers, key=lambda provider: provider.id)
         if providers:
             item_list_id = canonical + "#providers"
             main_entity = {"@id": item_list_id}

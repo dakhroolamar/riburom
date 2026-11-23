@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="089Id0LC5YsQeLBPDnBq9LA7MSHMMwf3CfzHovsqdVs">
+    {% set landscape = hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') %}
+    {% set landscape_sizes = cms_landscape_srcset(hero_image) if cms_landscape_srcset is defined else '' %}
+    {% if public.home.visibility.hero and home_order_index.hero == 0 %}
+    <link rel="preload" as="image" href="{{ landscape }}" {% if landscape_sizes %}imagesrcset="{{ landscape_sizes }}" imagesizes="100vw"{% endif %} fetchpriority="high">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ri-burom-compiled.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customer-reviews.css') }}">
     <script src="{{ url_for('static',filename='js/customer-reviews.js') }}" defer></script>
@@ -33,7 +38,7 @@
         {% set gallery_images = cms_collection_media('hero', false) %}
         {% if gallery_images %}<div class="cms-hero-gallery">{% set gallery_label = 'Hero photographs' %}{% set gallery_eager = true %}{% set gallery_key = 'hero' %}{% include '_cms_gallery.html' %}</div>{% endif %}
         <div class="rb-paper-landscape rb-reference-landscape">
-            <img class="rb-home-landscape-photo" src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="{% if hero_image %}Meghalaya landscape featured by RI BUROM{% else %}A lush landscape and waterfall{% endif %}" fetchpriority="high" decoding="async">
+            <img class="rb-home-landscape-photo" src="{{ landscape }}" {% if landscape_sizes %}srcset="{{ landscape_sizes }}" sizes="100vw"{% endif %} alt="{% if hero_image %}Meghalaya landscape featured by RI BUROM{% else %}A lush landscape and waterfall{% endif %}" fetchpriority="high" decoding="async">
         </div>
     </header>
         {% set river_design = cms_gallery_settings('home_gallery') %}
@@ -55,7 +60,7 @@
     <section id="rb-home-about" style="order:{{ home_order_index.about }};" class="rb-story">
       <div class="rb-story-grid">
         <div class="rb-story-art rb-about-gallery-host" data-rb-about-gallery>
-            <div class="rb-about-gallery-fallback" data-rb-about-gallery-fallback><img src="{{ hero_image|imgsrc if hero_image else url_for('static', filename='control-room/login-landscape.png') }}" alt="Landscape featured by RI BUROM" loading="lazy" decoding="async"></div>
+            <div class="rb-about-gallery-fallback" data-rb-about-gallery-fallback><img src="{{ landscape }}" {% if landscape_sizes %}srcset="{{ landscape_sizes }}" sizes="100vw"{% endif %} alt="Landscape featured by RI BUROM" loading="lazy" decoding="async"></div>
             <div class="rb-about-flip" data-rb-about-flip hidden>
                 <div class="rb-about-flip-page" data-rb-about-flip-page><img alt="RI BUROM Meghalaya travel gallery" loading="lazy" decoding="async"></div>
                 <span class="rb-about-flip-counter" data-rb-about-counter aria-live="polite"></span>
@@ -85,9 +90,10 @@
         </div>
         <div class="rb-experience-shell" data-rb-rail-shell>
             <div class="rb-experience-rail rb-stagger" data-rb-rail-track aria-label="Signature Experiences">
+                {% set covers = cms_tour_covers(packages) if cms_tour_covers is defined else {} %}
                 {% for pkg in packages %}
                 <article data-reveal class="rb-card rb-paper-card rb-experience-card flex flex-col">
-                    {% set package_cover = cms_tour_cover(pkg) %}
+                    {% set package_cover = covers.get('tour-' ~ pkg.id, pkg.image_file|imgsrc) %}
                     {% if package_cover %}<a href="{{ url_for('tour_detail', slug=pkg.slug) }}" aria-label="View {{ pkg.title }}">
                         <img class="rb-card-media" src="{{ package_cover }}" alt="{{ pkg.title }}" loading="lazy" decoding="async">
                     </a>{% endif %}

@@ -64,8 +64,9 @@ def register_section_backgrounds(flask_app):
         cfg = get_public_config(settings)
         sections = cfg.get('theme', {}).get('sections') or {}
         galleries = _get_galleries(settings)
-        from cms_pages import collection_media
-        media_details = {key: collection_media(key) for key in GALLERY_LABELS}
+        from cms_pages import collection_media, public_collections
+        collections = public_collections(GALLERY_LABELS)
+        media_details = {key: collection_media(key, collections=collections) for key in GALLERY_LABELS}
         for key, items in media_details.items():
             if items:
                 galleries[key] = [item['src'] for item in items]

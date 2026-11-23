@@ -18,7 +18,7 @@ from flask import (
     stream_with_context, send_file,
 )
 from sqlalchemy import inspect, func, desc, text
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, load_only, selectinload
 from sqlalchemy.orm.exc import StaleDataError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -303,6 +303,18 @@ def get_site_settings():
     if has_request_context():
         g._ri_burom_site_settings = settings
     return settings
+
+
+def public_settings_and_about():
+    # Both pages render these singleton records. Keep the settings instance
+    # available to the existing request-scoped template and SEO helpers.
+    row = db.session.query(SiteSettings, AboutContent).outerjoin(
+        AboutContent, AboutContent.id == 1
+    ).filter(SiteSettings.id == 1).one_or_none()
+    if row is None:
+        return get_site_settings(), db.session.get(AboutContent, 1)
+    g._ri_burom_site_settings = row[0]
+    return row
 
 
 def valid_external_url(value: str | None) -> bool:
@@ -688,17 +700,25 @@ def readyz():
 # ------------------------------------------------------------
 # Public routes
 # ------------------------------------------------------------
+def public_tour_cards():
+    # Large itinerary and inclusion text is only rendered on the detail page.
+    return Package.query.options(load_only(
+        Package.id, Package.title, Package.slug, Package.description, Package.location,
+        Package.category, Package.duration, Package.price, Package.image_file,
+        Package.sort_order, Package.featured,
+    )).filter_by(published=True)
+
+
 @app.route('/')
 def home():
-    about_row = db.session.get(AboutContent, 1)
-    settings = get_site_settings()
-    featured = Package.query.filter_by(published=True, featured=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
-    if not featured:
-        featured = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).limit(6).all()
-    total_published = Package.query.filter_by(published=True).count()
+    settings, about_row = public_settings_and_about()
+    candidates = public_tour_cards().order_by(
+        Package.featured.desc(), Package.sort_order.asc(), Package.id.desc()
+    ).limit(6).all()
+    featured = [package for package in candidates if package.featured] or candidates
     hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
-    reviews = TravellerReview.query.options(selectinload(TravellerReview.attachments)).filter_by(status="published", is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
-    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, has_more=total_published > len(featured), settings=settings, reviews=reviews)
+    reviews = TravellerReview.query.options(joinedload(TravellerReview.attachments)).filter_by(status="published", is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
+    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, settings=settings, reviews=reviews)
 
 
 @app.post('/reviews')
@@ -855,8 +875,8 @@ PUBLIC_SERVICE_STATUSES = {'PUBLISHED', 'ACTIVE'}
 def _public_provider_query():
     return Provider.query.options(
         selectinload(Provider.services).selectinload(Service.images),
-        selectinload(Provider.services).selectinload(Service.service_category),
-        selectinload(Provider.provider_type_assignments).selectinload(
+        selectinload(Provider.services).joinedload(Service.service_category),
+        selectinload(Provider.provider_type_assignments).joinedload(
             ProviderTypeAssignment.provider_type
         ),
     ).filter(
@@ -872,6 +892,7 @@ def marketplace_public_index():
         Provider.id.asc(),
     ).all()
 
+    g.seo_providers = providers
     for provider in providers:
         provider.public_services = [
             service
@@ -905,7 +926,8 @@ def marketplace_public_provider(slug):
 
 @app.route('/all_tours')
 def all_tours():
-    packages = Package.query.filter_by(published=True).order_by(Package.sort_order.asc(), Package.id.desc()).all()
+    packages = public_tour_cards().order_by(Package.sort_order.asc(), Package.id.desc()).all()
+    g.seo_packages = packages
     return render_template('tours.html', packages=packages)
 
 
@@ -918,8 +940,7 @@ def tour_detail(slug):
 
 @app.route('/about')
 def about():
-    about_row = db.session.get(AboutContent, 1)
-    settings = get_site_settings()
+    settings, about_row = public_settings_and_about()
     sections = AboutSection.query.filter_by(enabled=True).order_by(AboutSection.sort_order.asc(), AboutSection.id.asc()).all()
     team = TeamMember.query.order_by(TeamMember.sort_order.asc(), TeamMember.id.asc()).all()
     return render_template('about.html', about=about_row, team=team, settings=settings, sections=sections)
@@ -1901,7 +1922,10 @@ def add_security_headers(response):
     response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
     response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-    if request.endpoint not in ('static', 'favicon') and (session.get('user_id') or request.path.startswith(('/admin', '/workspace', '/logout'))):
+    if request.endpoint not in ('static', 'favicon') and (
+        session.get('user_id') or 'csrf_token' in g
+        or request.path.startswith(('/admin', '/workspace', '/logout'))
+    ):
         response.headers['Cache-Control'] = 'private, no-store'
     if request.is_secure:
         response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')

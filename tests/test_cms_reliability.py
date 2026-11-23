@@ -19,20 +19,18 @@ class CmsReliabilityTests(unittest.TestCase):
         cls.app, cls.db = app, db
         app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
         run_deploy_bootstrap()
-        cls.context = app.app_context()
-        cls.context.push()
 
     @classmethod
     def tearDownClass(cls):
-        cls.db.session.remove()
-        cls.db.engine.dispose()
-        cls.context.pop()
+        with cls.app.app_context():
+            cls.db.engine.dispose()
         try:
             os.remove(cls.path)
         except FileNotFoundError:
             pass
 
     def setUp(self):
+        self.enterContext(self.app.app_context())
         from models import User, SiteSettings, NotificationOutbox, TravellerReview
         from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem
         from control_room_models import WebsiteRevision, ControlPreference
@@ -53,7 +51,6 @@ class CmsReliabilityTests(unittest.TestCase):
             model.query.filter(model.__mapper__.primary_key[0].notin_(self.original_ids[model])).delete(synchronize_session=False)
         self.db.session.get(SiteSettings, 1).public_config_json = self.original_config
         self.db.session.commit()
-        self.db.session.expire_all()
 
     def draft(self, title):
         from config_concurrency import public_config_token

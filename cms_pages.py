@@ -4,10 +4,11 @@ import json
 import re
 from urllib.parse import urlsplit
 
-from flask import abort, jsonify, render_template, request, g
+from flask import has_request_context, abort, jsonify, render_template, request, g
 from PIL import Image, UnidentifiedImageError
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import StaleDataError
-from sqlalchemy import or_, literal
+from sqlalchemy import or_, literal, select
 
 from models import db, Package, SiteSettings, AboutContent, TeamMember
 from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem, PageSection
@@ -64,8 +65,32 @@ def delivery(path, width=1200):
     return url
 
 
-def collection_media(key, legacy=True):
-    collection = MediaCollection.query.filter_by(key=key).first()
+def landscape_srcset(path):
+    # Only public, versioned originals uploaded by Cloudinary are safe to
+    # transform. Preserve external, signed, and already transformed URLs.
+    if not path or not re.fullmatch(
+        r'https://res\.cloudinary\.com/[\w-]+/image/upload/v\d+/[^?#\s,]+', path
+    ):
+        return ''
+    return ', '.join(f'{delivery(path, width)} {width}w' for width in (480, 800, 1440, 1920))
+
+
+def public_collections(keys):
+    rows = MediaCollection.query.options(joinedload(MediaCollection.items)).filter(
+        MediaCollection.key.in_(keys)
+    ).all()
+    return {row.key: row for row in rows}
+
+
+def collection_media(key, legacy=True, collections=None):
+    if collections is None:
+        if has_request_context() and request.endpoint == 'home' and key in ('hero', 'footer_partners'):
+            if 'home_media_collections' not in g:
+                g.home_media_collections = public_collections(('hero', 'footer_partners'))
+            collections = g.home_media_collections
+        else:
+            collections = public_collections([key])
+    collection = collections.get(key)
     if collection is not None:
         return [dict(id=i.id, src=delivery(i.asset.path), alt=i.asset.alt,
                      caption=i.asset.caption, credit=i.asset.credit,
@@ -88,13 +113,20 @@ def gallery_settings(key):
                 ('interval', 6000, (5000, 6000, 7000)), ('ratio', defaults['ratio'], ('16/9', '3/2', '4/3'))]}
 
 
-def tour_cover(package):
-    if not hasattr(g, 'cms_tour_covers'):
-        g.cms_tour_covers = {}
-        for collection in MediaCollection.query.filter(MediaCollection.key.like('tour-%')).all():
-            visible = next((item for item in collection.items if item.visible), None)
-            g.cms_tour_covers[collection.key] = delivery(visible.asset.path, 800) if visible else ''
-    return g.cms_tour_covers.get('tour-' + str(package.id), imgsrc(package.image_file))
+def tour_covers(packages):
+    keys = [f'tour-{package.id}' for package in packages]
+    if not keys:
+        return {}
+    # An explicitly empty collection suppresses the legacy cover. Selecting
+    # the first visible path preserves that distinction without loading albums.
+    first_path = select(MediaAsset.path).join(
+        MediaCollectionItem, MediaAsset.id == MediaCollectionItem.asset_id
+    ).where(
+        MediaCollectionItem.collection_id == MediaCollection.id,
+        MediaCollectionItem.visible.is_(True),
+    ).order_by(MediaCollectionItem.position, MediaCollectionItem.id).limit(1).scalar_subquery()
+    rows = db.session.query(MediaCollection.key, first_path).filter(MediaCollection.key.in_(keys))
+    return {key: delivery(path, 800) if path else '' for key, path in rows}
 
 
 def asset_usage_batch(assets):
@@ -172,7 +204,8 @@ def register_cms_pages(app):
     from cms_routes import cms_access_required, cms_media_required
 
     app.config.setdefault('CMS_COLLECTION_LIMIT', 10)
-    app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_cover=tour_cover, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
+    app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_covers=tour_covers,
+                                 cms_landscape_srcset=landscape_srcset, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
 
     @app.route('/workspace/pages')
     @app.route('/workspace/pages/<page>')

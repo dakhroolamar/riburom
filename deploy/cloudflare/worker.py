@@ -52,6 +52,8 @@ async def cache_public_or_forward(env, request, path):
         and not urlsplit(request.url).query
         and not request.headers.get("Cookie")
         and not request.headers.get("Range")
+        and (not request.headers.get("Authorization")
+             or getattr(env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true")
     ):
         return await flask_stub(env).fetch(request)
 
@@ -61,7 +63,14 @@ async def cache_public_or_forward(env, request, path):
     try:
         hit = await cache.match(key)
         if hit is not None:
-            return hit
+            # Cache-Control public is for the Worker's private cache entry.
+            # Downstream clients must re-enter the auth and cookie guards.
+            outgoing = JSResponse.new(hit.body, hit)
+            outgoing.headers.set("Cache-Control", "private, no-store")
+            outgoing.headers.delete("X-Riburom-Staging-First-Request")
+            outgoing.headers.delete("Server-Timing")
+            outgoing.headers.delete("X-Riburom-Staging-SQL-Count")
+            return outgoing
     except Exception:
         pass
 
@@ -69,7 +78,8 @@ async def cache_public_or_forward(env, request, path):
     if response.status != 200:
         return response
     raw = getattr(response, "js_object", None)
-    if raw is None or raw.headers.get("set-cookie"):
+    if (raw is None or raw.headers.get("set-cookie")
+            or not (raw.headers.get("content-type") or "").lower().startswith("text/html")):
         return response
     # Flask reads the session for navigation and emits "Vary: Cookie".
     # We cache *only requests without a Cookie* and bypass all cookie-bearing
@@ -79,6 +89,7 @@ async def cache_public_or_forward(env, request, path):
         return response
     if raw.headers.get("cache-control") and (
         "private" in raw.headers.get("cache-control").lower()
+        or "no-cache" in raw.headers.get("cache-control").lower()
         or "no-store" in raw.headers.get("cache-control").lower()
     ):
         return response
