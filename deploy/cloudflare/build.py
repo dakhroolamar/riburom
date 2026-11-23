@@ -29,15 +29,27 @@ def main():
         "--enable-staging-url", action="store_true",
         help="Enable the application staging URL behind its required access secret.",
     )
+    parser.add_argument(
+        "--parallel-comparison", action="store_true",
+        help="Build a separate read-only production-data comparison Worker.",
+    )
     args = parser.parse_args()
     build = args.output.resolve()
-    hyperdrive_id = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
-    if hyperdrive_id and not re.fullmatch(r"[0-9a-f]{32}", hyperdrive_id):
-        raise SystemExit("Expected a Cloudflare staging Hyperdrive configuration ID.")
-    if args.application_staging and not hyperdrive_id:
-        raise SystemExit("Application staging requires the isolated Hyperdrive configuration.")
+    if args.application_staging and args.parallel_comparison:
+        raise SystemExit("Choose either isolated staging or read-only comparison, never both.")
     if args.enable_staging_url and not args.application_staging:
         raise SystemExit("Only the application staging profile supports --enable-staging-url.")
+    stage_hyperdrive = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
+    prod_hyperdrive = os.environ.get("RIBUROM_PARALLEL_HYPERDRIVE_ID")
+    hyperdrive_id = prod_hyperdrive if args.parallel_comparison else stage_hyperdrive
+    if hyperdrive_id and not re.fullmatch(r"[0-9a-f]{32}", hyperdrive_id):
+        raise SystemExit("Expected a 32-hex Cloudflare Hyperdrive configuration ID.")
+    if args.application_staging and not stage_hyperdrive:
+        raise SystemExit("Application staging requires the isolated staging Hyperdrive.")
+    if args.parallel_comparison and not prod_hyperdrive:
+        raise SystemExit("Parallel comparison requires a distinct production-readonly Hyperdrive.")
+    if args.parallel_comparison and stage_hyperdrive and stage_hyperdrive == prod_hyperdrive:
+        raise SystemExit("Production comparison may not reuse the staging Hyperdrive binding.")
     if build.exists() and any(build.iterdir()):
         raise SystemExit(f"Build directory must be empty: {build}")
     tracked = subprocess.check_output(
@@ -74,6 +86,23 @@ def main():
                 "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
                 "PUBLIC_BASE_URL": "https://riburom-application-staging.dakhroo.workers.dev",
                 "CLOUDINARY_STAGING_FOLDER": "riburom-cloudflare-staging",
+                "OUTBOX_SCHEDULED": "false",
+            },
+            triggers={"crons": []},
+        )
+    if args.parallel_comparison:
+        config.update(
+            name="riburom-parallel-comparison",
+            workers_dev=True,
+            assets={"directory": "./public", "binding": "ASSETS", "run_worker_first": True},
+            vars={
+                "RIBUROM_MODE": "application",
+                "RIBUROM_HOST": "riburom-parallel-comparison.dakhroo.workers.dev",
+                "PUBLIC_BASE_URL": "https://riburom-parallel-comparison.dakhroo.workers.dev",
+                "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
+                "RIBUROM_READ_ONLY": "true",
+                "RIBUROM_DO_NAME": "web-apac-se-parallel-v1",
+                "RIBUROM_DO_LOCATION": "apac-se",
                 "OUTBOX_SCHEDULED": "false",
             },
             triggers={"crons": []},
