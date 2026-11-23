@@ -1,0 +1,123 @@
+name: Cloudflare read-only production comparison
+
+on:
+  push:
+    branches: [codex/cloudflare-free-hosting]
+    paths:
+      - '.github/workflows/cloudflare-parallel-comparison.yml'
+      - 'deploy/cloudflare/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-parallel-comparison
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Must be explicitly provisioned with a *different* Worker-scoped token
+    # and a SELECT-only Neon Hyperdrive configuration. Never reuse staging.
+    if: vars.CLOUDFLARE_PARALLEL_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: cloudflare-parallel-comparison
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      PARALLEL_URL: https://riburom-parallel-comparison.dakhroo.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Fail closed on missing credentials or reused Hyperdrive
+        env:
+          RIBUROM_PARALLEL_HYPERDRIVE_ID: ${{ vars.RIBUROM_PARALLEL_HYPERDRIVE_ID }}
+          RIBUROM_STAGING_HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          ACCESS_TOKEN: ${{ secrets.RIBUROM_PARALLEL_ACCESS_TOKEN }}
+          SESSION_SECRET: ${{ secrets.RIBUROM_PARALLEL_SESSION_SECRET }}
+          INITIAL_HASH: ${{ secrets.RIBUROM_PARALLEL_ADMIN_HASH }}
+        run: |
+          test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
+          test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
+          test "$RIBUROM_PARALLEL_HYPERDRIVE_ID" != "$RIBUROM_STAGING_HYPERDRIVE_ID"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "${#ACCESS_TOKEN}" -ge 16
+          test "${#SESSION_SECRET}" -ge 32
+          test -n "$INITIAL_HASH"
+
+      - name: Build isolated read-only comparison Worker
+        env:
+          RIBUROM_PARALLEL_HYPERDRIVE_ID: ${{ vars.RIBUROM_PARALLEL_HYPERDRIVE_ID }}
+          RIBUROM_STAGING_HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+        run: |
+          python deploy/cloudflare/build.py --parallel-comparison
+          python - <<'PY'
+          import json
+          config=json.load(open('deploy/cloudflare/build/wrangler.jsonc'))
+          assert config['name']=='riburom-parallel-comparison'
+          assert config['vars']['RIBUROM_READ_ONLY']=='true'
+          assert config['vars']['OUTBOX_SCHEDULED']=='false'
+          assert not config['triggers']['crons']
+          assert config['vars']['RIBUROM_STAGING_ACCESS_REQUIRED']=='true'
+          print('Parallel Worker is private, read-only and has no email scheduler')
+          PY
+          python -m pip install uv==0.13.9
+          npm install --prefix deploy/cloudflare/build --no-save --no-audit --no-fund wrangler@4.166.0
+          uv sync --directory deploy/cloudflare/build --python "$(cat .python-version)"
+
+      - name: Deploy only to the parallel comparison Worker
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+        run: uv run --no-sync pywrangler deploy
+
+      - name: Install separate comparison secrets
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          ACCESS_TOKEN: ${{ secrets.RIBUROM_PARALLEL_ACCESS_TOKEN }}
+          SESSION_SECRET: ${{ secrets.RIBUROM_PARALLEL_SESSION_SECRET }}
+          INITIAL_HASH: ${{ secrets.RIBUROM_PARALLEL_ADMIN_HASH }}
+        run: |
+          printf '%s' "$ACCESS_TOKEN" | ./node_modules/.bin/wrangler secret put RIBUROM_STAGING_ACCESS_TOKEN --name riburom-parallel-comparison
+          printf '%s' "$SESSION_SECRET" | ./node_modules/.bin/wrangler secret put SECRET_KEY --name riburom-parallel-comparison
+          printf '%s' "$INITIAL_HASH" | ./node_modules/.bin/wrangler secret put ADMIN_PASSWORD_HASH --name riburom-parallel-comparison
+
+      - name: Prove privacy, read-only database role, and no writes
+        env:
+          ACCESS_TOKEN: ${{ secrets.RIBUROM_PARALLEL_ACCESS_TOKEN }}
+        run: |
+          status=$(curl -sS --max-time 20 --retry 3 -o /dev/null -w '%{http_code}' "$PARALLEL_URL/")
+          test "$status" = 401
+          status=$(curl -sS --max-time 20 --retry 3 --user "rehearsal:$ACCESS_TOKEN" \
+            -o "$RUNNER_TEMP/readonly.json" -w '%{http_code}' "$PARALLEL_URL/__comparison/readiness")
+          test "$status" = 200
+          python -c 'import json,sys; assert json.load(open(sys.argv[1]))["read_only_role"] is True' "$RUNNER_TEMP/readonly.json"
+          for path in / /all_tours /about /marketplace /stories; do
+            status=$(curl -sS --max-time 25 --retry 2 --user "rehearsal:$ACCESS_TOKEN" \
+              -o "$RUNNER_TEMP/page.html" -w '%{http_code}' "$PARALLEL_URL$path")
+            printf '%s: HTTP %s\n' "$path" "$status"
+            test "$status" = 200
+          done
+          status=$(curl -sS --max-time 15 --user "rehearsal:$ACCESS_TOKEN" \
+            -X POST -o /dev/null -w '%{http_code}' "$PARALLEL_URL/send_message")
+          test "$status" = 404
+          status=$(curl -sS --max-time 15 --user "rehearsal:$ACCESS_TOKEN" \
+            -o /dev/null -w '%{http_code}' "$PARALLEL_URL/workspace")
+          test "$status" = 404
+          echo 'Read-only Cloudflare comparison is safe and serves public pages.'
