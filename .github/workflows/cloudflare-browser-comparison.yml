@@ -36,6 +36,13 @@ jobs:
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: python deploy/cloudflare/benchmark_public.py
+      - name: Read staging resource counters for the measurement window
+        if: ${{ !cancelled() }}
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+        run: python deploy/cloudflare/staging_usage.py
       - name: Publish screenshots and browser timing report
         if: always()
         uses: actions/upload-artifact@v4

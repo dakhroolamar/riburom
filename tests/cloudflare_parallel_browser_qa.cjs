@@ -81,6 +81,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
                 title:document.title,
                 ttfbMs:nav ? Math.round(nav.responseStart - nav.startTime) : null,
                 loadMs:nav ? Math.round(nav.loadEventEnd) : null,
+                landscapeWidthCandidate: document.querySelector('.rb-home-landscape-photo')?.currentSrc.match(/w_(\d+),c_limit/)?.[1] || null,
                 landscapeLoaded: (() => {
                   const img = document.querySelector('.rb-home-landscape-photo');
                   return img ? Boolean(img.complete && img.naturalWidth) : null;
@@ -108,7 +109,9 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             const observed={
               device:device.key,host:target.key,route,
               httpStatus:response?.status()||0,
-              sample, transferredBytes, ttfbMs:result.ttfbMs, loadMs:result.loadMs, landscapeLoaded:result.landscapeLoaded,
+              sample, transferredBytes, landscapeWidthCandidate:result.landscapeWidthCandidate,
+              stagingErrorClass:response?.headers()['x-riburom-staging-error-class'] || null,
+              ttfbMs:result.ttfbMs, loadMs:result.loadMs, landscapeLoaded:result.landscapeLoaded,
               lcpMs:result.lcpMs,lcpElement:result.lcpElement,lcpHost:result.lcpHost,
               slowestImageMs:result.slowestImageMs,staticResourceCount:result.staticResourceCount,
               cls:result.cls,
