@@ -1,0 +1,41 @@
+name: RI BUROM dual-host browser comparison
+
+on:
+  push:
+    branches: [codex/cloudflare-free-hosting]
+    paths:
+      - '.github/workflows/cloudflare-browser-comparison.yml'
+      - 'tests/cloudflare_parallel_browser_qa.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: cloudflare-application-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install headless Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Compare read-only pages on desktop and mobile
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: node tests/cloudflare_parallel_browser_qa.cjs
+      - name: Publish screenshots and browser timing report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: riburom-browser-comparison
+          path: ${{ runner.temp }}/riburom-browser-qa
+          if-no-files-found: warn
+          retention-days: 7
