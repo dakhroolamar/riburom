@@ -8,7 +8,7 @@ from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 APP_INSTANCE = "web"
 PUBLIC_COMPARISON_PATHS = {
     "/", "/all_tours", "/about", "/marketplace", "/stories",
-    "/healthz", "/readyz", "/favicon.ico",
+    "/healthz", "/readyz", "/favicon.ico", "/__comparison/readiness",
 }
 
 
@@ -107,6 +107,30 @@ class FlaskApplication(DurableObject):
             if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
                 from worker_fixture import fixture_status
                 return Response.json(fixture_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
+            if (
+                self.env.RIBUROM_MODE == "application"
+                and getattr(self.env, "RIBUROM_READ_ONLY", None) == "true"
+                and urlsplit(request.url).path == "/__comparison/readiness"
+            ):
+                # This read-only probe fails closed unless the Hyperdrive
+                # database role lacks write grants on live business tables.
+                from sqlalchemy import text
+                from models import db
+
+                with app.app_context():
+                    writable = db.session.execute(text(
+                        "SELECT bool_or(has_table_privilege(current_user, "
+                        "t.table_name, 'INSERT,UPDATE,DELETE')) "
+                        "FROM (VALUES ('public.users'), ('public.messages'), "
+                        "('public.packages'), ('public.notification_outbox'), "
+                        "('public.marketplace_inquiries')) AS t(table_name)"
+                    )).scalar()
+                    db.session.remove()
+                return Response.json(
+                    {"read_only_role": writable is False},
+                    status=200 if writable is False else 503,
+                    headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"},
+                )
             if self.env.RIBUROM_MODE == "application" and urlsplit(request.url).path == "/__staging/bootstrap":
                 if not (
                     request.method == "POST"
