@@ -45,12 +45,26 @@ def main():
         )
         if not token:
             raise AssertionError("Control Room login form has no CSRF token")
-        location, _ = fetch(
+        location, login_body = fetch(
             base + "/admin/login", secret=secret, jar=jar, output=output,
             fields={"username": "staging-owner", "password": secret, "csrf_token": token.group(1)},
         )
         if not location.startswith(base + "/workspace"):
-            raise AssertionError("Correct staging credentials did not redirect to workspace")
+            from urllib.parse import urlsplit
+            hints = []
+            for marker in (
+                "Incorrect username or password.",
+                "The form expired or was submitted from an invalid session.",
+                "Please log in to access the control room.",
+                "Too Many Requests",
+            ):
+                if marker.lower() in login_body.lower():
+                    hints.append(marker)
+            raise AssertionError(
+                "Staging sign-in did not reach workspace; "
+                + "final path=" + urlsplit(location).path
+                + "; known message=" + (", ".join(hints) if hints else "none")
+            )
         _, content = fetch(base + "/workspace", secret=secret, jar=jar, output=output)
         if "control room" not in content.lower():
             raise AssertionError("Authenticated workspace did not render Control Room")
