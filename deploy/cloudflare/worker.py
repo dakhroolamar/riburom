@@ -38,6 +38,56 @@ def flask_stub(env):
 
     options = to_js({"locationHint": hint}, dict_converter=Object.fromEntries)
     return env.FLASK_APP.getByName(name, options)
+async def cache_public_or_forward(env, request, path):
+    """Cache only invariant, anonymous HTML; fail open to Flask on cache errors.
+
+    Cache lookup happens *after* Basic auth and only without visitor cookies.
+    Never cache the homepage (CSRF form), account pages, responses with
+    Set-Cookie, or anything other than exact public GET paths.
+    """
+    if not (
+        getattr(env, "RIBUROM_PUBLIC_CACHE", None) == "true"
+        and request.method == "GET"
+        and path in ("/all_tours", "/about", "/stories", "/marketplace")
+        and not urlsplit(request.url).query
+        and not request.headers.get("Cookie")
+        and not request.headers.get("Range")
+    ):
+        return await flask_stub(env).fetch(request)
+
+    from js import Request as JSRequest, Response as JSResponse, caches
+    cache = caches.default
+    key = JSRequest.new(request.url)
+    try:
+        hit = await cache.match(key)
+        if hit is not None:
+            return hit
+    except Exception:
+        pass
+
+    response = await flask_stub(env).fetch(request)
+    if response.status != 200:
+        return response
+    raw = getattr(response, "js_object", None)
+    if raw is None or raw.headers.get("set-cookie") or raw.headers.get("vary"):
+        return response
+    if raw.headers.get("cache-control") and (
+        "private" in raw.headers.get("cache-control").lower()
+        or "no-store" in raw.headers.get("cache-control").lower()
+    ):
+        return response
+    try:
+        copy = raw.clone()
+        cached = JSResponse.new(copy.body, copy)
+        cached.headers.set("Cache-Control", "public, max-age=30")
+        cached.headers.set("X-Riburom-Cache", "HIT")
+        await cache.put(key, cached)
+    except Exception:
+        # A cache failure must never prevent delivery of fresh content.
+        pass
+    return response
+
+
 FIXTURE_ROUTES = {"/", "/healthz", "/readyz", "/favicon.ico", "/__staging/outbox"}
 
 
@@ -81,7 +131,7 @@ class Default(WorkerEntrypoint):
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
             return await flask_stub(self.env).fetch(request)
-        return await flask_stub(self.env).fetch(request)
+        return await cache_public_or_forward(self.env, request, path)
 
     async def scheduled(self, controller, env, ctx):
         if self.env.OUTBOX_SCHEDULED == "true":
