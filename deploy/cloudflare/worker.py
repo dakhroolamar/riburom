@@ -69,7 +69,13 @@ async def cache_public_or_forward(env, request, path):
     if response.status != 200:
         return response
     raw = getattr(response, "js_object", None)
-    if raw is None or raw.headers.get("set-cookie") or raw.headers.get("vary"):
+    if raw is None or raw.headers.get("set-cookie"):
+        return response
+    # Flask reads the session for navigation and emits "Vary: Cookie".
+    # We cache *only requests without a Cookie* and bypass all cookie-bearing
+    # requests, so that particular Vary is safe; reject every other Vary.
+    vary = (raw.headers.get("vary") or "").lower()
+    if any(value.strip() != "cookie" for value in vary.split(",") if value.strip()):
         return response
     if raw.headers.get("cache-control") and (
         "private" in raw.headers.get("cache-control").lower()
