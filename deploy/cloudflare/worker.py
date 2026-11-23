@@ -6,6 +6,25 @@ from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 
 
 APP_INSTANCE = "web"
+
+
+def flask_stub(env):
+    """Stably route Flask to its Durable Object, optionally hinting first placement.
+
+    Location hints affect *only a newly created object*. Keeping the same name
+    on later deployments preserves the rate-limit state and its placement.
+    """
+    name = getattr(env, "RIBUROM_DO_NAME", None) or APP_INSTANCE
+    hint = getattr(env, "RIBUROM_DO_LOCATION", None)
+    if not hint:
+        return env.FLASK_APP.getByName(name)
+    if hint not in ("apac", "apac-se"):
+        raise RuntimeError("Unsupported Durable Object location hint")
+    from js import Object
+    from pyodide.ffi import to_js
+
+    options = to_js({"locationHint": hint}, dict_converter=Object.fromEntries)
+    return env.FLASK_APP.getByName(name, options)
 FIXTURE_ROUTES = {"/", "/healthz", "/readyz", "/favicon.ico", "/__staging/outbox"}
 
 
@@ -30,17 +49,19 @@ class Default(WorkerEntrypoint):
                     "Cache-Control": "no-store",
                     "X-Robots-Tag": "noindex, nofollow",
                 })
-            if path.startswith("/static/"):
-                return await self.env.ASSETS.fetch(request.js_object)
+        if mode == "application" and path.startswith("/static/"):
+            # This runs only after staging HTTP Basic was validated, and also
+            # serves assets on any future public Worker without invoking Flask.
+            return await self.env.ASSETS.fetch(request.js_object)
         if mode == "application" and path == "/__staging/bootstrap":
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
-            return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
-        return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
+            return await flask_stub(self.env).fetch(request)
+        return await flask_stub(self.env).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
         if self.env.OUTBOX_SCHEDULED == "true":
-            await self.env.FLASK_APP.getByName(APP_INSTANCE).run_outbox()
+            await flask_stub(self.env).run_outbox()
 
 
 class FlaskApplication(DurableObject):
