@@ -16,6 +16,10 @@ def fetch(url, *, secret, jar, output, fields=None):
         "--cookie", str(jar), "--cookie-jar", str(jar),
         "--output", str(output), "--write-out", "%{http_code} %{url_effective}",
     ]
+    if fields:
+        # Flask-WTF checks the same-origin Referer for secure form POSTs.
+        # Real browsers send this header; curl does not unless instructed.
+        args.extend(["--referer", url, "--header", "Origin: " + os.environ["STAGING_URL"].rstrip("/")])
     for key, value in (fields or {}).items():
         args.extend(["--data-urlencode", key + "=" + value])
     result = subprocess.run(args + [url], capture_output=True, text=True, timeout=35)
