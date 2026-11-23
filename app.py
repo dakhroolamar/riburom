@@ -1953,7 +1953,7 @@ def server_error(e):
     )
     # Do not render a normal template here: the shared context processor reads
     # SiteSettings from the database and could fail again during a DB outage.
-    return Response(
+    response = Response(
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>RI BUROM — Service unavailable</title></head>'
@@ -1962,6 +1962,13 @@ def server_error(e):
         status=500,
         mimetype='text/html',
     )
+    # In the protected Cloudflare staging hostname only, expose just the
+    # exception *class* for automated smoke-test diagnosis. Never expose
+    # exception messages, SQL, credentials, or stack traces.
+    if request.host == 'riburom-application-staging.dakhroo.workers.dev':
+        cause = getattr(e, 'original_exception', None)
+        response.headers['X-Riburom-Staging-Error-Class'] = type(cause or e).__name__
+    return response
 
 
 if __name__ == '__main__':
