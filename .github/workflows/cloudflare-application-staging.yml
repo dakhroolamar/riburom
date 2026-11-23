@@ -96,7 +96,7 @@ jobs:
           fi
           status=$(curl --silent --show-error --max-time 30 --retry 3 \
             --output "$RUNNER_TEMP/riburom-readyz.txt" \
-            --write-out '%{http_code}' --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
+            --write-out '%{http_code}' --retry-all-errors --retry-delay 1 --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL/readyz")
           if [ "$status" != 200 ]; then
             printf 'Authenticated /readyz expected 200, got %s\n' "$status"
             exit 1
