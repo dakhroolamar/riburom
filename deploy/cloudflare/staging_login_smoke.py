@@ -66,7 +66,8 @@ def main():
             fields={"username": "staging-owner", "password": secret, "csrf_token": token.group(1)},
             follow_redirects=False,
         )
-        if not location.startswith(base + "/workspace"):
+        from urllib.parse import urlsplit
+        if not urlsplit(location).path.startswith("/workspace"):
             from urllib.parse import urlsplit
             hints = []
             for marker in (
