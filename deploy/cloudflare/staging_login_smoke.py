@@ -14,7 +14,8 @@ def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
         "curl", "--silent", "--show-error", "--max-time", "30",
         "--user", "rehearsal:" + secret, "--user-agent", "curl/8.0",
         "--cookie", str(jar), "--cookie-jar", str(jar),
-        "--output", str(output), "--write-out", "%{http_code} %{redirect_url}",
+        "--output", str(output), "--dump-header", str(output.with_suffix(".headers")),
+        "--write-out", "%{http_code} %{redirect_url}",
     ]
     if follow_redirects:
         args.append("--location")
@@ -31,9 +32,16 @@ def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
     body = output.read_text(encoding="utf-8", errors="replace")
     if code not in (("200",) if follow_redirects else ("302", "303")):
         title = re.search(r"<title>(.*?)</title>", body, re.IGNORECASE | re.DOTALL)
+        header_text = output.with_suffix(".headers").read_text(errors="replace")
+        error_class = re.findall(
+            r"^x-riburom-staging-error-class:\\s*([^\\r\\n]+)",
+            header_text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
         raise AssertionError(
             f"Control Room request failed: HTTP {code}; "
-            f"page title: {(title.group(1).strip() if title else 'unknown')[:100]}"
+            f"page title: {(title.group(1).strip() if title else 'unknown')[:100]}; "
+            f"staging exception class: {(error_class[-1] if error_class else 'not available')}"
         )
     return location, body
 
