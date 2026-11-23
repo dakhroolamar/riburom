@@ -96,6 +96,11 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
                 slowestImageMs:Math.round(Math.max(0,...performance.getEntriesByType('resource').filter(e=>e.initiatorType==='img').map(e=>e.duration))),
                 domContentLoadedMs:nav?Math.round(nav.domContentLoadedEventEnd):null,
                 resourceRequests:performance.getEntriesByType('resource').length,
+                tourCardImages:document.querySelectorAll('img.rb-card-media').length,
+                responsiveTourCards:[...document.querySelectorAll('img.rb-card-media')].filter(image => {
+                  const srcset=image.getAttribute('srcset')||'';
+                  return srcset.includes('w_360,c_limit') && srcset.includes('w_640,c_limit');
+                }).length,
                 invalidEmptyImageAttributes:[...document.images].filter(img=>img.hasAttribute('src') && !img.getAttribute('src')).length,
                 brokenLoadedImages:[...document.images].filter(img=>img.complete && !img.naturalWidth && img.getAttribute('src')).length,
                 brokenImageSources:[...document.images]
@@ -117,6 +122,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               cls:result.cls,
               domContentLoadedMs:result.domContentLoadedMs,
               bodyCharacters:result.bodyCharacters,resourceRequests:result.resourceRequests,
+              tourCardImages:result.tourCardImages,responsiveTourCards:result.responsiveTourCards,
               brokenLoadedImages:result.brokenLoadedImages,
               invalidEmptyImageAttributes:result.invalidEmptyImageAttributes,
               brokenImageSources:result.brokenImageSources,
@@ -148,6 +154,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
     }
     if (observations.some(r => r.httpStatus !== 200 || r.bodyCharacters < 40 || r.pageErrorClasses.length ||
       r.tourMatches?.some(match => !match) || (r.host === 'cloudflare' && r.invalidEmptyImageAttributes) ||
+      (r.host === 'cloudflare' && r.route === '/all_tours' && (!r.tourCardImages || r.responsiveTourCards !== r.tourCardImages)) ||
       (r.route === '/' && (!r.lcpMs || r.landscapeLoaded === false)))) {
       throw new Error('Public browser checks failed; inspect the per-page observations');
     }
