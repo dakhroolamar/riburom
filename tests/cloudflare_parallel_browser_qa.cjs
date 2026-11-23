@@ -78,9 +78,10 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               slowestImageMs:Math.round(Math.max(0,...performance.getEntriesByType('resource').filter(e=>e.initiatorType==='img').map(e=>e.duration))),
               domContentLoadedMs:nav?Math.round(nav.domContentLoadedEventEnd):null,
               resourceRequests:performance.getEntriesByType('resource').length,
-              brokenLoadedImages:[...document.images].filter(img=>img.complete && !img.naturalWidth).length,
+              invalidEmptyImageAttributes:[...document.images].filter(img=>img.hasAttribute('src') && !img.getAttribute('src')).length,
+              brokenLoadedImages:[...document.images].filter(img=>img.complete && !img.naturalWidth && img.getAttribute('src')).length,
               brokenImageSources:[...document.images]
-                .filter(img=>img.complete && !img.naturalWidth)
+                .filter(img=>img.complete && !img.naturalWidth && img.getAttribute('src'))
                 .slice(0,4)
                 .map(img=>{try {const u=new URL(img.currentSrc||img.src); return u.host+u.pathname;} catch(_) {return 'invalid-image-url';}}),
             };
@@ -97,6 +98,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             domContentLoadedMs:result.domContentLoadedMs,
             bodyCharacters:result.bodyCharacters,resourceRequests:result.resourceRequests,
             brokenLoadedImages:result.brokenLoadedImages,
+            invalidEmptyImageAttributes:result.invalidEmptyImageAttributes,
             brokenImageSources:result.brokenImageSources,
             pageErrorClasses:failures.slice(0,5),screenshot,title:result.title,
           };
