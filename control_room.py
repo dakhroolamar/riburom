@@ -11,7 +11,7 @@ from functools import wraps
 from types import SimpleNamespace
 
 from flask import abort, flash, jsonify, redirect, render_template, request, send_file, url_for, g
-from sqlalchemy import func, or_, case, select, literal, union_all, update
+from sqlalchemy import func, or_, case, select, literal, literal_column, union_all, update
 from sqlalchemy.orm import selectinload, undefer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
@@ -267,7 +267,10 @@ def leads(page=1):
 def lead_counts():
     counts = dict.fromkeys(LEAD_STATES, 0)
     for source, model, query, state in lead_queries(False):
-        for value, count in query.with_entities(state, func.count(model.id)).group_by(state).all():
+        # Group by the first SELECT expression, avoiding a second copy of
+        # bound CASE/coalesce parameters. PostgreSQL treats distinct bind
+        # positions as non-identical expressions (SQLSTATE 42803).
+        for value, count in query.with_entities(state, func.count(model.id)).group_by(literal_column('1')).all():
             if value in counts:
                 counts[value] += count
     return counts
