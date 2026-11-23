@@ -46,7 +46,12 @@ USING_CLOUDINARY = _cloudinary_configured()
 
 _storage_env = os.environ.get('APP_ENV', 'production').strip().lower()
 _storage_is_production = _storage_env not in {'development', 'dev', 'testing', 'test'}
-if _storage_is_production and not USING_CLOUDINARY:
+# A SELECT-only comparison Worker never accepts upload/edit requests, and
+# serves public files directly from their existing Cloudinary delivery URLs.
+# It intentionally has NO Cloudinary upload credential. Normal production
+# remains fail-closed when Cloudinary configuration is missing.
+_storage_read_only_mirror = os.environ.get('RIBUROM_READ_ONLY', '').lower() == 'true'
+if _storage_is_production and not USING_CLOUDINARY and not _storage_read_only_mirror:
     raise RuntimeError(
         'Cloudinary must be configured in production. '
         'RI BUROM will not fall back to ephemeral local media storage.'
