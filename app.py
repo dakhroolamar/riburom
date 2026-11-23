@@ -1968,6 +1968,16 @@ def server_error(e):
     if request.host == 'riburom-application-staging.dakhroo.workers.dev':
         cause = getattr(e, 'original_exception', None)
         response.headers['X-Riburom-Staging-Error-Class'] = type(cause or e).__name__
+        # SQLSTATE is a five-character standardized error code, not SQL text.
+        # Expose it only on the password-protected staging hostname.
+        wrapped = getattr(cause, 'orig', None)
+        state = getattr(wrapped, 'sqlstate', None) or getattr(wrapped, 'pgcode', None)
+        if state is None and getattr(wrapped, 'args', None):
+            details = wrapped.args[0]
+            if isinstance(details, dict):
+                state = details.get('C')
+        if isinstance(state, str) and len(state) == 5 and state.isalnum():
+            response.headers['X-Riburom-Staging-SQLSTATE'] = state
     return response
 
 
