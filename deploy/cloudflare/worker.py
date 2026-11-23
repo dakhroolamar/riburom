@@ -35,7 +35,14 @@ class Default(WorkerEntrypoint):
         if mode == "application" and path == "/__staging/bootstrap":
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
-            return await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
+            try:
+                return await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
+            except Exception as exc:
+                # Staging-only diagnostic: no database details, configuration or secrets.
+                return Response.json(
+                    {"status": "bootstrap_rpc_failed", "exception": type(exc).__name__},
+                    status=503,
+                )
         return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
@@ -74,13 +81,20 @@ class FlaskApplication(DurableObject):
             and self.env.RIBUROM_STAGING_ACCESS_REQUIRED == "true"
         ):
             return Response("Unavailable", status=404)
-        from staging_setup import initialize_staging
-        from worker_runtime import get_application
+        try:
+            from staging_setup import initialize_staging
+            from worker_runtime import get_application
 
-        payload, status = initialize_staging(
-            get_application(self.env), self.env.RIBUROM_STAGING_ACCESS_TOKEN
-        )
-        return Response.json(payload, status=status)
+            payload, status = initialize_staging(
+                get_application(self.env), self.env.RIBUROM_STAGING_ACCESS_TOKEN
+            )
+            return Response.json(payload, status=status)
+        except Exception as exc:
+            # Do not include exception strings or credentials in HTTP responses.
+            return Response.json(
+                {"status": "bootstrap_failed", "exception": type(exc).__name__},
+                status=503,
+            )
 
     async def run_outbox(self):
         from worker_runtime import get_application
