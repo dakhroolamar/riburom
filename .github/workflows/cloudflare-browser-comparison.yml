@@ -14,7 +14,7 @@ permissions:
 jobs:
   browser-compare:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 25
     environment: cloudflare-application-staging
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +31,10 @@ jobs:
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: node tests/cloudflare_parallel_browser_qa.cjs
+      - name: Measure anonymous and concurrent public responses
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: python deploy/cloudflare/benchmark_public.py
       - name: Publish screenshots and browser timing report
         if: always()
         uses: actions/upload-artifact@v4
