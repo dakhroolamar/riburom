@@ -8,7 +8,7 @@ from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 APP_INSTANCE = "web"
 PUBLIC_COMPARISON_PATHS = {
     "/", "/all_tours", "/about", "/marketplace", "/stories",
-    "/healthz", "/readyz", "/favicon.ico", "/__comparison/readiness",
+    "/healthz", "/readyz", "/favicon.ico", "/robots.txt", "/__comparison/readiness",
 }
 
 
