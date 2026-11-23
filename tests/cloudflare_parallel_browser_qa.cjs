@@ -71,6 +71,10 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               domContentLoadedMs:nav?Math.round(nav.domContentLoadedEventEnd):null,
               resourceRequests:performance.getEntriesByType('resource').length,
               brokenLoadedImages:[...document.images].filter(img=>img.complete && !img.naturalWidth).length,
+              brokenImageSources:[...document.images]
+                .filter(img=>img.complete && !img.naturalWidth)
+                .slice(0,4)
+                .map(img=>{try {const u=new URL(img.currentSrc||img.src); return u.host+u.pathname;} catch(_) {return 'invalid-image-url';}}),
             };
           });
           const screenshot=`${device.key}-${target.key}-${slug}.png`;
@@ -83,6 +87,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             domContentLoadedMs:result.domContentLoadedMs,
             bodyCharacters:result.bodyCharacters,resourceRequests:result.resourceRequests,
             brokenLoadedImages:result.brokenLoadedImages,
+            brokenImageSources:result.brokenImageSources,
             pageErrorClasses:failures.slice(0,5),screenshot,title:result.title,
           };
           if (route==='/all_tours') {
