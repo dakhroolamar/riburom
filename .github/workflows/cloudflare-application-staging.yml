@@ -118,20 +118,8 @@ jobs:
           python -c 'import json,sys; data=json.load(open(sys.argv[1])); assert data["status"] in ("initialized","already_initialized"), data; print("Staging data:", data["status"])' \
             "$RUNNER_TEMP/riburom-staging-init.json"
 
-      - name: Verify staging Control Room login and session
-        env:
-          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
-        run: |
-          python deploy/cloudflare/staging_login_smoke.py
-
-      - name: Compare public Render and Cloudflare response times (read only)
-        if: always()
-        env:
-          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
-        run: |
-          python deploy/cloudflare/compare_hosts.py
-
       - name: Smoke-test protected public pages and static media
+        if: ${{ !cancelled() }}
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: |
@@ -160,6 +148,19 @@ jobs:
             echo "::error::Staging static brand asset failed."
             exit 1
           fi
+
+      - name: Verify staging Control Room login and session
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          python deploy/cloudflare/staging_login_smoke.py
+
+      - name: Compare public Render and Cloudflare response times (read only)
+        if: always()
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          python deploy/cloudflare/compare_hosts.py
 
       - name: Save latency comparison report
         if: always()
