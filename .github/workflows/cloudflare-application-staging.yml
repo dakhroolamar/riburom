@@ -100,3 +100,33 @@ jobs:
             printf 'Authenticated /readyz expected 200, got %s\n' "$status"
             exit 1
           fi
+
+      - name: Smoke-test protected public pages and static media
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$STAGING_ACCESS_PASSWORD" ]; then
+            echo "::error::The GitHub staging password is required for authenticated page smoke tests."
+            exit 1
+          fi
+          for path in / /all_tours /about /marketplace /stories; do
+            status=$(curl --silent --show-error --max-time 30 --retry 2 \
+              --output "$RUNNER_TEMP/riburom-smoke.html" \
+              --write-out '%{http_code}' --user "rehearsal:$STAGING_ACCESS_PASSWORD" "$STAGING_URL$path")
+            printf '%s: HTTP %s\n' "$path" "$status"
+            if [ "$status" != 200 ]; then
+              echo "::error::Staging page $path failed with HTTP $status."
+              exit 1
+            fi
+            python -c 'import pathlib,sys; body=pathlib.Path(sys.argv[1]).read_text(errors="replace").lower(); assert "<html" in body, "Expected rendered HTML"' \
+              "$RUNNER_TEMP/riburom-smoke.html"
+          done
+          status=$(curl --silent --show-error --max-time 20 --retry 2 \
+            --output "$RUNNER_TEMP/riburom-mark.png" \
+            --write-out '%{http_code}' --user "rehearsal:$STAGING_ACCESS_PASSWORD" \
+            "$STAGING_URL/static/control-room/ri-burom-mark.png")
+          printf '%s: HTTP %s\n' "/static/control-room/ri-burom-mark.png" "$status"
+          if [ "$status" != 200 ] || [ ! -s "$RUNNER_TEMP/riburom-mark.png" ]; then
+            echo "::error::Staging static brand asset failed."
+            exit 1
+          fi
