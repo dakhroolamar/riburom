@@ -65,6 +65,51 @@ def worker_brevo_http(request, *, read_body=False):
     return response.status, body
 
 
+
+def install_staging_timing(app):
+    """Numeric timings only, for the protected comparison hostname."""
+    from time import perf_counter
+    from flask import g, has_request_context, request
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    def profiled():
+        return (
+            has_request_context()
+            and request.host == "riburom-application-staging.dakhroo.workers.dev"
+        )
+
+    @app.before_request
+    def _start_staging_profile():
+        if profiled():
+            g._ri_started = perf_counter()
+            g._ri_sql_ms = 0.0
+            g._ri_sql_count = 0
+
+    @event.listens_for(Engine, "before_cursor_execute")
+    def _before_sql(conn, cursor, statement, parameters, context, executemany):
+        if profiled() and hasattr(g, "_ri_started"):
+            context._ri_started_sql = perf_counter()
+
+    @event.listens_for(Engine, "after_cursor_execute")
+    def _after_sql(conn, cursor, statement, parameters, context, executemany):
+        started = getattr(context, "_ri_started_sql", None)
+        if started is not None and profiled() and hasattr(g, "_ri_started"):
+            g._ri_sql_count += 1
+            g._ri_sql_ms += (perf_counter() - started) * 1000.0
+
+    @app.after_request
+    def _send_staging_profile(response):
+        if profiled() and hasattr(g, "_ri_started"):
+            elapsed_ms = (perf_counter() - g._ri_started) * 1000.0
+            response.headers["Server-Timing"] = (
+                f"flask;dur={elapsed_ms:.1f}, "
+                f"sql;dur={g._ri_sql_ms:.1f}"
+            )
+            response.headers["X-Riburom-Staging-SQL-Count"] = str(g._ri_sql_count)
+        return response
+
+
 def get_application(env):
     global _application
     if _application is not None:
@@ -89,6 +134,7 @@ def get_application(env):
 
     if env.RIBUROM_MODE == "application":
         app.config["BREVO_HTTP_TRANSPORT"] = worker_brevo_http
+        install_staging_timing(app)
 
     flask_wsgi = app.wsgi_app
 
