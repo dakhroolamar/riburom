@@ -40,10 +40,16 @@ def fetch(url, *, secret, jar, output, fields=None, follow_redirects=True):
             for line in header_text.splitlines()
             if line.lower().startswith("x-riburom-staging-error-class:")
         ]
+        sqlstate = [
+            line.partition(":")[2].strip()
+            for line in header_text.splitlines()
+            if line.lower().startswith("x-riburom-staging-sqlstate:")
+        ]
         raise AssertionError(
             f"Control Room request failed: HTTP {code}; "
             f"page title: {(title.group(1).strip() if title else 'unknown')[:100]}; "
-            f"staging exception class: {(error_class[-1] if error_class else 'not available')}"
+            f"staging exception class: {(error_class[-1] if error_class else 'not available')}" +
+            f"; SQLSTATE: {(sqlstate[-1] if sqlstate else 'not available')}"
         )
     return location, body
 
