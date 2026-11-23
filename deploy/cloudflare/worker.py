@@ -6,6 +6,19 @@ from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 
 
 APP_INSTANCE = "web"
+PUBLIC_COMPARISON_PATHS = {
+    "/", "/all_tours", "/about", "/marketplace", "/stories",
+    "/healthz", "/readyz", "/favicon.ico",
+}
+
+
+def is_comparison_path(path):
+    return (
+        path in PUBLIC_COMPARISON_PATHS
+        or path.startswith(("/tours/", "/marketplace/providers/", "/reviews/media/", "/static/"))
+    )
+
+
 
 
 def flask_stub(env):
@@ -37,6 +50,17 @@ class Default(WorkerEntrypoint):
                 return Response("Preview route unavailable", status=404)
         elif mode != "application" or urlsplit(request.url).hostname != self.env.RIBUROM_HOST:
             return Response("Unknown site", status=404)
+        if getattr(self.env, "RIBUROM_READ_ONLY", None) == "true":
+            # The parallel site may point at live Neon, so reject *all*
+            # writes before Flask and hide private or administrative routes.
+            if request.method not in ("GET", "HEAD") or not is_comparison_path(path):
+                return Response("Read-only public comparison", status=404, headers={
+                    "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"
+                })
+            if path == "/robots.txt":
+                return Response("User-agent: *\\nDisallow: /\\n", headers={
+                    "Content-Type": "text/plain", "X-Robots-Tag": "noindex, nofollow"
+                })
         if getattr(self.env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true":
             secret = getattr(self.env, "RIBUROM_STAGING_ACCESS_TOKEN", None)
             if not secret:
