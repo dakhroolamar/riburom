@@ -2,7 +2,7 @@ from base64 import b64encode
 from hmac import compare_digest
 from urllib.parse import urlsplit
 
-from workers import DurableObject, Response, WorkerEntrypoint, wsgi
+from workers import DurableObject, Request, Response, WorkerEntrypoint, wsgi
 
 
 APP_INSTANCE = "web"
@@ -31,7 +31,7 @@ class Default(WorkerEntrypoint):
                     "X-Robots-Tag": "noindex, nofollow",
                 })
             if path.startswith("/static/"):
-                return await self.env.ASSETS.fetch(request)
+                return await self.env.ASSETS.fetch(Request.new(f"https://assets.local{path}"))
         return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
