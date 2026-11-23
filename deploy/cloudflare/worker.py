@@ -35,16 +35,7 @@ class Default(WorkerEntrypoint):
         if mode == "application" and path == "/__staging/bootstrap":
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
-            try:
-                result = await self.env.FLASK_APP.getByName(APP_INSTANCE).bootstrap_staging()
-                return Response.json(result)
-            except Exception as exc:
-                # Staging-only diagnostic: no database details, configuration or secrets.
-                return Response.json(
-                    {"status": "bootstrap_rpc_failed", "exception": type(exc).__name__},
-                    status=503,
-                )
-        return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
+            return await self.env.FLASK_APP.getByName(APP_INSTANCE).fetch(request)
 
     async def scheduled(self, controller, env, ctx):
         if self.env.OUTBOX_SCHEDULED == "true":
@@ -70,29 +61,27 @@ class FlaskApplication(DurableObject):
             if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
                 from worker_fixture import fixture_status
                 return Response.json(fixture_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
+            if self.env.RIBUROM_MODE == "application" and urlsplit(request.url).path == "/__staging/bootstrap":
+                if not (
+                    request.method == "POST"
+                    and self.env.RIBUROM_HOST == "riburom-application-staging.dakhroo.workers.dev"
+                    and self.env.RIBUROM_STAGING_ACCESS_REQUIRED == "true"
+                ):
+                    return Response("Unavailable", status=404)
+                try:
+                    from staging_setup import initialize_staging
+                    payload, status = initialize_staging(
+                        app, self.env.RIBUROM_STAGING_ACCESS_TOKEN
+                    )
+                    return Response.json(payload, status=status)
+                except Exception as exc:
+                    return Response.json(
+                        {"status": "bootstrap_failed", "exception": type(exc).__name__},
+                        status=503,
+                    )
             return await wsgi.fetch(app, request, self.env)
         finally:
             request_sql.reset(token)
-
-    async def bootstrap_staging(self):
-        # Refuse this privileged operation outside the exact isolated Worker.
-        if not (
-            self.env.RIBUROM_MODE == "application"
-            and self.env.RIBUROM_HOST == "riburom-application-staging.dakhroo.workers.dev"
-            and self.env.RIBUROM_STAGING_ACCESS_REQUIRED == "true"
-        ):
-            return {"status": "unavailable"}
-        try:
-            from staging_setup import initialize_staging
-            from worker_runtime import get_application
-
-            payload, status = initialize_staging(
-                get_application(self.env), self.env.RIBUROM_STAGING_ACCESS_TOKEN
-            )
-            return {**payload, "setup_http_status": status}
-        except Exception as exc:
-            # Do not include exception strings or credentials in HTTP responses.
-            return {"status": "bootstrap_failed", "exception": type(exc).__name__}
 
     async def run_outbox(self):
         from worker_runtime import get_application
