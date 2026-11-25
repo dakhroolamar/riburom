@@ -13,7 +13,16 @@ async function imageReady(page, selector) {
 }
 async function changed(page, start, timeout=8500) {
   await page.waitForFunction(start => document.querySelector('[data-rb-river-gallery]').dataset.galleryIndex !== start, start, {timeout});
-  await page.waitForTimeout(500);
+  // The gallery uses a 450ms opacity transition. Waiting a fixed 500ms is
+  // flaky under loaded CI browsers; observe the actual settled visual state.
+  await page.waitForFunction(() => {
+    const gallery=document.querySelector('[data-rb-river-gallery]');
+    if (!gallery) return false;
+    const current=gallery.querySelector('figure.is-current');
+    const others=[...gallery.querySelectorAll('figure:not(.is-current)')];
+    return current && getComputedStyle(current).opacity==='1'
+      && others.every(el=>getComputedStyle(el).opacity==='0');
+  }, null, {timeout:2200});
   assert.equal(await page.locator(river+' figure.is-current').evaluate(el=>getComputedStyle(el).opacity),'1','The selected photograph must actually be visible');
   const hidden=await page.locator(river+' figure:not(.is-current)').evaluateAll(items=>items.every(el=>getComputedStyle(el).opacity==='0'));
   assert.ok(hidden,'Other photographs must not overlap the selected photograph');
