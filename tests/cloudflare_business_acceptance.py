@@ -27,7 +27,14 @@ class Visitor:
             raise ValueError("Staging origin required")
         response = self.client.request(method, url, allow_redirects=False, timeout=35, **kwargs)
         if response.status_code != expected:
-            raise AssertionError(f"{method} expected HTTP {expected}, received {response.status_code}")
+            # Only numeric status and whitelisted diagnostic exception types;
+            # never record response bodies, cookies, or authorization headers.
+            error_type = response.headers.get("X-Riburom-Staging-Upload-Error-Class", "unknown")
+            cause_type = response.headers.get("X-Riburom-Staging-Upload-Cause-Class", "unknown")
+            raise AssertionError(
+                f"{method} expected HTTP {expected}, received {response.status_code}; "
+                f"upload_error={error_type}; cause={cause_type}"
+            )
         return response
 
     def html(self, path):

@@ -386,9 +386,17 @@ def register_cms_pages(app):
             path = save_image(file)
         except (ValueError, UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
             abort(400, str(exc))
-        except Exception:
+        except Exception as exc:
             app.logger.exception('CMS image storage failed')
-            return jsonify(error='Upload failed. Your existing images are unchanged. Try again.'), 502
+            response = jsonify(error='Upload failed. Your existing images are unchanged. Try again.')
+            response.status_code = 502
+            # Only password-protected staging may receive exception *types*;
+            # no request data, Cloudinary response bodies, or credentials.
+            if request.host == 'riburom-application-staging.dakhroo.workers.dev':
+                response.headers['X-Riburom-Staging-Upload-Error-Class'] = type(exc).__name__
+                if exc.__cause__ is not None:
+                    response.headers['X-Riburom-Staging-Upload-Cause-Class'] = type(exc.__cause__).__name__
+            return response
         asset = MediaAsset(path=path, title=file.filename[:240], width=width, height=height, byte_size=len(raw))
         db.session.add(asset)
         add_audit('uploaded', 'cms_media', None, asset.title)
