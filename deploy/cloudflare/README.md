@@ -26,3 +26,16 @@ Store secrets in Cloudflare and set `SECRET_KEY`, `ADMIN_PASSWORD_HASH` and the 
 
 The application deployment workflow uses the separate `cloudflare-application-staging` GitHub environment. Restrict it to the staging branch and add its own Individual Workers Editor token for `riburom-application-staging`. After the staging access secret and environment are verified, set the repository variable `CLOUDFLARE_APPLICATION_STAGING_ENABLED=true` and push a candidate. The workflow checks that anonymous requests to both the Flask app and static assets are denied. Use the [transfer runbook](../../docs/render-to-cloudflare.md) for cutover and rollback.
 <!-- Trigger read-only comparison deployment -->
+
+## Recheck signed Cloudinary uploads after folder authorization
+
+The application staging Worker is scoped to the Cloudinary root folder
+`riburom-cloudflare-staging`. After the dedicated Media Library User API key
+has **Folder Editor** access to that folder, rerun the opt-in hosted staging
+business workflow by committing a change with `[staging acceptance]` in the
+message. The workflow verifies that a small synthetic image can be uploaded
+and delivered from the staging folder and exercises other business workflows.
+A folder-permission change alone is not proof of a successful signed upload.
+
+Never paste API keys or secrets into the repository, and do not modify the
+production Render Cloudinary credential for this staging acceptance test.
