@@ -67,3 +67,11 @@ confirmed scoped OAuth and one synthetic email accepted by Brevo; the
 isolated Neon outbox recorded `SENT`, and the corresponding message was found
 in the approved Gmail inbox. Keep normal application staging deployments
 separate from the one-off Brevo send marker to avoid repeated mail tests.
+
+## Production candidate deployment gate
+
+The candidate uses its own dedicated production Hyperdrive role but stays
+HTTP Basic protected, keeps business submissions disabled, and has no Cron
+schedule or custom-domain attachment. The GitHub Actions job must validate
+its protected readiness, role/schema, and production SEO before any owner
+considers a separate public-domain cutover.
