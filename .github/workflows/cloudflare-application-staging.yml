@@ -271,3 +271,8 @@ jobs:
         env:
           STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: python tests/cloudflare_business_acceptance.py
+      - name: Compare sitemap, canonical URLs, metadata and Google verification
+        if: ${{ !cancelled() }}
+        env:
+          SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: python tests/cloudflare_seo_acceptance.py --candidate staging

@@ -121,3 +121,10 @@ jobs:
             -o /dev/null -w '%{http_code}' "$PARALLEL_URL/workspace")
           test "$status" = 404
           echo 'Read-only Cloudflare comparison is safe and serves public pages.'
+
+      - name: Verify production URL and public metadata parity
+        env:
+          SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_PARALLEL_ACCESS_TOKEN }}
+        run: |
+          python -m pip install requests beautifulsoup4
+          python tests/cloudflare_seo_acceptance.py --candidate parallel

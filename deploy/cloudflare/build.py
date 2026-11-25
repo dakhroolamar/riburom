@@ -99,7 +99,7 @@ def main():
             vars={
                 "RIBUROM_MODE": "application",
                 "RIBUROM_HOST": "riburom-parallel-comparison.dakhroo.workers.dev",
-                "PUBLIC_BASE_URL": "https://riburom-parallel-comparison.dakhroo.workers.dev",
+                "PUBLIC_BASE_URL": "https://riburomtours.com",
                 "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
                 "RIBUROM_READ_ONLY": "true",
                 "RIBUROM_DO_NAME": "web-apac-se-parallel-v1",

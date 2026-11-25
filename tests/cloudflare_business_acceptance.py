@@ -27,7 +27,7 @@ class Visitor:
             raise ValueError("Staging origin required")
         response = self.client.request(method, url, allow_redirects=False, timeout=35, **kwargs)
         if response.status_code != expected:
-            raise AssertionError(f"{method} {urlsplit(url).path}: expected {expected}, got {response.status_code}")
+            raise AssertionError(f"{method} expected HTTP {expected}, received {response.status_code}")
         return response
 
     def html(self, path):
@@ -63,7 +63,8 @@ def main():
             # Never log server bodies, redirect receipts, form values or credentials.
             failures.append(name)
             line = traceback.extract_tb(exc.__traceback__)[-1].lineno
-            print(f"{name}: FAIL ({type(exc).__name__}, line {line})", flush=True)
+            detail = str(exc) if isinstance(exc, AssertionError) else type(exc).__name__
+            print(f"{name}: FAIL ({detail}, line {line})", flush=True)
 
     def tour():
         owner.html("/add_package")
@@ -124,7 +125,7 @@ def main():
     def contact():
         visitor.html("/")
         visitor.post("/send_message", dict(name=marker, email="synthetic@example.invalid", message=marker))
-        assert marker in owner.html("/workspace/control/leads?q=" + marker).get_text()
+        assert marker in owner.html("/workspace/control/enquiries?q=" + marker).get_text()
 
     def marketplace():
         listing = visitor.html("/marketplace")

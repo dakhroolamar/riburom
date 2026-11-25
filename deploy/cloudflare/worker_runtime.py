@@ -66,6 +66,28 @@ def worker_brevo_http(request, *, read_body=False):
     return response.status, body
 
 
+class CloudinaryFetchTransport:
+    """Use Worker fetch for the Cloudinary SDK's signed multipart requests."""
+
+    def request(self, method, url, *, fields, headers, timeout=30):
+        from urllib.parse import urlsplit
+        from urllib3 import HTTPResponse, encode_multipart_formdata
+        from js import AbortSignal, Object, fetch
+        from pyodide.ffi import run_sync, to_js
+
+        target = urlsplit(url)
+        if method != "POST" or target.scheme != "https" or target.netloc != "api.cloudinary.com":
+            raise ValueError("Unexpected Cloudinary upload destination")
+        body, content_type = encode_multipart_formdata(fields)
+        options = to_js({
+            "method": method, "headers": {**headers, "Content-Type": content_type},
+            "body": body, "redirect": "manual",
+            "signal": AbortSignal.timeout(int(timeout * 1000)),
+        }, dict_converter=Object.fromEntries)
+        response = run_sync(fetch(url, options))
+        return HTTPResponse(status=response.status, body=run_sync(response.text()).encode())
+
+
 
 def install_staging_timing(app):
     """Numeric timings only, for the protected comparison hostname."""
@@ -117,6 +139,37 @@ def install_staging_timing(app):
         return response
 
 
+def restrict_comparison_connections(app):
+    from sqlalchemy import event
+    from models import db
+
+    with app.app_context():
+        engine = db.engine
+
+    @event.listens_for(engine, "connect")
+    def verify_reader(connection, record):
+        cursor = connection.cursor()
+        try:
+            cursor.execute("""
+                SELECT current_user = 'riburom_comparison_reader'
+                  AND current_setting('transaction_read_only') = 'on'
+                  AND to_regclass('packages') = to_regclass('riburom_public_comparison.packages')
+                  AND NOT EXISTS (
+                    SELECT FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname IN ('public', 'riburom_public_comparison')
+                      AND c.relkind IN ('r', 'p', 'v', 'm', 'f') AND (
+                        has_any_column_privilege(current_user, c.oid, 'INSERT,UPDATE,REFERENCES')
+                        OR has_table_privilege(current_user, c.oid, 'DELETE,TRUNCATE,TRIGGER')
+                        OR (n.nspname = 'public' AND has_any_column_privilege(current_user, c.oid, 'SELECT'))
+                      ))
+            """)
+            if cursor.fetchone()[0] is not True:
+                raise RuntimeError("Comparison database role or view grants are incorrect")
+        finally:
+            cursor.close()
+            connection.rollback()
+
+
 def get_application(env):
     global _application
     if _application is not None:
@@ -140,7 +193,17 @@ def get_application(env):
     from wsgi import app
 
     if env.RIBUROM_MODE == "application":
+        if getattr(env, "RIBUROM_READ_ONLY", None) == "true":
+            restrict_comparison_connections(app)
+        if getattr(env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true":
+            @app.after_request
+            def exclude_preview_from_index(response):
+                response.headers["X-Robots-Tag"] = "noindex, nofollow"
+                return response
+
         app.config["BREVO_HTTP_TRANSPORT"] = worker_brevo_http
+        import cloudinary.uploader
+        cloudinary.uploader._http = CloudinaryFetchTransport()
         install_staging_timing(app)
 
     flask_wsgi = app.wsgi_app
