@@ -76,6 +76,22 @@ jobs:
           python -m pip install uv==0.13.9
           npm install --no-save --no-audit --no-fund wrangler@4.166.0
           uv sync --python "$(cat ../../../.python-version)"
+      - name: Verify candidate preview secrets are configured
+        env:
+          ACCESS: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
+          SESSION: ${{ secrets.RIBUROM_CANDIDATE_SESSION_SECRET }}
+          ADMIN_HASH: ${{ secrets.RIBUROM_CANDIDATE_ADMIN_HASH }}
+        run: |
+          test -n "$ACCESS" || { echo "::error::Missing candidate preview password"; exit 1; }
+          test -n "$SESSION" || { echo "::error::Missing candidate session secret"; exit 1; }
+          test -n "$ADMIN_HASH" || { echo "::error::Missing candidate admin hash"; exit 1; }
+          test "${#ACCESS}" -ge 24 || { echo "::error::Candidate access password too short"; exit 1; }
+          test "${#SESSION}" -ge 32 || { echo "::error::Candidate session secret too short"; exit 1; }
+          case "$ADMIN_HASH" in
+            scrypt:*|pbkdf2:*) ;;
+            *) echo "::error::Candidate admin hash must be a valid Werkzeug hash"; exit 1 ;;
+          esac
+
       - name: Deploy protected Worker
         working-directory: deploy/cloudflare/build
         env:
@@ -85,6 +101,21 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
           uv run --no-sync pywrangler deploy
+
+      - name: Install dedicated candidate secrets before allowing any authenticated checks
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+          ACCESS: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
+          SESSION: ${{ secrets.RIBUROM_CANDIDATE_SESSION_SECRET }}
+          ADMIN_HASH: ${{ secrets.RIBUROM_CANDIDATE_ADMIN_HASH }}
+        run: |
+          # All values stay in masked workflow secrets and are piped to Wrangler,
+          # not interpolated into shell arguments or printed to logs.
+          printf '%s' "$ACCESS" | ./node_modules/.bin/wrangler secret put RIBUROM_STAGING_ACCESS_TOKEN --name riburom-production
+          printf '%s' "$SESSION" | ./node_modules/.bin/wrangler secret put SECRET_KEY --name riburom-production
+          printf '%s' "$ADMIN_HASH" | ./node_modules/.bin/wrangler secret put ADMIN_PASSWORD_HASH --name riburom-production
       - name: Verify access, runtime database checks and SEO
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
