@@ -25,6 +25,39 @@ without giving the second site permission to mutate invoices, enquiries or
 accounts. Continue to exercise the full write workflows on the isolated staging
 Neon database.
 
+## Verified production reader (25 November 2026)
+
+Neon's production reader `riburom_comparison_reader` is already initialized.
+Its password was successfully configured, and it authenticates with the direct
+Neon endpoint. **Do not reset the password again to work around a browser
+selector failure.** A live connection as this role showed
+`transaction_read_only=on`, search path
+`pg_catalog, riburom_public_comparison`, four published tours and two public
+providers. Reading `public.messages` failed with SQLSTATE 42501.
+This role has no inherited role memberships, database/schema CREATE grants,
+or base-table read/write privileges; it can SELECT only from 17 public views.
+
+**Manual secret-safe handoff:** In Neon Console → RI BUROM (production) →
+Connect, select the `riburom_comparison_reader` role, `neondb` database,
+and **Direct connection** endpoint. Click **Copy snippet**. The password can
+remain masked; there is no need to find or click “Show password”.
+Do not paste the snippet into chat, a GitHub issue, git history, or a workflow
+command that echoes it.
+
+In the Cloudflare dashboard open **Storage & databases → Postgres & MySQL
+(Hyperdrive) → Create Configuration**. Create a new configuration named
+`riburom-production-readonly` using the copied Neon PostgreSQL connection
+string. Keep the database in the production Neon project, not staging, and
+**disable Hyperdrive query caching** during page-parity measurements.
+Store this credential only in Cloudflare Hyperdrive's protected origin
+configuration. Copy *only the generated 32-hex Hyperdrive configuration ID*
+into the `RIBUROM_PARALLEL_HYPERDRIVE_ID` environment variable described below.
+
+The connected ChatGPT Neon service can verify/read this login but cannot
+write into Cloudflare account settings. Cloudflare's separate account-level
+Hyperdrive setup must be completed through its own authorized dashboard/API
+before the GitHub workflow can deploy.
+
 ## Provision only the following separate Cloudflare comparison resources
 
 1. Create a **new** Cloudflare Hyperdrive configuration targeting the **RI BUROM
