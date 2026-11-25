@@ -32,9 +32,11 @@ class Visitor:
             error_type = response.headers.get("X-Riburom-Staging-Upload-Error-Class", "unknown")
             cause_type = response.headers.get("X-Riburom-Staging-Upload-Cause-Class", "unknown")
             context_type = response.headers.get("X-Riburom-Staging-Upload-Context-Class", "unknown")
+            reason_hints = response.headers.get("X-Riburom-Staging-Upload-Reason-Hints", "unknown")
             raise AssertionError(
                 f"{method} expected HTTP {expected}, received {response.status_code}; "
-                f"upload_error={error_type}; cause={cause_type}; context={context_type}"
+                f"upload_error={error_type}; cause={cause_type}; context={context_type}; "
+                f"reason_hints={reason_hints}"
             )
         return response
 

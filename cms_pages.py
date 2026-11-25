@@ -398,6 +398,26 @@ def register_cms_pages(app):
                     response.headers['X-Riburom-Staging-Upload-Cause-Class'] = type(exc.__cause__).__name__
                 if exc.__context__ is not None:
                     response.headers['X-Riburom-Staging-Upload-Context-Class'] = type(exc.__context__).__name__
+                # Whitelisted reason categories, NEVER an upstream error
+                # message (which could contain account or API information).
+                if type(exc).__name__ == 'NotAllowed':
+                    reason = str(exc).lower()
+                    hints = {
+                        'ip-allowlist': ('ip address' in reason or 'allowlist' in reason),
+                        'restricted-key': ('api key' in reason and
+                                           any(word in reason for word in ('restrict', 'permission', 'allow'))),
+                        'account-policy': ('account' in reason and
+                                           any(word in reason for word in ('disabled', 'suspend', 'restrict', 'allow'))),
+                        'folder-policy': ('folder' in reason and
+                                          any(word in reason for word in ('allow', 'restrict', 'permission'))),
+                        'upload-preset': ('preset' in reason),
+                        'quota': any(word in reason for word in ('quota', 'limit exceeded', 'usage limit')),
+                        'signature': ('signature' in reason),
+                        'geo-restriction': ('country' in reason or 'region' in reason),
+                    }
+                    response.headers['X-Riburom-Staging-Upload-Reason-Hints'] = ','.join(
+                        key for key, matched in hints.items() if matched
+                    ) or 'unclassified-provider-403'
             return response
         asset = MediaAsset(path=path, title=file.filename[:240], width=width, height=height, byte_size=len(raw))
         db.session.add(asset)
