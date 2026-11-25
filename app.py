@@ -18,7 +18,7 @@ from flask import (
     stream_with_context, send_file,
 )
 from sqlalchemy import inspect, func, desc, text
-from sqlalchemy.orm import joinedload, load_only, selectinload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm.exc import StaleDataError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -40,6 +40,7 @@ from storage import (
 )
 from marketplace_models import Provider, ProviderTypeAssignment, Service
 import cms_media_models
+from cms_pages import public_tour_cards
 import control_room_models
 from indexnow import notify_indexnow_paths, notify_indexnow_cms_change, notify_indexnow_public_site
 
@@ -700,25 +701,17 @@ def readyz():
 # ------------------------------------------------------------
 # Public routes
 # ------------------------------------------------------------
-def public_tour_cards():
-    # Large itinerary and inclusion text is only rendered on the detail page.
-    return Package.query.options(load_only(
-        Package.id, Package.title, Package.slug, Package.description, Package.location,
-        Package.category, Package.duration, Package.price, Package.image_file,
-        Package.sort_order, Package.featured,
-    )).filter_by(published=True)
-
-
 @app.route('/')
 def home():
     settings, about_row = public_settings_and_about()
-    candidates = public_tour_cards().order_by(
-        Package.featured.desc(), Package.sort_order.asc(), Package.id.desc()
-    ).limit(6).all()
+    candidates, covers = public_tour_cards(
+        Package.featured.desc(), Package.sort_order.asc(), Package.id.desc(), limit=6
+    )
     featured = [package for package in candidates if package.featured] or candidates
     hero_logo = settings.hero_logo or settings.header_mark or settings.header_wordmark
     reviews = TravellerReview.query.options(joinedload(TravellerReview.attachments)).filter_by(status="published", is_visible=True).order_by(TravellerReview.created_at.desc(), TravellerReview.id.desc()).limit(40).all()
-    return render_template('index.html', hero_image=about_row.hero_image if about_row else None, hero_logo=hero_logo, packages=featured, settings=settings, reviews=reviews)
+    return render_template('index.html', hero_image=about_row.hero_image if about_row else None,
+                           hero_logo=hero_logo, packages=featured, covers=covers, settings=settings, reviews=reviews)
 
 
 @app.post('/reviews')
@@ -926,9 +919,9 @@ def marketplace_public_provider(slug):
 
 @app.route('/all_tours')
 def all_tours():
-    packages = public_tour_cards().order_by(Package.sort_order.asc(), Package.id.desc()).all()
+    packages, covers = public_tour_cards(Package.sort_order.asc(), Package.id.desc())
     g.seo_packages = packages
-    return render_template('tours.html', packages=packages)
+    return render_template('tours.html', packages=packages, covers=covers)
 
 
 @app.route('/tours/<slug>')

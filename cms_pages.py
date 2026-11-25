@@ -6,9 +6,9 @@ from urllib.parse import urlsplit
 
 from flask import has_request_context, abort, jsonify, render_template, request, g
 from PIL import Image, UnidentifiedImageError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, load_only
 from sqlalchemy.orm.exc import StaleDataError
-from sqlalchemy import or_, literal, select
+from sqlalchemy import String, cast, or_, literal, select
 
 from models import db, Package, SiteSettings, AboutContent, TeamMember
 from cms_media_models import MediaAsset, MediaCollection, MediaCollectionItem, PageSection
@@ -134,10 +134,7 @@ def gallery_settings(key):
                 ('interval', 6000, (5000, 6000, 7000)), ('ratio', defaults['ratio'], ('16/9', '3/2', '4/3'))]}
 
 
-def tour_covers(packages):
-    keys = [f'tour-{package.id}' for package in packages]
-    if not keys:
-        return {}
+def public_tour_cards(*order_by, limit=None):
     # An explicitly empty collection suppresses the legacy cover. Selecting
     # the first visible path preserves that distinction without loading albums.
     first_path = select(MediaAsset.path).join(
@@ -146,8 +143,19 @@ def tour_covers(packages):
         MediaCollectionItem.collection_id == MediaCollection.id,
         MediaCollectionItem.visible.is_(True),
     ).order_by(MediaCollectionItem.position, MediaCollectionItem.id).limit(1).scalar_subquery()
-    rows = db.session.query(MediaCollection.key, first_path).filter(MediaCollection.key.in_(keys))
-    return {key: delivery(path, 800) if path else '' for key, path in rows}
+    query = db.session.query(Package, MediaCollection.id, first_path).outerjoin(
+        MediaCollection, MediaCollection.key == literal('tour-') + cast(Package.id, String)
+    ).options(load_only(
+        Package.id, Package.title, Package.slug, Package.description, Package.location,
+        Package.category, Package.duration, Package.price, Package.image_file,
+        Package.sort_order, Package.featured,
+    )).filter(Package.published.is_(True)).order_by(*order_by)
+    packages, covers = [], {}
+    for package, collection_id, path in query.limit(limit):
+        packages.append(package)
+        if collection_id is not None:
+            covers[package.id] = delivery(path, 800) if path else ''
+    return packages, covers
 
 
 def asset_usage_batch(assets):
@@ -225,7 +233,7 @@ def register_cms_pages(app):
     from cms_routes import cms_access_required, cms_media_required
 
     app.config.setdefault('CMS_COLLECTION_LIMIT', 10)
-    app.jinja_env.globals.update(cms_collection_media=collection_media, cms_tour_covers=tour_covers,
+    app.jinja_env.globals.update(cms_collection_media=collection_media,
                                  cms_landscape_srcset=landscape_srcset, cms_card_srcset=card_srcset, cms_pages_nav=PAGES, cms_gallery_settings=gallery_settings)
 
     @app.route('/workspace/pages')

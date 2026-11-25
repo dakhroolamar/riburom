@@ -15,10 +15,9 @@
 <section data-reveal class="rb-discovery-layout max-w-7xl mx-auto px-6 py-12">
     <div class="rb-hero-readable rb-discovery-head"><div class="rb-hero-copy"><p class="rb-hero-eyebrow">{{ public.content.tours_page_eyebrow }}</p><h1 class="rb-hero-title">{{ public.content.tours_page_heading }}</h1><p class="text-gray-600">{{ public.content.tours_page_intro }}</p></div></div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 rb-stagger">
-        {% set covers = cms_tour_covers(packages) if cms_tour_covers is defined else {} %}
         {% for pkg in packages %}
         <article data-reveal="scale" class="rb-card rb-paper-card flex flex-col">
-            {% set package_cover = covers.get('tour-' ~ pkg.id, pkg.image_file|imgsrc) %}
+            {% set package_cover = covers.get(pkg.id, pkg.image_file|imgsrc) %}
             {% if package_cover %}<a href="{{ url_for('tour_detail', slug=pkg.slug) }}"><img class="rb-card-media" src="{{ package_cover }}" {% set card_srcset = cms_card_srcset(package_cover) if cms_card_srcset is defined else '' %}{% if card_srcset %}srcset="{{ card_srcset }}" sizes="(min-width: 768px) 32vw, calc(100vw - 3rem)"{% endif %} alt="{{ pkg.title }}" loading="lazy" decoding="async"></a>{% endif %}
             <div class="p-6 flex-grow">
                 <div class="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">{% if pkg.category %}<span>{{ pkg.category }}</span>{% endif %}{% if pkg.duration %}<span>• {{ pkg.duration }}</span>{% endif %}</div>
