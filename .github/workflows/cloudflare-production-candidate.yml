@@ -144,6 +144,14 @@ jobs:
               if payload.get("status") in {"candidate_startup_failed", "candidate_wsgi_failed"}:
                   category = payload.get("exception", "unknown")
                   print("Candidate runtime category:", payload["status"], str(category)[:80])
+                  permitted = {"role_ok", "database_ok", "schema_ok", "writable_ok",
+                               "revision_ok", "enquiry_grant_ok", "tour_grant_ok", "restricted_role_ok"}
+                  failures = payload.get("failed_checks", [])
+                  if isinstance(failures, list) and all(item in permitted for item in failures):
+                      if failures:
+                          print("Failed candidate guard checks:", ", ".join(failures))
+                  if payload.get("reason") in ("session_secret_missing", "admin_hash_missing"):
+                      print("Candidate configuration hint:", payload["reason"])
           except (OSError, ValueError):
               pass
           PY
