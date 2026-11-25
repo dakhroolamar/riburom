@@ -60,3 +60,10 @@ staging-only database demo records. It does not process other outbox rows,
 enable a Cron schedule or touch Render. No API tokens, secret values,
 recipient address or message body is logged in CI. Brevo API acceptance is
 not proof of mailbox delivery: verify the approved inbox separately.
+
+After the first controlled Brevo test on 25 November 2026, the hosted
+[opt-in acceptance workflow](https://github.com/dakhroolamar/riburom/actions/runs/45576771477)
+confirmed scoped OAuth and one synthetic email accepted by Brevo; the
+isolated Neon outbox recorded `SENT`, and the corresponding message was found
+in the approved Gmail inbox. Keep normal application staging deployments
+separate from the one-off Brevo send marker to avoid repeated mail tests.
