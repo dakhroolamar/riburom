@@ -49,14 +49,30 @@ jobs:
           SESSION_SECRET: ${{ secrets.RIBUROM_PARALLEL_SESSION_SECRET }}
           INITIAL_HASH: ${{ secrets.RIBUROM_PARALLEL_ADMIN_HASH }}
         run: |
-          test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
-          test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
-          test "$RIBUROM_PARALLEL_HYPERDRIVE_ID" != "$RIBUROM_STAGING_HYPERDRIVE_ID"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test "${#ACCESS_TOKEN}" -ge 16
-          test "${#SESSION_SECRET}" -ge 32
-          test -n "$INITIAL_HASH"
+          # Never echo secret values (or their lengths) in Actions logs.
+          require_present() {
+            if test -z "$2"; then
+              echo "::error::$1 is missing from the comparison deployment environment"
+              exit 1
+            fi
+          }
+          require_min_length() {
+            if test "${#2}" -lt "$3"; then
+              echo "::error::$1 must contain at least $3 characters"
+              exit 1
+            fi
+          }
+          require_present RIBUROM_PARALLEL_HYPERDRIVE_ID "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
+          require_present RIBUROM_STAGING_HYPERDRIVE_ID "$RIBUROM_STAGING_HYPERDRIVE_ID"
+          if test "$RIBUROM_PARALLEL_HYPERDRIVE_ID" = "$RIBUROM_STAGING_HYPERDRIVE_ID"; then
+            echo "::error::The production reader and staging Hyperdrive IDs must differ"
+            exit 1
+          fi
+          require_present CLOUDFLARE_ACCOUNT_ID "$CLOUDFLARE_ACCOUNT_ID"
+          require_present CLOUDFLARE_WORKER_DEPLOY_TOKEN "$CLOUDFLARE_API_TOKEN"
+          require_min_length RIBUROM_PARALLEL_ACCESS_TOKEN "$ACCESS_TOKEN" 16
+          require_min_length RIBUROM_PARALLEL_SESSION_SECRET "$SESSION_SECRET" 32
+          require_present RIBUROM_PARALLEL_ADMIN_HASH "$INITIAL_HASH"
 
       - name: Build isolated read-only comparison Worker
         env:
