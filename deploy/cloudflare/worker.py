@@ -185,7 +185,18 @@ class FlaskApplication(DurableObject):
         from worker_runtime import get_application
         from durable_rate_limits import request_sql
 
-        app = get_application(self.env)
+        # Candidate-only sanitized startup diagnostics. The Worker is protected
+        # by HTTP Basic and never shares exception messages, SQL or credentials.
+        try:
+            app = get_application(self.env)
+        except Exception as exc:
+            if getattr(self.env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST:
+                return Response.json(
+                    {"status": "candidate_startup_failed", "exception": type(exc).__name__},
+                    status=503,
+                    headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
+                )
+            raise
         token = request_sql.set(self.ctx.storage.sql)
         try:
             if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
@@ -236,7 +247,16 @@ class FlaskApplication(DurableObject):
                     payload, status=status,
                     headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
                 )
-            return await wsgi.fetch(app, request, self.env)
+            try:
+                return await wsgi.fetch(app, request, self.env)
+            except Exception as exc:
+                if getattr(self.env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST:
+                    return Response.json(
+                        {"status": "candidate_wsgi_failed", "exception": type(exc).__name__},
+                        status=503,
+                        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
+                    )
+                raise
         finally:
             request_sql.reset(token)
 
