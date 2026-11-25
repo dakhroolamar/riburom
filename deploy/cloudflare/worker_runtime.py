@@ -9,6 +9,16 @@ from outbox_handoff import PRODUCTION_CANDIDATE_HOST
 
 
 _application = None
+
+
+class ProductionGuardMismatch(RuntimeError):
+    """Only fixed, nonsecret boolean identity/grant checks may be exposed."""
+
+    def __init__(self, failures):
+        super().__init__("Production candidate database identity, grants or revision mismatch")
+        self.failed_checks = tuple(failures)
+
+
 PROVIDER_SETTINGS = (
     "SECRET_KEY", "ADMIN_PASSWORD_HASH", "PUBLIC_BASE_URL",
     "CLOUDINARY_URL", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
@@ -201,18 +211,20 @@ def get_application(env):
             # Check the connected identity and schema before serving even one page.
             # This is a read-only privilege check against the actual Hyperdrive origin.
             with app.app_context(), db.engine.connect() as conn:
-                ready = conn.execute(text("""
-                    SELECT current_user = 'riburom_worker_app' AND current_database() = 'neondb'
-                       AND current_schema() = 'public'
-                       AND current_setting('transaction_read_only') = 'off'
-                       AND (SELECT array_agg(version_num::text) FROM public.alembic_version)
-                           = ARRAY['ea4cd9f32108']
-                       AND has_table_privilege(current_user, 'public.messages', 'INSERT')
-                       AND has_table_privilege(current_user, 'public.packages', 'UPDATE')
-                       AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
-                """)).scalar_one()
-                if ready is not True:
-                    raise RuntimeError("Production candidate database identity, grants or revision mismatch")
+                checks = conn.execute(text("""
+                    SELECT current_user = 'riburom_worker_app' AS role_ok,
+                           current_database() = 'neondb' AS database_ok,
+                           current_schema() = 'public' AS schema_ok,
+                           current_setting('transaction_read_only') = 'off' AS writable_ok,
+                           (SELECT array_agg(version_num::text) FROM public.alembic_version)
+                               = ARRAY['ea4cd9f32108'] AS revision_ok,
+                           has_table_privilege(current_user, 'public.messages', 'INSERT') AS enquiry_grant_ok,
+                           has_table_privilege(current_user, 'public.packages', 'UPDATE') AS tour_grant_ok,
+                           NOT has_schema_privilege(current_user, 'public', 'CREATE') AS restricted_role_ok
+                """)).mappings().one()
+                failures = [name for name, passed in checks.items() if passed is not True]
+                if failures:
+                    raise ProductionGuardMismatch(failures)
         if getattr(env, "RIBUROM_READ_ONLY", None) == "true":
             restrict_comparison_connections(app)
         if getattr(env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true":

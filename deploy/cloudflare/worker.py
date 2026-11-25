@@ -191,8 +191,19 @@ class FlaskApplication(DurableObject):
             app = get_application(self.env)
         except Exception as exc:
             if getattr(self.env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST:
+                # Report only predefined check *names*, never SQL, role names,
+                # connection strings, exception messages or secret values.
+                payload = {"status": "candidate_startup_failed", "exception": type(exc).__name__}
+                if type(exc).__name__ == "ProductionGuardMismatch":
+                    payload["failed_checks"] = list(exc.failed_checks)
+                elif type(exc).__name__ == "RuntimeError":
+                    message = str(exc)
+                    if message.startswith("SECRET_KEY must be configured"):
+                        payload["reason"] = "session_secret_missing"
+                    elif message.startswith("ADMIN_PASSWORD_HASH must be configured"):
+                        payload["reason"] = "admin_hash_missing"
                 return Response.json(
-                    {"status": "candidate_startup_failed", "exception": type(exc).__name__},
+                    payload,
                     status=503,
                     headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
                 )
