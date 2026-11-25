@@ -31,9 +31,10 @@ class Visitor:
             # never record response bodies, cookies, or authorization headers.
             error_type = response.headers.get("X-Riburom-Staging-Upload-Error-Class", "unknown")
             cause_type = response.headers.get("X-Riburom-Staging-Upload-Cause-Class", "unknown")
+            context_type = response.headers.get("X-Riburom-Staging-Upload-Context-Class", "unknown")
             raise AssertionError(
                 f"{method} expected HTTP {expected}, received {response.status_code}; "
-                f"upload_error={error_type}; cause={cause_type}"
+                f"upload_error={error_type}; cause={cause_type}; context={context_type}"
             )
         return response
 

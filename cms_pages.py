@@ -396,6 +396,8 @@ def register_cms_pages(app):
                 response.headers['X-Riburom-Staging-Upload-Error-Class'] = type(exc).__name__
                 if exc.__cause__ is not None:
                     response.headers['X-Riburom-Staging-Upload-Cause-Class'] = type(exc.__cause__).__name__
+                if exc.__context__ is not None:
+                    response.headers['X-Riburom-Staging-Upload-Context-Class'] = type(exc.__context__).__name__
             return response
         asset = MediaAsset(path=path, title=file.filename[:240], width=width, height=height, byte_size=len(raw))
         db.session.add(asset)
