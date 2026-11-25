@@ -152,6 +152,13 @@ jobs:
                           print("Failed candidate guard checks:", ", ".join(failures))
                   if payload.get("reason") in ("session_secret_missing", "admin_hash_missing"):
                       print("Candidate configuration hint:", payload["reason"])
+                  trace = payload.get("source_trace", [])
+                  if isinstance(trace, list):
+                      import re
+                      valid = r"(?:worker|worker_runtime|app|wsgi|application_modules|models|notifications|control_room)\\.py:[0-9]{1,5}"
+                      if all(isinstance(loc, str) and re.fullmatch(valid, loc) for loc in trace):
+                          if trace:
+                              print("Candidate startup source locations:", ", ".join(trace))
           except (OSError, ValueError):
               pass
           PY

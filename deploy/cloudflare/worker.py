@@ -202,6 +202,20 @@ class FlaskApplication(DurableObject):
                         payload["reason"] = "session_secret_missing"
                     elif message.startswith("ADMIN_PASSWORD_HASH must be configured"):
                         payload["reason"] = "admin_hash_missing"
+                # Only static source basenames and line numbers; no exception
+                # messages, trace locals, file paths, SQL, or provider errors.
+                source_names = {"worker.py", "worker_runtime.py", "app.py",
+                                "wsgi.py", "application_modules.py",
+                                "models.py", "notifications.py", "control_room.py"}
+                trace = []
+                frame = exc.__traceback__
+                while frame:
+                    path = frame.tb_frame.f_code.co_filename
+                    name = path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+                    if name in source_names:
+                        trace.append(f"{name}:{frame.tb_lineno}")
+                    frame = frame.tb_next
+                payload["source_trace"] = trace[-8:]
                 return Response.json(
                     payload,
                     status=503,
