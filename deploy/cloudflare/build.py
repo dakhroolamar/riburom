@@ -63,7 +63,7 @@ def main():
             copy(source, build / "src" / name)
     for name in ("sw.js", "robots.txt", "control-room/favicon.ico", "control-room/ri-burom-mark.png"):
         copy(ROOT / "static" / name, build / "src" / "static" / name)
-    for name in ("worker.py", "worker_runtime.py", "worker_fixture.py", "durable_rate_limits.py", "staging_setup.py"):
+    for name in ("worker.py", "worker_runtime.py", "worker_fixture.py", "durable_rate_limits.py", "staging_setup.py", "outbox_handoff.py"):
         copy(BASE / name, build / "src" / name)
     for name in ("pyproject.toml", "wrangler.jsonc"):
         copy(BASE / name, build / name)

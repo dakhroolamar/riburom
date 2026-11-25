@@ -152,7 +152,10 @@ class Default(WorkerEntrypoint):
         return await cache_public_or_forward(self.env, request, path)
 
     async def scheduled(self, controller, env, ctx):
-        if self.env.OUTBOX_SCHEDULED == "true":
+        # Fail closed: only synthetic probe mail tests, or an explicitly
+        # approved *production* handoff, may drain notifications.
+        from outbox_handoff import scheduled_outbox_allowed
+        if scheduled_outbox_allowed(self.env):
             await flask_stub(self.env).run_outbox()
 
 
