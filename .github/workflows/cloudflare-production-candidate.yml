@@ -124,6 +124,18 @@ jobs:
           for path in /readyz /static/control-room/ri-burom-mark.png; do
             test "$(curl -sS -o /dev/null --max-time 30 -w '%{http_code}' "$CANDIDATE$path")" = 401
           done
-          curl --silent --show-error --fail --max-time 45 -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/readyz" | python -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ready"'
+          status="$(curl --silent --show-error --max-time 60 \
+            --dump-header "$RUNNER_TEMP/candidate-ready-headers" \
+            --output "$RUNNER_TEMP/candidate-ready-body" \
+            --write-out '%{http_code}' \
+            -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/readyz")"
+          echo "Authenticated candidate readiness HTTP $status"
+          # Print only the MIME type; never print production page content or credentials.
+          grep -i '^content-type:' "$RUNNER_TEMP/candidate-ready-headers" || true
+          if [ "$status" != 200 ]; then
+            echo "::error::Protected candidate readiness not successful (HTTP $status)"
+            exit 1
+          fi
+          python -c 'import json,sys; assert json.load(open(sys.argv[1]))["status"] == "ready"' "$RUNNER_TEMP/candidate-ready-body"
           python -m pip install requests beautifulsoup4
           python tests/cloudflare_seo_acceptance.py --candidate production
