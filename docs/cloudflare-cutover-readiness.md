@@ -16,19 +16,18 @@ authorize changing the live website.
 | Compatibility + staging deployments | [Application staging #45570954629](https://github.com/dakhroolamar/riburom/actions/runs/45570954629) | Build/deploy/readiness/login checks passed |
 | Email scheduling isolation | [Notification guard implementation](../deploy/cloudflare/outbox_handoff.py) and [tests](../tests/test_cloudflare_outbox_handoff.py) | Staging and read-only mirror must never schedule mail. Production requires an explicit future owner-approved handoff flag, production host, and enabled cron |
 | Notification delivery retry safety | [Outbox integration tests](../tests/test_notification_outbox.py) | Simulated transport tests only; do **not** count as real Brevo delivery |
+| Staging Brevo M2M live acceptance | [Hosted OAuth + one-email test #45576771477](https://github.com/dakhroolamar/riburom/actions/runs/45576771477) | **PASS:** OAuth token accepted with `transactional.email:write`; one synthetic mail accepted; staging Neon outbox `SENT` in one attempt; matching message found in the explicitly selected Gmail inbox; no production data |
 
 ## Outstanding GO/NO-GO conditions
 
-1. **Controlled Brevo acceptance still pending.** Obtain the owner's explicit
-   approved **staging-only** recipient address and verified sender identity,
-   retained only in protected settings. Configure Cloudflare application staging
-   to use Brevo's least-privileged machine-to-machine OAuth credentials where
-   appropriate. Verify a synthetic contact enquiry creates a notification
-   outbox record, an approved test message is accepted by Brevo, the recipient
-   actually receives it, and a failure can retry. Never send production customer
-   records or unsolicited messages during tests. **Leave production Render's
-   consumer active and all Cloudflare staging/parallel production mail
-   schedules OFF.**
+1. **Controlled staging Brevo acceptance completed.** One artificial message
+   was sent only to the owner-configured staging inbox after successful
+   scoped OAuth authorization and a synthetic-record Neon database check.
+   Confirmed it arrived in Gmail, not merely that Brevo returned HTTP 201.
+   This verifies **one** controlled delivery; failure recovery is covered by
+   mocked transport tests, not a live induced Brevo outage. Keep both
+   staging and read-only production mirror Cron schedules disabled; the
+   live Render notification consumer remains authoritative.
 2. **Account resource usage missing.** From Cloudflare dashboard gather Workers
    requests, CPU and error outcomes; Durable Object requests/duration and errors;
    Hyperdrive statements, connection errors and free-plan headroom. GitHub's
@@ -57,6 +56,22 @@ authorize changing the live website.
    and how to restore traffic. Verify Render remains fully usable and its
    notification consumer is active **before** any change. After a confirmed
    change window, hand over at most one consumer at a time (see below).
+
+
+## Brevo and dashboard-variable retention
+
+- Added `keep_vars=true` to the application staging Wrangler profile,
+  so a CI deployment does not remove the operator-configured plaintext
+  `BREVO_SENDER_EMAIL` setting from the Cloudflare dashboard. Brevo M2M
+  Client ID, Client Secret and the recipient remain encrypted Worker secrets.
+- The explicit opt-in `[staging brevo send]` acceptance ran once with the
+  existing Basic-protected Worker, staging demo database guard and a fixed
+  synthetic source ID. It never activates background delivery or touches the
+  production Neon database. Further reruns return `already_sent` without
+  duplicate email, when the same staging database is retained.
+- The recipient's Gmail inbox contained the matching message with an
+  Inbox label. Do not include personal email addresses or credentials in
+  public CI logs or issue comments.
 
 ## Notification handoff (requires owner approval; do not execute yet)
 
