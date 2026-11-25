@@ -1,0 +1,98 @@
+name: Cloudflare production candidate
+
+on:
+  push:
+    branches: [codex/cloudflare-free-hosting]
+    paths:
+      - 'deploy/cloudflare/**'
+      - '.github/workflows/cloudflare-production-candidate.yml'
+      - 'tests/test_cloudflare_candidate.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production-candidate
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check the preview boundaries and assemble the candidate
+        # The dry run never has credentials or a live database binding.
+        env:
+          RIBUROM_PRODUCTION_HYPERDRIVE_ID: '00000000000000000000000000000001'
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          python -m unittest tests.test_cloudflare_candidate tests.test_cloudflare_outbox_handoff
+          python deploy/cloudflare/build.py --production-candidate
+          cd deploy/cloudflare/build
+          python -m pip install uv==0.13.9
+          npm install --no-save --no-audit --no-fund wrangler@4.166.0
+          uv sync --python "$(cat ../../../.python-version)"
+          uv run --no-sync pywrangler deploy --dry-run
+
+  deploy:
+    needs: package
+    if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && contains(github.event.head_commit.message, '[production candidate]') && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: cloudflare-production-candidate
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      CANDIDATE: https://riburom-production.dakhroo.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build against the dedicated production binding
+        env:
+          RIBUROM_PRODUCTION_HYPERDRIVE_ID: ${{ vars.RIBUROM_PRODUCTION_HYPERDRIVE_ID }}
+          RIBUROM_PARALLEL_HYPERDRIVE_ID: ${{ vars.RIBUROM_PARALLEL_HYPERDRIVE_ID }}
+          RIBUROM_STAGING_HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
+        run: |
+          test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
+          test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
+          python deploy/cloudflare/build.py --production-candidate
+          cd deploy/cloudflare/build
+          python -m pip install uv==0.13.9
+          npm install --no-save --no-audit --no-fund wrangler@4.166.0
+          uv sync --python "$(cat ../../../.python-version)"
+      - name: Deploy protected Worker
+        working-directory: deploy/cloudflare/build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          uv run --no-sync pywrangler deploy
+      - name: Verify access, runtime database checks and SEO
+        env:
+          SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SEO_PREVIEW_PASSWORD"
+          for path in /readyz /static/control-room/ri-burom-mark.png; do
+            test "$(curl -sS -o /dev/null --max-time 30 -w '%{http_code}' "$CANDIDATE$path")" = 401
+          done
+          curl --silent --show-error --fail --max-time 45 -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/readyz" | python -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ready"'
+          python -m pip install requests beautifulsoup4
+          python tests/cloudflare_seo_acceptance.py --candidate production

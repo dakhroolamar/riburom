@@ -5,6 +5,7 @@ import os
 
 # Register the storage scheme before Flask-Limiter initializes.
 import durable_rate_limits  # noqa: F401
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST
 
 
 _application = None
@@ -193,6 +194,25 @@ def get_application(env):
     from wsgi import app
 
     if env.RIBUROM_MODE == "application":
+        if env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST:
+            from sqlalchemy import text
+            from models import db
+
+            # Check the connected identity and schema before serving even one page.
+            # This is a read-only privilege check against the actual Hyperdrive origin.
+            with app.app_context(), db.engine.connect() as conn:
+                ready = conn.execute(text("""
+                    SELECT current_user = 'riburom_worker_app' AND current_database() = 'neondb'
+                       AND current_schema() = 'public'
+                       AND current_setting('transaction_read_only') = 'off'
+                       AND (SELECT array_agg(version_num::text) FROM public.alembic_version)
+                           = ARRAY['ea4cd9f32108']
+                       AND has_table_privilege(current_user, 'public.messages', 'INSERT')
+                       AND has_table_privilege(current_user, 'public.packages', 'UPDATE')
+                       AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
+                """)).scalar_one()
+                if ready is not True:
+                    raise RuntimeError("Production candidate database identity, grants or revision mismatch")
         if getattr(env, "RIBUROM_READ_ONLY", None) == "true":
             restrict_comparison_connections(app)
         if getattr(env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true":

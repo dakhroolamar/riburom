@@ -7,6 +7,61 @@ authorize changing the live website.
 
 ## Verified acceptance evidence
 
+### Production candidate, 25 November 2026
+
+The candidate profile builds a separate Worker named `riburom-production` at
+`riburom-production.dakhroo.workers.dev`. Its public canonical origin is
+`https://riburomtours.com`. The preview requires HTTP Basic authentication
+on application pages and assets. Only staff login and logout accept POST.
+Render handles business submissions during rehearsal. The candidate has its
+own Durable Object, no custom domain, no Cron Trigger and disabled mail processing.
+
+| Item | Verified evidence |
+| --- | --- |
+| Render rollback service | `https://riburom.onrender.com`, deployment `dep-dbunif8u01pc73f7gp5g`, live commit `f9bebee9feddbdc05959d3bc8d351abbed935b92`. Direct and apex HTTPS `/readyz` returned 200. HTTP apex and HTTPS www redirected to HTTPS apex with 301. |
+| Observed public DNS | Apex A `216.24.57.1`, www CNAME `riburom.onrender.com`, authoritative NS `dns1.registrar-servers.com` and `dns2.registrar-servers.com`. MX priorities 10 for eforward1/2/3, 15 for eforward4, 20 for eforward5 under `registrar-servers.com`. SPF `v=spf1 include:spf.efwd.registrar-servers.com ~all`. Export the authoritative zone including DKIM selectors, DMARC, verification records, TTLs and DNSSEC/DS before any nameserver or record change. |
+| Database and recovery | RI BUROM production, PostgreSQL 18, database `neondb`, migration head `ea4cd9f32108` matches the candidate. The migration version files and ORM model files match Render. The project reports 21,600 seconds of history and zero snapshots. Observed WAL `0/152E3BB0` at 10:44:10 UTC. This point expires. Verify a fresh recoverable point and rehearse restoration into a separate recovery environment before cutover. |
+| Application role | Provisioned `riburom_worker_app` using [production-role.sql](../deploy/cloudflare/production-role.sql). Verified zero owned relations, database or schema ownership, role memberships, schema CREATE, replication, bypass-RLS or administrative privileges. A transaction assumed the role, inserted, updated and read one synthetic enquiry, rolled back to a savepoint and verified zero remaining rows. No outbox enqueue or sequence advancement. Password authentication through Hyperdrive requires a separate hosted check. |
+| Live SEO | Ten production sitemap URLs passed the canonical, metadata, robots and verification checks. Repeat against the deployed candidate using `python tests/cloudflare_seo_acceptance.py --candidate production`. |
+
+### Deploy and verify the candidate
+
+1. Neon generated the dedicated role's initial password inside PostgreSQL.
+   A fresh connection authenticated as `riburom_worker_app` and repeated
+   the insert, update, read and rollback check successfully. Use Neon's
+   **Connect** dialog for this existing role. Use a dedicated Hyperdrive with the direct
+   production Neon endpoint, database `neondb`, this role, required TLS and
+   query caching disabled for fresh authentication, moderation and outbox reads.
+2. Set `RIBUROM_PRODUCTION_HYPERDRIVE_ID` to that configuration ID. Use the
+   existing staging and comparison IDs as cross-checks. Assemble with
+   `python deploy/cloudflare/build.py --production-candidate`. The first
+   application request validates the actual server-side role, schema revision
+   and application privileges. Never run the staging bootstrap on this Worker.
+3. Store a fresh preview password as `RIBUROM_STAGING_ACCESS_TOKEN` on this
+   Worker, a production session `SECRET_KEY`, and a valid `ADMIN_PASSWORD_HASH`.
+   Existing staff authenticate against Neon. Supply production Cloudinary
+   credentials scoped to the required media folder and production verification
+   settings. Configure the intended Brevo sender, recipient and M2M credentials
+   in encrypted Worker settings. Leave the live-outbox flag false.
+4. The candidate workflow packages on Linux with a synthetic binding. Hosted
+   deployment uses the `cloudflare-production-candidate` GitHub environment,
+   its Worker-scoped deployment token, account and three Hyperdrive IDs, and a
+   masked copy of the preview password as `RIBUROM_CANDIDATE_ACCESS_TOKEN`.
+   Set repository variable `CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED=true` and
+   use a migration-branch commit containing `[production candidate]` when ready.
+   Database and application-provider passwords stay in their provider stores.
+5. Verify protected readiness, SEO, staff login, session revocation and role
+   restrictions. Exercise writes on isolated staging. Use a transaction with
+   a savepoint for candidate DB write verification. Keep synthetic enquiries
+   and invoice requests off the two public business endpoints during rehearsal.
+   Compare matched Render/candidate reads, mobile layout and observed quotas.
+6. If candidate checks fail, keep Render serving and disable the candidate
+   endpoint or restore its last known Worker version. At cutover, record a
+   fresh DNS export, deploy version, queue counts and recoverable timestamp.
+   Route rollback sends apex and www back to their recorded targets. Retain
+   business writes in the shared database. Use database recovery only for a
+   separately assessed data incident.
+
 | Gate | Evidence | Current result |
 | --- | --- | --- |
 | Full Cloudflare application staging | [Hosted acceptance #45570954629](https://github.com/dakhroolamar/riburom/actions/runs/45570954629) | Seven synthetic business workflows passed, including tour create/edit/delete, CMS draft/preview, invoice/Word export, review moderation, contact persistence, marketplace enquiry privacy and **Cloudinary upload/delivery** |
@@ -28,7 +83,10 @@ authorize changing the live website.
    mocked transport tests, not a live induced Brevo outage. Keep both
    staging and read-only production mirror Cron schedules disabled; the
    live Render notification consumer remains authoritative.
-2. **Account resource usage missing.** From Cloudflare dashboard gather Workers
+2. **Account resource usage baseline.** The handoff recorded 786 staging
+   Worker invocations, zero execution errors, 6.31 ms median active-version CPU,
+   and about 24,860 staging Hyperdrive queries in 24 hours, including CI bursts.
+   Measure representative customer traffic and shared-account headroom. From Cloudflare dashboard gather Workers
    requests, CPU and error outcomes; Durable Object requests/duration and errors;
    Hyperdrive statements, connection errors and free-plan headroom. GitHub's
    worker-scoped deployment token cannot read all analytics. Do not broaden

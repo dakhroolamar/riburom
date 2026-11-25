@@ -21,7 +21,8 @@ def copy(source, destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=BASE / "build")
-    parser.add_argument(
+    profiles = parser.add_mutually_exclusive_group()
+    profiles.add_argument(
         "--application-staging", action="store_true",
         help="Build the separate application Worker with public routes and email scheduling disabled.",
     )
@@ -29,19 +30,25 @@ def main():
         "--enable-staging-url", action="store_true",
         help="Enable the application staging URL behind its required access secret.",
     )
-    parser.add_argument(
+    profiles.add_argument(
         "--parallel-comparison", action="store_true",
         help="Build a separate read-only production-data comparison Worker.",
     )
+    profiles.add_argument(
+        "--production-candidate", action="store_true",
+        help="Build the protected production Worker, without custom domains or scheduled mail.",
+    )
     args = parser.parse_args()
     build = args.output.resolve()
-    if args.application_staging and args.parallel_comparison:
-        raise SystemExit("Choose either isolated staging or read-only comparison, never both.")
     if args.enable_staging_url and not args.application_staging:
         raise SystemExit("Only the application staging profile supports --enable-staging-url.")
     stage_hyperdrive = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
     prod_hyperdrive = os.environ.get("RIBUROM_PARALLEL_HYPERDRIVE_ID")
     hyperdrive_id = prod_hyperdrive if args.parallel_comparison else stage_hyperdrive
+    if args.production_candidate:
+        hyperdrive_id = os.environ.get("RIBUROM_PRODUCTION_HYPERDRIVE_ID")
+        if not hyperdrive_id or hyperdrive_id in (stage_hyperdrive, prod_hyperdrive):
+            raise SystemExit("Production requires its dedicated writable Hyperdrive binding.")
     if hyperdrive_id and not re.fullmatch(r"[0-9a-f]{32}", hyperdrive_id):
         raise SystemExit("Expected a 32-hex Cloudflare Hyperdrive configuration ID.")
     if args.application_staging and not stage_hyperdrive:
@@ -107,6 +114,25 @@ def main():
                 "RIBUROM_READ_ONLY": "true",
                 "RIBUROM_DO_NAME": "web-apac-se-parallel-v1",
                 "RIBUROM_DO_LOCATION": "apac-se",
+                "OUTBOX_SCHEDULED": "false",
+            },
+            triggers={"crons": []},
+        )
+    if args.production_candidate:
+        config.update(
+            name="riburom-production",
+            workers_dev=True,
+            keep_vars=True,
+            assets={"directory": "./public", "binding": "ASSETS", "run_worker_first": True},
+            vars={
+                "RIBUROM_MODE": "application",
+                "RIBUROM_HOST": "riburom-production.dakhroo.workers.dev",
+                "PUBLIC_BASE_URL": "https://riburomtours.com",
+                "RIBUROM_DO_NAME": "web-production-v1",
+                "RIBUROM_DO_LOCATION": "apac-se",
+                "RIBUROM_PUBLIC_CACHE": "true",
+                "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
+                "RIBUROM_LIVE_OUTBOX_APPROVED": "false",
                 "OUTBOX_SCHEDULED": "false",
             },
             triggers={"crons": []},

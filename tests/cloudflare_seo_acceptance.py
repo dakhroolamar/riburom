@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 LIVE = "https://riburomtours.com"
 STAGING = "https://riburom-application-staging.dakhroo.workers.dev"
 PARALLEL = "https://riburom-parallel-comparison.dakhroo.workers.dev"
+CANDIDATE = "https://riburom-production.dakhroo.workers.dev"
 
 
 def fetch(origin, path, auth=None):
@@ -59,16 +60,21 @@ def metadata(origin, path, auth):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--candidate", choices=("staging", "parallel"))
+    origins = {"staging": STAGING, "parallel": PARALLEL, "production": CANDIDATE}
+    parser.add_argument("--candidate", choices=origins)
     args = parser.parse_args()
     paths = sitemap(LIVE, LIVE, None)
     robots = RobotFileParser()
     robots.parse(fetch(LIVE, "/robots.txt").text.splitlines())
     assert LIVE + "/sitemap.xml" in (robots.site_maps() or [])
     if args.candidate:
-        candidate = STAGING if args.candidate == "staging" else PARALLEL
+        candidate = origins[args.candidate]
         auth = ("rehearsal", os.environ["SEO_PREVIEW_PASSWORD"])
-        assert paths <= sitemap(candidate, candidate if candidate == STAGING else LIVE, auth)
+        candidate_paths = sitemap(candidate, candidate if candidate == STAGING else LIVE, auth)
+        if candidate == CANDIDATE:
+            assert paths == candidate_paths, "Production candidate sitemap differs from live"
+        else:
+            assert paths <= candidate_paths
     errors = []
     for path in sorted(paths):
         try:

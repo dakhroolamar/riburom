@@ -6,6 +6,8 @@ read-only protection. Never use this policy to start production mail during
 parallel Render/Cloudflare comparisons.
 """
 
+PRODUCTION_CANDIDATE_HOST = "riburom-production.dakhroo.workers.dev"
+
 
 def scheduled_outbox_allowed(env):
     def setting(name):

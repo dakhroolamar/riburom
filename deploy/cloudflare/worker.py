@@ -3,6 +3,7 @@ from hmac import compare_digest
 from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST
 
 
 APP_INSTANCE = "web"
@@ -118,6 +119,16 @@ class Default(WorkerEntrypoint):
                 return Response("Preview route unavailable", status=404)
         elif mode != "application" or urlsplit(request.url).hostname != self.env.RIBUROM_HOST:
             return Response("Unknown site", status=404)
+        if mode == "application" and self.env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST:
+            if (getattr(self.env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) != "true"
+                    or path.startswith(("/__staging/", "/__comparison/"))):
+                return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
+            # Render is the only host accepting business submissions during rehearsal.
+            if request.method not in ("GET", "HEAD") and not (
+                request.method == "POST" and path in ("/admin/login", "/admin/logout")
+            ):
+                return Response("Production candidate is in preview", status=405,
+                                headers={"Allow": "GET, HEAD", "Cache-Control": "no-store"})
         if getattr(self.env, "RIBUROM_READ_ONLY", None) == "true":
             # The parallel site may point at live Neon, so reject *all*
             # writes before Flask and hide private or administrative routes.
