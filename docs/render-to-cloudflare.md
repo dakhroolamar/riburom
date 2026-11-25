@@ -1,6 +1,6 @@
 # Move RI BUROM from Render to Cloudflare Workers Free
 
-**Status on 23 November 2026** · The compatibility Worker and its GitHub Actions deployment are verified. The separate application staging Worker has no public routes or email schedule. Its isolated Neon database has the current schema. The live site and its outbox still run on Render.
+**Status on 25 November 2026** · Compatibility staging, password-protected full application staging, and the separate SELECT-only Cloudflare production-data comparison Worker have deployed and passed their hosted checks. The isolated application staging has passed seven synthetic business workflows, including Cloudinary upload and public CDN delivery, plus sitemap parity checks. Both staging and comparison have no email schedule; only Render serves the live domain and its production notification outbox. No production cutover is approved. See [production readiness gates](cloudflare-cutover-readiness.md).
 
 ## Hosting and services
 
@@ -55,6 +55,6 @@ Hyperdrive on Workers Free allows 100,000 database statements per day. The publi
 
 Roll back for sustained readiness failures, lost enquiry writes, broken staff access, private data exposure or a delivery backlog that the new scheduler cannot clear. Disable the Cloudflare consumer and restore the saved Render route and outbox. Check the latest accepted enquiry, protected media and email delivery. Both platforms use the same Neon database, so an application-host rollback normally needs no database restore. Reconcile the Brevo log before manually replaying delivery attempts.
 
-After production acceptance, confirm the permanent Cloudflare Custom Domain and scheduler operate independently with Render stopped. Preserve the agreed rollback information and obtain sign-off before deleting Render services, domain bindings or deployment credentials.
+After production acceptance, confirm that the permanent Cloudflare Custom Domain and the **sole active** Cloudflare outbox scheduler operate independently. Keep the Render web service provisioned and recoverable as the rollback host; its outbox consumer must remain disabled during the Cloudflare live-email phase. **Do not delete, suspend or retire Render** or its domain records without a separate explicit owner authorization after an agreed stabilization period.
 
 **Implementation references** · [Worker setup](../deploy/cloudflare/README.md) · [migration gate](../scripts/debug_migration.py) · [outbox recovery command](../scripts/process_notification_outbox.py)
