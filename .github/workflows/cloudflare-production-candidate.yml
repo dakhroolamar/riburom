@@ -81,10 +81,16 @@ jobs:
           ACCESS: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
           SESSION: ${{ secrets.RIBUROM_CANDIDATE_SESSION_SECRET }}
           ADMIN_HASH: ${{ secrets.RIBUROM_CANDIDATE_ADMIN_HASH }}
+          MEDIA: ${{ secrets.RIBUROM_PRODUCTION_CLOUDINARY_URL }}
         run: |
           test -n "$ACCESS" || { echo "::error::Missing candidate preview password"; exit 1; }
           test -n "$SESSION" || { echo "::error::Missing candidate session secret"; exit 1; }
           test -n "$ADMIN_HASH" || { echo "::error::Missing candidate admin hash"; exit 1; }
+          test -n "$MEDIA" || { echo "::error::Missing production Cloudinary credential"; exit 1; }
+          case "$MEDIA" in
+            cloudinary://*@*) ;;
+            *) echo "::error::Production Cloudinary credential must be a CLOUDINARY_URL"; exit 1 ;;
+          esac
           test "${#ACCESS}" -ge 24 || { echo "::error::Candidate access password too short"; exit 1; }
           test "${#SESSION}" -ge 32 || { echo "::error::Candidate session secret too short"; exit 1; }
           case "$ADMIN_HASH" in
@@ -110,12 +116,14 @@ jobs:
           ACCESS: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
           SESSION: ${{ secrets.RIBUROM_CANDIDATE_SESSION_SECRET }}
           ADMIN_HASH: ${{ secrets.RIBUROM_CANDIDATE_ADMIN_HASH }}
+          MEDIA: ${{ secrets.RIBUROM_PRODUCTION_CLOUDINARY_URL }}
         run: |
           # All values stay in masked workflow secrets and are piped to Wrangler,
           # not interpolated into shell arguments or printed to logs.
           printf '%s' "$ACCESS" | ./node_modules/.bin/wrangler secret put RIBUROM_STAGING_ACCESS_TOKEN --name riburom-production
           printf '%s' "$SESSION" | ./node_modules/.bin/wrangler secret put SECRET_KEY --name riburom-production
           printf '%s' "$ADMIN_HASH" | ./node_modules/.bin/wrangler secret put ADMIN_PASSWORD_HASH --name riburom-production
+          printf '%s' "$MEDIA" | ./node_modules/.bin/wrangler secret put CLOUDINARY_URL --name riburom-production
       - name: Verify access, runtime database checks and SEO
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
