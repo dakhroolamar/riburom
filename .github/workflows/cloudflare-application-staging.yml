@@ -276,3 +276,23 @@ jobs:
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
         run: python tests/cloudflare_seo_acceptance.py --candidate staging
+
+  brevo-acceptance:
+    needs: deploy
+    # Opt-in only. Never activate scheduler or send production/customer email.
+    if: ${{ success() && contains(github.event.head_commit.message, '[staging brevo send]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: cloudflare-application-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: python -m pip install requests
+      - name: Verify Brevo OAuth and send one synthetic staging-only notification
+        env:
+          STAGING_ACCESS_PASSWORD: ${{ secrets.RIBUROM_STAGING_ACCESS_TOKEN }}
+        run: python tests/cloudflare_brevo_acceptance.py

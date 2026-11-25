@@ -145,7 +145,9 @@ class Default(WorkerEntrypoint):
             # This runs only after staging HTTP Basic was validated, and also
             # serves assets on any future public Worker without invoking Flask.
             return await self.env.ASSETS.fetch(request.js_object)
-        if mode == "application" and path == "/__staging/bootstrap":
+        if mode == "application" and path in (
+            "/__staging/bootstrap", "/__staging/brevo-check", "/__staging/brevo-send"
+        ):
             if request.method != "POST":
                 return Response("Method not allowed", status=405)
             return await flask_stub(self.env).fetch(request)
@@ -211,6 +213,18 @@ class FlaskApplication(DurableObject):
                         {"status": "bootstrap_failed", "exception": type(exc).__name__},
                         status=503,
                     )
+            if (
+                self.env.RIBUROM_MODE == "application"
+                and urlsplit(request.url).path in ("/__staging/brevo-check", "/__staging/brevo-send")
+            ):
+                from staging_brevo_test import run_staging_brevo_test
+
+                deliver = urlsplit(request.url).path == "/__staging/brevo-send"
+                payload, status = run_staging_brevo_test(app, self.env, deliver=deliver)
+                return Response.json(
+                    payload, status=status,
+                    headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
+                )
             return await wsgi.fetch(app, request, self.env)
         finally:
             request_sql.reset(token)

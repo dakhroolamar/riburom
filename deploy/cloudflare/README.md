@@ -39,3 +39,24 @@ A folder-permission change alone is not proof of a successful signed upload.
 
 Never paste API keys or secrets into the repository, and do not modify the
 production Render Cloudinary credential for this staging acceptance test.
+
+## One-off controlled Brevo M2M acceptance
+
+Cloudflare application staging uses the isolated staging Neon database and
+has `OUTBOX_SCHEDULED=false`. Dashboard-managed `BREVO_SENDER_EMAIL` is
+preserved by `keep_vars=true` on new staging deployments; encrypted Brevo
+Client ID and Secret remain Cloudflare secrets. Store the intended private
+test inbox as the `NOTIFICATION_EMAIL` secret. Check that `BREVO_CLIENT_ID`
+and `BREVO_CLIENT_SECRET` belong to **the same** M2M app with
+`transactional.email:write`.
+
+Only a commit explicitly marked `[staging brevo send]` runs the hosted
+Brevo acceptance job. It authenticates against Brevo first and, only if
+OAuth works, attempts **one synthetic outbox email** to the configured
+staging inbox using the existing Brevo transport and outbox pipeline. A
+fixed synthetic source ID prevents duplicate sends on repeated runs. The
+route is restricted to the isolated application Worker, HTTP Basic and the
+staging-only database demo records. It does not process other outbox rows,
+enable a Cron schedule or touch Render. No API tokens, secret values,
+recipient address or message body is logged in CI. Brevo API acceptance is
+not proof of mailbox delivery: verify the approved inbox separately.
