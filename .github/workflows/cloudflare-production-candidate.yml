@@ -137,16 +137,16 @@ jobs:
             # classification. Never log arbitrary response bodies or SQL.
             if grep -qi '^content-type: application/json' "$RUNNER_TEMP/candidate-ready-headers"; then
               python - "$RUNNER_TEMP/candidate-ready-body" <<'PY'
-import json
-import sys
-try:
-    payload = json.load(open(sys.argv[1]))
-    if payload.get("status") in {"candidate_startup_failed", "candidate_wsgi_failed"}:
-        category = payload.get("exception", "unknown")
-        print("Candidate runtime category:", payload["status"], str(category)[:80])
-except (OSError, ValueError):
-    pass
-PY
+          import json
+          import sys
+          try:
+              payload = json.load(open(sys.argv[1]))
+              if payload.get("status") in {"candidate_startup_failed", "candidate_wsgi_failed"}:
+                  category = payload.get("exception", "unknown")
+                  print("Candidate runtime category:", payload["status"], str(category)[:80])
+          except (OSError, ValueError):
+              pass
+          PY
             fi
             echo "::error::Protected candidate readiness not successful (HTTP $status)"
             exit 1
