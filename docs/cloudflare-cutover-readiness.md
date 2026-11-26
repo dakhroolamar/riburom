@@ -1,9 +1,27 @@
 # RI BUROM Cloudflare production cutover gates
 
-**As of 25 November 2026 — NO-GO for DNS cutover or production write-role switch.**
+**As of 26 November 2026 — NO-GO for DNS cutover and notification handoff.**
 The production website remains on Render at [riburomtours.com](https://riburomtours.com).
 This document records public, nonsecret technical evidence; it does not
 authorize changing the live website.
+
+## 26 November checkpoint
+
+| Check | Result |
+| --- | --- |
+| Live Render and public DNS | HTTPS `/readyz` returned 200 on both the apex and `riburom.onrender.com`. HTTP apex and HTTPS `www` each redirected with 301 to HTTPS apex. `robots.txt` and `sitemap.xml` returned 200. Public DNS still points to the Render targets recorded below. The five MX records and SPF were visible. DMARC was unverified, and the authoritative export, DKIM selectors and DNSSEC state are still required before changing delegation. |
+| Candidate source and deployment | Remote branch head `7899e0d` passed packaging, and its deploy job was skipped. The Cloudflare dashboard showed version `9e6f9947` at 100% on the protected candidate hostname. The deployed code came from `48d04c4`; the secret uploads in that run created further Worker versions. [Packaging run](https://github.com/dakhroolamar/riburom/actions/runs/45608669810) · [Last hosted deploy](https://github.com/dakhroolamar/riburom/actions/runs/45607959234) |
+| Preview and mail isolation | Anonymous `/healthz`, `/readyz` and the protected static logo each returned 401. The Worker settings show both live-outbox flags `false` and no Cron Trigger. Production Brevo settings were absent from the candidate. The earlier staging Brevo delivery remains the only hosted delivery evidence for Cloudflare. |
+| Startup blocker | The last authenticated `/readyz` returned 503 with a startup trace ending at Flask's `storage` import. Production storage requires Cloudinary. Both the GitHub candidate environment and active Worker lacked its credential. The existing workflow fix checks and installs `CLOUDINARY_URL` from the encrypted `RIBUROM_PRODUCTION_CLOUDINARY_URL` environment secret. Hosted startup, database guard and SEO still need to pass after it is set. |
+| Deployment token and Hyperdrive | The deploy token is present in the intended GitHub environment. The last run deployed the Worker and installed its three preview secrets with that token. The dedicated binding points to the production Neon endpoint, database `neondb`, and role `riburom_worker_app`; Cloudflare shows query caching disabled. The latest candidate startup stopped before verifying the role, schema and grants through Hyperdrive. |
+| Direct Neon check | One read-only query as `riburom_worker_app` confirmed `neondb`, schema `public`, Alembic revision `ea4cd9f32108`, enquiry INSERT and tour UPDATE privileges, and denial of schema CREATE. Production still has six hours of retained history. A recent recoverable timestamp and recovery rehearsal remain cutover gates. No customer rows were read or changed during this check. |
+| Performance and quotas | The earlier read-only mirror recorded median homepage TTFB of 3,878 ms on Render and 534 ms on Cloudflare. A fully functional browser and admin comparison is pending. Cloudflare showed about 19,700 staging statements, 34,330 comparison statements and zero production-candidate statements over the preceding 24 hours. This mixed testing window is unsuitable for estimating customer capacity. Workers and Durable Objects each have a 100,000-request free daily limit. Hyperdrive has a 100,000-statement free daily limit. Check shared production headroom and each provider plan after authenticated readiness. [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) · [Durable Object quotas](https://developers.cloudflare.com/durable-objects/platform/pricing/) · [Hyperdrive quotas](https://developers.cloudflare.com/hyperdrive/platform/pricing/) |
+
+The owner needs to install the dedicated production Cloudinary URL in the
+[candidate GitHub environment](https://github.com/dakhroolamar/riburom/settings/environments/28508548003/edit).
+Deploy the protected candidate from the migration branch with
+`[production candidate]` only after the secret is available. Verify both
+authenticated probes, then continue the remaining acceptance and sign-off checks.
 
 ## Verified acceptance evidence
 

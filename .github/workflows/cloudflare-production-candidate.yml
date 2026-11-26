@@ -129,7 +129,7 @@ jobs:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
         run: |
           test -n "$SEO_PREVIEW_PASSWORD"
-          for path in /readyz /static/control-room/ri-burom-mark.png; do
+          for path in /healthz /readyz /static/control-room/ri-burom-mark.png; do
             test "$(curl -sS -o /dev/null --max-time 30 -w '%{http_code}' "$CANDIDATE$path")" = 401
           done
           status="$(curl --silent --show-error --max-time 60 \
@@ -175,5 +175,8 @@ jobs:
             exit 1
           fi
           python -c 'import json,sys; assert json.load(open(sys.argv[1]))["status"] == "ready"' "$RUNNER_TEMP/candidate-ready-body"
+          curl --silent --show-error --fail --max-time 30 \
+            -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/healthz" \
+            | python -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ok"'
           python -m pip install requests beautifulsoup4
           python tests/cloudflare_seo_acceptance.py --candidate production
