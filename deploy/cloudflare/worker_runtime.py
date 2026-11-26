@@ -19,6 +19,10 @@ class ProductionGuardMismatch(RuntimeError):
         self.failed_checks = tuple(failures)
 
 
+class ProductionMediaBindingMissing(RuntimeError):
+    """The candidate Durable Object did not receive its required media binding."""
+
+
 PROVIDER_SETTINGS = (
     "SECRET_KEY", "ADMIN_PASSWORD_HASH", "PUBLIC_BASE_URL",
     "CLOUDINARY_URL", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
@@ -49,6 +53,8 @@ def hyperdrive_url(connection):
 
 
 def configure_application(env):
+    if env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST and not getattr(env, "CLOUDINARY_URL", None):
+        raise ProductionMediaBindingMissing("Production candidate Cloudinary binding is missing")
     database = hyperdrive_url(env.HYPERDRIVE)
     os.environ.update({
         key: value for key in PROVIDER_SETTINGS

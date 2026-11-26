@@ -182,7 +182,7 @@ class FlaskApplication(DurableObject):
         self.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits (expires)")
 
     async def fetch(self, request):
-        from worker_runtime import get_application
+        from worker_runtime import ProductionMediaBindingMissing, get_application
         from durable_rate_limits import request_sql
 
         # Candidate-only sanitized startup diagnostics. The Worker is protected
@@ -196,17 +196,21 @@ class FlaskApplication(DurableObject):
                 payload = {"status": "candidate_startup_failed", "exception": type(exc).__name__}
                 if type(exc).__name__ == "ProductionGuardMismatch":
                     payload["failed_checks"] = list(exc.failed_checks)
+                elif isinstance(exc, ProductionMediaBindingMissing):
+                    payload["reason"] = "cloudinary_binding_missing"
                 elif type(exc).__name__ == "RuntimeError":
                     message = str(exc)
                     if message.startswith("SECRET_KEY must be configured"):
                         payload["reason"] = "session_secret_missing"
                     elif message.startswith("ADMIN_PASSWORD_HASH must be configured"):
                         payload["reason"] = "admin_hash_missing"
+                    elif message.startswith("Cloudinary must be configured in production"):
+                        payload["reason"] = "cloudinary_config_missing"
                 # Only static source basenames and line numbers; no exception
                 # messages, trace locals, file paths, SQL, or provider errors.
                 source_names = {"worker.py", "worker_runtime.py", "app.py",
                                 "wsgi.py", "application_modules.py",
-                                "models.py", "notifications.py", "control_room.py"}
+                                "models.py", "notifications.py", "control_room.py", "storage.py"}
                 trace = []
                 frame = exc.__traceback__
                 while frame:

@@ -98,17 +98,7 @@ jobs:
             *) echo "::error::Candidate admin hash must be a valid Werkzeug hash"; exit 1 ;;
           esac
 
-      - name: Deploy protected Worker
-        working-directory: deploy/cloudflare/build
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_DEPLOY_TOKEN }}
-        run: |
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          test -n "$CLOUDFLARE_API_TOKEN"
-          uv run --no-sync pywrangler deploy
-
-      - name: Install dedicated candidate secrets before allowing any authenticated checks
+      - name: Deploy protected Worker with its candidate secrets
         working-directory: deploy/cloudflare/build
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -118,12 +108,30 @@ jobs:
           ADMIN_HASH: ${{ secrets.RIBUROM_CANDIDATE_ADMIN_HASH }}
           MEDIA: ${{ secrets.RIBUROM_PRODUCTION_CLOUDINARY_URL }}
         run: |
-          # All values stay in masked workflow secrets and are piped to Wrangler,
-          # not interpolated into shell arguments or printed to logs.
-          printf '%s' "$ACCESS" | ./node_modules/.bin/wrangler secret put RIBUROM_STAGING_ACCESS_TOKEN --name riburom-production
-          printf '%s' "$SESSION" | ./node_modules/.bin/wrangler secret put SECRET_KEY --name riburom-production
-          printf '%s' "$ADMIN_HASH" | ./node_modules/.bin/wrangler secret put ADMIN_PASSWORD_HASH --name riburom-production
-          printf '%s' "$MEDIA" | ./node_modules/.bin/wrangler secret put CLOUDINARY_URL --name riburom-production
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          umask 077
+          secrets_file="$(mktemp --suffix=.json "$RUNNER_TEMP/riburom-candidate-secrets.XXXXXX")"
+          trap 'rm -f -- "$secrets_file"' EXIT
+          python - "$secrets_file" <<'PY'
+          import json
+          import os
+          import sys
+          from urllib.parse import urlsplit
+
+          try:
+              media = urlsplit(os.environ["MEDIA"])
+              valid = media.scheme == "cloudinary" and media.username and media.password and media.hostname
+          except ValueError:
+              valid = False
+          if not valid:
+              sys.exit("Production Cloudinary URL must contain an API key, API secret and cloud name")
+          names = {"ACCESS": "RIBUROM_STAGING_ACCESS_TOKEN", "SESSION": "SECRET_KEY",
+                   "ADMIN_HASH": "ADMIN_PASSWORD_HASH", "MEDIA": "CLOUDINARY_URL"}
+          with open(sys.argv[1], "w", encoding="utf-8") as output:
+              json.dump({binding: os.environ[key] for key, binding in names.items()}, output)
+          PY
+          uv run --no-sync pywrangler deploy --secrets-file "$secrets_file"
       - name: Verify access, runtime database checks and SEO
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
@@ -158,12 +166,13 @@ jobs:
                   if isinstance(failures, list) and all(item in permitted for item in failures):
                       if failures:
                           print("Failed candidate guard checks:", ", ".join(failures))
-                  if payload.get("reason") in ("session_secret_missing", "admin_hash_missing"):
+                  if payload.get("reason") in ("session_secret_missing", "admin_hash_missing",
+                                               "cloudinary_binding_missing", "cloudinary_config_missing"):
                       print("Candidate configuration hint:", payload["reason"])
                   trace = payload.get("source_trace", [])
                   if isinstance(trace, list):
                       import re
-                      valid = r"(?:worker|worker_runtime|app|wsgi|application_modules|models|notifications|control_room)\.py:[0-9]{1,5}"
+                      valid = r"(?:worker|worker_runtime|app|wsgi|application_modules|models|notifications|control_room|storage)\.py:[0-9]{1,5}"
                       if all(isinstance(loc, str) and re.fullmatch(valid, loc) for loc in trace):
                           if trace:
                               print("Candidate startup source locations:", ", ".join(trace))
