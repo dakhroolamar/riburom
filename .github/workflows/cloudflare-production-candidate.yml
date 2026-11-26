@@ -4,6 +4,7 @@ on:
   push:
     branches: [codex/cloudflare-free-hosting]
     paths:
+      - 'app.py'
       - 'deploy/cloudflare/**'
       - '.github/workflows/cloudflare-production-candidate.yml'
       - 'tests/test_cloudflare_candidate.py'

@@ -123,7 +123,8 @@ if os.environ.get('RIBUROM_HYPERDRIVE') == '1':
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': NullPool,
         'hide_parameters': True,
-        'connect_args': {'ssl_context': False, 'timeout': 5},
+        # Give a cold Hyperdrive origin time to finish its connection handshake.
+        'connect_args': {'ssl_context': False, 'timeout': 10},
     }
 
 db.init_app(app)
