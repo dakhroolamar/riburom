@@ -5,6 +5,82 @@ The production website remains on Render at [riburomtours.com](https://riburomto
 This document records public, nonsecret technical evidence; it does not
 authorize changing the live website.
 
+## DNS preparation and inbound mail gate
+
+- Cloudflare Free has a pending, DNS-only mirror with assigned nameservers
+  `hattie.ns.cloudflare.com` and `leland.ns.cloudflare.com`. Direct queries to
+  each matched all 13 observed Namecheap A, CNAME, MX and TXT records,
+  including Brevo verification, both DKIM selectors, DMARC, SPF and Google
+  verification. Authoritative delegation still names
+  `dns1.registrar-servers.com` and `dns2.registrar-servers.com`. The registry
+  returned no DS record. [Namecheap record inventory](riburomtours-namecheap-2026-11-26.zone)
+- The Namecheap dashboard shows Email Forwarding selected. Namecheap documents
+  this service for domains delegated to its own DNS. The registrar's Redirect
+  Email page currently shows no forwarding aliases or catch-all. Confirm
+  whether replies to the verified Brevo sender `info@riburomtours.com` should
+  reach an existing mailbox. If they should, prepare and verify inbound
+  forwarding before delegation. If that address is send-only, record the
+  owner's decision. Keep Google verification and all Brevo records intact
+  when applying any approved replacement MX and SPF configuration.
+  [Namecheap Email Forwarding](https://www.namecheap.com/support/knowledgebase/article.aspx/308/2214/how-to-set-up-free-email-forwarding/)
+- If DNS delegation must be rolled back, restore Namecheap BasicDNS at the
+  registrar and confirm both original nameservers appear at the registry.
+  Restore the saved records and Namecheap forwarding configuration if any
+  changed. Verify incoming business mail and the Render HTTPS redirect and
+  readiness while recursive DNS caches converge. For a web-only rollback,
+  restore the Render records in the authoritative zone and keep the active
+  inbound mail service in place.
+
+## Additional production acceptance
+
+- All four Brevo bindings are installed. A one-message protected probe verified
+  that the runtime reaches Brevo's OAuth endpoint. Brevo returned HTTP 401
+  `invalid_client` during the token exchange. The probe stopped before reserving
+  or submitting a message and did not touch the production outbox. The candidate
+  passed authenticated readiness and all ten sitemap checks on `5befa19a`
+  (`11ba722`). Replace only the two OAuth credential bindings with the valid
+  pair from the existing approved app, then repeat the gated probe. Keep the
+  live-outbox flags false and the production Cron Trigger absent.
+  [Hosted OAuth diagnostic](https://github.com/dakhroolamar/riburom/actions/runs/45793098375)
+- The protected candidate returned HTTP 200 before and after six minutes
+  without rehearsal traffic. Readiness TTFB was 1.42 s before the wait,
+  7.42 s immediately after, and 1.13 s on the warm follow-up. An earlier
+  rollout attempt hit a transient database connection timeout. Extending the
+  Hyperdrive handshake allowance from five to ten seconds cleared readiness
+  on version `77f6fd8a`. Its follow-up idle check returned HTTP 200 before and
+  after the wait and on a warm follow-up, with 1.20 s, 6.99 s and 0.49 s TTFB.
+  The shared production database also serves Render, so these checks do not
+  isolate a Neon compute cold start. [First idle test](https://github.com/dakhroolamar/riburom/actions/runs/45765540928) · [Post-fix idle test](https://github.com/dakhroolamar/riburom/actions/runs/45767104854)
+- Two signed-in passes through all eight Control Room sections completed.
+  Median browser click-to-expected-heading time was 2.81 s across 16 navigations.
+  The first Trips navigation took 14.41 s and its second took 3.73 s.
+  The Trips summary now issues one aggregate query in place of four count
+  statements. The old and new predicates matched in one read-only Neon check.
+  Three signed-in Trips visits after deployment completed in 2.75 s, 5.32 s
+  and 5.09 s. These samples confirm the new path works and are insufficient
+  to attribute a page-latency change to the SQL reduction. Settings reported
+  both email notifications and Cloudinary media storage as configured.
+- Fifty-four isolated application tests passed, covering Control Room handling,
+  notification outbox persistence and retries, multiple services in an enquiry,
+  and session revocation. Eight Worker boundary and scheduler-policy tests passed.
+- The Hyperdrive dashboard showed 23,485 of 100,000 statements used so far
+  that UTC day. The rolling 24-hour view showed 6,410 candidate, 23,290
+  staging and 46,490 comparison statements. The daily snapshot had room for
+  about 7,651 additional requests at 10 statements per request, 3,825 at 20,
+  or 1,912 at 40, assuming no other use. These are capacity scenarios for
+  uncached requests. The test-heavy mix and unknown production traffic mean
+  they are unsuitable as a customer traffic forecast. Exceeded free quotas
+  reject further operations until reset. The dashboard confirmed Workers
+  Free and showed 1,665 out of 100,000 account requests for the UTC day.
+  Standard GitHub-hosted runners in this public repository are free.
+  [Worker limits](https://developers.cloudflare.com/workers/platform/limits/) · [Hyperdrive quotas](https://developers.cloudflare.com/hyperdrive/platform/pricing/) · [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage)
+- The database reports six hours of point-in-time history and zero stored
+  snapshots. Neon successfully read the schema at the 11:34 IST recovery
+  timestamp and found no difference from the current schema. The production
+  outbox showed zero pending rows and zero active claims at that checkpoint.
+  The recovery window rolls forward. This check did not restore application
+  data or rehearse a full database restore.
+
 ## 26 November candidate deployment
 
 | Check | Result |

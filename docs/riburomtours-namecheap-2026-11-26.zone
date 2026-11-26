@@ -1,0 +1,19 @@
+; Public records observed at Namecheap and matched on both pending Cloudflare servers.
+; Registrar delegation at capture: dns1.registrar-servers.com., dns2.registrar-servers.com.
+; This record inventory excludes the provider-managed SOA and nameserver records.
+; Namecheap Email Forwarding rules are configured separately from DNS.
+$ORIGIN riburomtours.com.
+$TTL 1800
+@ IN A 216.24.57.1
+www IN CNAME riburom.onrender.com.
+@ IN MX 10 eforward1.registrar-servers.com.
+@ IN MX 10 eforward2.registrar-servers.com.
+@ IN MX 10 eforward3.registrar-servers.com.
+@ IN MX 15 eforward4.registrar-servers.com.
+@ IN MX 20 eforward5.registrar-servers.com.
+@ IN TXT "v=spf1 include:spf.efwd.registrar-servers.com ~all"
+@ IN TXT "google-site-verification=JZX1BwqfBV69IGlXnstkV7IDWiBtY5T851fk0-t_dEQ"
+@ IN TXT "brevo-code:0356cf703c6864d0b27186375c6bb43c"
+brevo1._domainkey IN CNAME b1.riburomtours-com.dkim.brevo.com.
+brevo2._domainkey IN CNAME b2.riburomtours-com.dkim.brevo.com.
+_dmarc IN TXT "v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
