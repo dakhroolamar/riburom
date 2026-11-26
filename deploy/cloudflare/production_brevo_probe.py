@@ -13,16 +13,19 @@ PROBE_ID = "production-brevo-2026-11-26"
 EXPECTED_SENDER = "info@riburomtours.com"
 
 
-def probe_denial(env, request):
-    if not (
+def probe_enabled(env):
+    return (
         getattr(env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST
         and getattr(env, "RIBUROM_MODE", None) == "application"
         and getattr(env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) == "true"
         and getattr(env, "RIBUROM_READ_ONLY", None) != "true"
         and getattr(env, "OUTBOX_SCHEDULED", None) == "false"
         and getattr(env, "RIBUROM_LIVE_OUTBOX_APPROVED", None) == "false"
-        and request.method == "POST"
-    ):
+    )
+
+
+def probe_denial(env, request):
+    if not probe_enabled(env) or request.method != "POST":
         return "probe_not_enabled"
     token, _, expiry = (getattr(env, "RIBUROM_BREVO_PROBE_AUTH", None) or "").partition(":")
     supplied = request.headers.get("X-Riburom-Brevo-Probe") or ""

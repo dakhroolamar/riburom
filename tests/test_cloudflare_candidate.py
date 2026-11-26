@@ -10,7 +10,7 @@ import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from deploy.cloudflare import outbox_handoff
 
@@ -81,6 +81,18 @@ class ProductionCandidateTests(unittest.TestCase):
         request = SimpleNamespace(method="POST", url=f"https://{HOST}{probe.PRODUCTION_BREVO_PATH}",
                                   headers={"Authorization": basic})
         self.assertEqual(asyncio.run(worker.fetch(request)).status, 404)
+        worker.env.OUTBOX_SCHEDULED = worker.env.RIBUROM_LIVE_OUTBOX_APPROVED = "false"
+        token = "a" * 32
+        worker.env.RIBUROM_BREVO_PROBE_AUTH = token + ":1795600001"
+        fetch = AsyncMock(return_value=SimpleNamespace(status=200))
+        with patch.object(probe, "time", return_value=1795600000), patch.object(
+            module, "flask_stub", return_value=SimpleNamespace(fetch=fetch),
+        ):
+            self.assertEqual(asyncio.run(worker.fetch(request)).status, 404)
+            fetch.assert_not_awaited()
+            request.headers["X-Riburom-Brevo-Probe"] = token
+            self.assertEqual(asyncio.run(worker.fetch(request)).status, 200)
+            fetch.assert_awaited_once_with(request)
         worker.env.RIBUROM_STAGING_ACCESS_REQUIRED = "false"
         req = SimpleNamespace(method="GET", url=f"https://{HOST}/", headers={})
         self.assertEqual(asyncio.run(worker.fetch(req)).status, 404)

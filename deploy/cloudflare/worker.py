@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 from outbox_handoff import PRODUCTION_CANDIDATE_HOST
-from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_denial
+from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_denial, probe_enabled
 
 
 APP_INSTANCE = "web"
@@ -236,8 +236,10 @@ class FlaskApplication(DurableObject):
         token = request_sql.set(self.ctx.storage.sql)
         try:
             if urlsplit(request.url).path == PRODUCTION_BREVO_PATH:
-                if reason := probe_denial(self.env, request):
-                    return Response.json({"status": reason, "stage": "durable_object"}, status=404,
+                # The public entrypoint validates Basic auth and the short-lived
+                # token before it can forward this path to the private binding.
+                if not probe_enabled(self.env) or request.method != "POST":
+                    return Response.json({"status": "probe_not_enabled", "stage": "durable_object"}, status=404,
                                          headers={"Cache-Control": "no-store"})
                 from production_brevo_probe import run_probe
 
