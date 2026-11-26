@@ -158,6 +158,68 @@ class ProductionCandidateTests(unittest.TestCase):
             self.assertEqual(asyncio.run(worker.fetch(req)).status, 200)
             forward.assert_awaited_once_with(worker.env, req, "/contact")
 
+    def test_immediate_outbox_alarm_preserves_committed_ids_and_guards(self):
+        from contextlib import nullcontext
+        from contextvars import ContextVar
+        import sqlite3
+        from unittest.mock import Mock
+
+        class SQL:
+            def __init__(self):
+                self.db = sqlite3.connect(":memory:")
+                self.db.row_factory = sqlite3.Row
+
+            def exec(self, query, *args):
+                rows = [SimpleNamespace(**dict(row)) for row in self.db.execute(query, args)]
+                return SimpleNamespace(toArray=lambda: rows, one=lambda: rows[0])
+
+        sql = SQL()
+        storage = SimpleNamespace(sql=sql, setAlarm=AsyncMock())
+        worker_api = SimpleNamespace(DurableObject=object, WorkerEntrypoint=object,
+                                     Response=None, wsgi=SimpleNamespace(fetch=AsyncMock()))
+        ids = ContextVar("request_outbox_ids", default=None)
+        process = Mock(return_value={"sent": 2, "failed": 0, "skipped": 0})
+        application = SimpleNamespace(app_context=nullcontext)
+        runtime = SimpleNamespace(get_application=lambda env: application,
+                                  ProductionMediaBindingMissing=RuntimeError)
+        with patch.dict(sys.modules, {"workers": worker_api, "outbox_handoff": outbox_handoff,
+                                      "notifications": SimpleNamespace(request_outbox_ids=ids, process_outbox_ids=process),
+                                      "worker_runtime": runtime,
+                                      "durable_rate_limits": SimpleNamespace(request_sql=ContextVar("sql"))}):
+            probe = load_worker_module("production_brevo_probe")
+            with patch.dict(sys.modules, {"production_brevo_probe": probe}):
+                module = load_worker_module("worker")
+            obj = module.FlaskApplication.__new__(module.FlaskApplication)
+            obj.ctx = SimpleNamespace(storage=storage)
+            obj.env = SimpleNamespace(RIBUROM_MODE="application", RIBUROM_HOST="riburomtours.com",
+                                      OUTBOX_SCHEDULED="true", RIBUROM_LIVE_OUTBOX_APPROVED="true",
+                                      RIBUROM_READ_ONLY="false", RIBUROM_STAGING_ACCESS_REQUIRED="false")
+            sql.exec("CREATE TABLE enquiry_outbox_wakeup (id INTEGER PRIMARY KEY)")
+
+            async def committed_response(*args):
+                if ids.get() is not None:
+                    ids.get().extend([11, 12, 13, 11])
+                return SimpleNamespace(status=303)
+
+            worker_api.wsgi.fetch.side_effect = committed_response
+            req = SimpleNamespace(method="POST", url="https://riburomtours.com/send_message")
+            self.assertEqual(asyncio.run(obj.fetch(req)).status, 303)
+            self.assertIsNone(ids.get())
+            storage.setAlarm.assert_awaited_once()
+            process.assert_not_called()
+            asyncio.run(obj.alarm())
+            process.assert_called_once_with([11, 12])
+            self.assertEqual(storage.setAlarm.await_count, 2)
+            asyncio.run(obj.alarm())
+            self.assertEqual(process.call_args.args, ([13],))
+            self.assertEqual(sql.exec("SELECT count(*) AS n FROM enquiry_outbox_wakeup").one().n, 0)
+
+            obj.env.RIBUROM_LIVE_OUTBOX_APPROVED = "false"
+            asyncio.run(obj.fetch(req))
+            asyncio.run(obj.alarm())
+            self.assertEqual(storage.setAlarm.await_count, 2)
+            self.assertEqual(process.call_count, 2)
+
     def test_production_brevo_probe_requires_current_token_and_disabled_outbox(self):
         with patch.dict(sys.modules, {"outbox_handoff": outbox_handoff}):
             probe = load_worker_module("production_brevo_probe")
