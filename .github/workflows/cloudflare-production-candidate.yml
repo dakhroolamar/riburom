@@ -59,7 +59,7 @@ jobs:
 
   deploy:
     needs: package
-    if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && contains(github.event.head_commit.message, '[production candidate]') && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true'
+    if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && (contains(github.event.head_commit.message, '[production candidate]') || contains(github.event.head_commit.message, '[prepare production website]')) && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: cloudflare-production-candidate
@@ -68,6 +68,7 @@ jobs:
     env:
       WRANGLER_SEND_METRICS: 'false'
       CANDIDATE: https://riburom-production.dakhroo.workers.dev
+      PREPARE_LIVE: ${{ contains(github.event.head_commit.message, '[prepare production website]') && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,7 +87,25 @@ jobs:
         run: |
           test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
           test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
-          python deploy/cloudflare/build.py --production-candidate
+          if [ "$PREPARE_LIVE" = true ]; then
+            python deploy/cloudflare/build.py --production-live
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("deploy/cloudflare/build/wrangler.jsonc")
+          config = json.loads(path.read_text(encoding="utf-8"))
+          assert config["workers_dev"] is False and config["preview_urls"] is False
+          assert config["triggers"]["crons"] == []
+          assert config["vars"]["OUTBOX_SCHEDULED"] == "false"
+          assert config["vars"]["RIBUROM_LIVE_OUTBOX_APPROVED"] == "false"
+          # Domains are attached and verified separately during the change window.
+          del config["routes"]
+          path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+          PY
+          else
+            python deploy/cloudflare/build.py --production-candidate
+          fi
           cd deploy/cloudflare/build
           python -m pip install uv==0.13.9
           npm install --no-save --no-audit --no-fund wrangler@4.166.0
@@ -114,7 +133,7 @@ jobs:
           esac
 
       - name: Authorize the one-off production Brevo probe
-        if: contains(github.event.head_commit.message, '[production brevo check]')
+        if: env.PREPARE_LIVE == 'false' && contains(github.event.head_commit.message, '[production brevo check]')
         run: |
           python - <<'PY'
           import os
@@ -129,7 +148,7 @@ jobs:
               output.write(f"PRODUCTION_BREVO_PROBE_TOKEN={token}\nPRODUCTION_BREVO_PROBE_AUTH={authorization}\n")
           PY
 
-      - name: Deploy protected Worker with its candidate secrets
+      - name: Deploy Worker with its required secrets
         working-directory: deploy/cloudflare/build
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -166,6 +185,7 @@ jobs:
           PY
           uv run --no-sync pywrangler deploy --secrets-file "$secrets_file"
       - name: Verify access, runtime database checks and SEO
+        if: env.PREPARE_LIVE == 'false'
         id: verify
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
@@ -229,7 +249,7 @@ jobs:
           echo "candidate_ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify production Brevo OAuth and submit one synthetic message
-        if: contains(github.event.head_commit.message, '[production brevo check]')
+        if: env.PREPARE_LIVE == 'false' && contains(github.event.head_commit.message, '[production brevo check]')
         env:
           PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
         run: |
