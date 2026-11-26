@@ -1,5 +1,6 @@
 """Production candidate configuration and entry-point checks using synthetic bindings."""
 import asyncio
+from base64 import b64encode
 import importlib.util
 import json
 import os
@@ -17,6 +18,13 @@ from deploy.cloudflare import outbox_handoff
 ROOT = Path(__file__).resolve().parents[1]
 CLOUDFLARE = ROOT / "deploy" / "cloudflare"
 HOST = "riburom-production.dakhroo.workers.dev"
+
+
+def load_worker_module(name):
+    spec = importlib.util.spec_from_file_location(name, CLOUDFLARE / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class ProductionCandidateTests(unittest.TestCase):
@@ -51,10 +59,10 @@ class ProductionCandidateTests(unittest.TestCase):
 
         worker_api = SimpleNamespace(DurableObject=object, WorkerEntrypoint=object,
                                      Response=response, wsgi=None)
-        spec = importlib.util.spec_from_file_location("candidate_test_worker", CLOUDFLARE / "worker.py")
-        module = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {"workers": worker_api, "outbox_handoff": outbox_handoff}):
-            spec.loader.exec_module(module)
+            probe = load_worker_module("production_brevo_probe")
+            with patch.dict(sys.modules, {"production_brevo_probe": probe}):
+                module = load_worker_module("worker")
         worker = module.Default()
         worker.env = SimpleNamespace(RIBUROM_MODE="application", RIBUROM_HOST=HOST,
                                      RIBUROM_STAGING_ACCESS_REQUIRED="true", RIBUROM_STAGING_ACCESS_TOKEN="demo")
@@ -63,10 +71,32 @@ class ProductionCandidateTests(unittest.TestCase):
             ("POST", "/admin/login", 401), ("POST", "/contact", 405),
             ("POST", "/control-room/invoices", 405), ("POST", "/__staging/bootstrap", 404),
             ("POST", "/__staging/brevo-send", 404),
+            ("POST", probe.PRODUCTION_BREVO_PATH, 401),
         ):
             with self.subTest(path=path):
                 req = SimpleNamespace(method=method, url=f"https://{HOST}{path}", headers={})
                 self.assertEqual(asyncio.run(worker.fetch(req)).status, status)
+        basic = "Basic " + b64encode(b"rehearsal:demo").decode()
+        request = SimpleNamespace(method="POST", url=f"https://{HOST}{probe.PRODUCTION_BREVO_PATH}",
+                                  headers={"Authorization": basic})
+        self.assertEqual(asyncio.run(worker.fetch(request)).status, 404)
         worker.env.RIBUROM_STAGING_ACCESS_REQUIRED = "false"
         req = SimpleNamespace(method="GET", url=f"https://{HOST}/", headers={})
         self.assertEqual(asyncio.run(worker.fetch(req)).status, 404)
+
+    def test_production_brevo_probe_requires_current_token_and_disabled_outbox(self):
+        with patch.dict(sys.modules, {"outbox_handoff": outbox_handoff}):
+            probe = load_worker_module("production_brevo_probe")
+        token = "a" * 32
+        request = SimpleNamespace(method="POST", headers={"X-Riburom-Brevo-Probe": token})
+        settings = dict(RIBUROM_MODE="application", RIBUROM_HOST=HOST,
+                        RIBUROM_STAGING_ACCESS_REQUIRED="true", OUTBOX_SCHEDULED="false",
+                        RIBUROM_LIVE_OUTBOX_APPROVED="false", RIBUROM_BREVO_PROBE_AUTH=token + ":1795600001")
+        with patch.object(probe, "time", return_value=1795600000):
+            self.assertTrue(probe.probe_allowed(SimpleNamespace(**settings), request))
+            for name, bad in (("RIBUROM_HOST", "riburomtours.com"), ("OUTBOX_SCHEDULED", "true"),
+                              ("RIBUROM_LIVE_OUTBOX_APPROVED", "true"),
+                              ("RIBUROM_STAGING_ACCESS_REQUIRED", "false"),
+                              ("RIBUROM_BREVO_PROBE_AUTH", token + ":1795600000")):
+                with self.subTest(name=name):
+                    self.assertFalse(probe.probe_allowed(SimpleNamespace(**{**settings, name: bad}), request))

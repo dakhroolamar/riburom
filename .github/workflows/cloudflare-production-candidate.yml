@@ -98,6 +98,22 @@ jobs:
             *) echo "::error::Candidate admin hash must be a valid Werkzeug hash"; exit 1 ;;
           esac
 
+      - name: Authorize the one-off production Brevo probe
+        if: contains(github.event.head_commit.message, '[production brevo check]')
+        run: |
+          python - <<'PY'
+          import os
+          from secrets import token_urlsafe
+          from time import time
+
+          token = token_urlsafe(32)
+          authorization = f"{token}:{int(time()) + 1200}"
+          print(f"::add-mask::{token}", flush=True)
+          print(f"::add-mask::{authorization}", flush=True)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"PRODUCTION_BREVO_PROBE_TOKEN={token}\nPRODUCTION_BREVO_PROBE_AUTH={authorization}\n")
+          PY
+
       - name: Deploy protected Worker with its candidate secrets
         working-directory: deploy/cloudflare/build
         env:
@@ -128,6 +144,8 @@ jobs:
               sys.exit("Production Cloudinary URL must contain an API key, API secret and cloud name")
           names = {"ACCESS": "RIBUROM_STAGING_ACCESS_TOKEN", "SESSION": "SECRET_KEY",
                    "ADMIN_HASH": "ADMIN_PASSWORD_HASH", "MEDIA": "CLOUDINARY_URL"}
+          if os.environ.get("PRODUCTION_BREVO_PROBE_AUTH"):
+              names["PRODUCTION_BREVO_PROBE_AUTH"] = "RIBUROM_BREVO_PROBE_AUTH"
           with open(sys.argv[1], "w", encoding="utf-8") as output:
               json.dump({binding: os.environ[key] for key, binding in names.items()}, output)
           PY
@@ -192,3 +210,58 @@ jobs:
           curl --silent --show-error --fail --max-time 30 \
             -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/readyz" \
             | python -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ready"; print("Candidate remained ready after SEO checks")'
+
+      - name: Verify production Brevo OAuth and submit one synthetic message
+        if: contains(github.event.head_commit.message, '[production brevo check]')
+        env:
+          PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
+        run: |
+          url="$CANDIDATE/__candidate/brevo-delivery"
+          test "$(curl -sS --max-time 20 -X POST -o /dev/null -w '%{http_code}' "$url")" = 401
+          test "$(curl -sS --max-time 20 -X POST -o /dev/null -w '%{http_code}' -u "rehearsal:$PREVIEW_PASSWORD" "$url")" = 404
+          umask 077
+          response="$(mktemp "$RUNNER_TEMP/brevo-probe-response.XXXXXX")"
+          trap 'rm -f -- "$response"' EXIT
+          status="$(curl -sS --max-time 35 -X POST -o "$response" -w '%{http_code}' \
+            -u "rehearsal:$PREVIEW_PASSWORD" -H "X-Riburom-Brevo-Probe: $PRODUCTION_BREVO_PROBE_TOKEN" "$url")"
+          python - "$response" "$status" <<'PY'
+          import json
+          import sys
+
+          known = {"accepted", "already_accepted", "oauth_rejected", "delivery_not_accepted",
+                   "delivery_outcome_unknown", "production_oauth_configuration_incomplete",
+                   "previous_attempt_needs_reconciliation"}
+          try:
+              payload = json.load(open(sys.argv[1], encoding="utf-8"))
+              result = payload.get("status")
+          except (OSError, ValueError, AttributeError):
+              result = None
+          print("Production Brevo probe HTTP", sys.argv[2], result if result in known else "unclassified")
+          if sys.argv[2] != "200" or result not in {"accepted", "already_accepted"}:
+              sys.exit(1)
+          PY
+
+  idle-recovery:
+    needs: deploy
+    if: contains(github.event.head_commit.message, '[idle acceptance]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: cloudflare-production-candidate
+    env:
+      CANDIDATE: https://riburom-production.dakhroo.workers.dev
+      PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
+    steps:
+      - name: Observe candidate readiness before and after six minutes without probe traffic
+        run: |
+          check_readiness() {
+            umask 077
+            payload="$(mktemp "$RUNNER_TEMP/idle-readiness.XXXXXX")"
+            curl -sS --fail --max-time 60 -u "rehearsal:$PREVIEW_PASSWORD" -o "$payload" \
+              -w "$1 readiness: HTTP %{http_code}, TTFB %{time_starttransfer}s, total %{time_total}s\n" "$CANDIDATE/readyz"
+            python -c 'import json,sys; assert json.load(open(sys.argv[1]))["status"] == "ready"' "$payload"
+            rm -f -- "$payload"
+          }
+          check_readiness Before
+          sleep 360
+          check_readiness After
+          check_readiness Warm

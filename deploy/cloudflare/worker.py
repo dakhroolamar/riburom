@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 from outbox_handoff import PRODUCTION_CANDIDATE_HOST
+from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_allowed
 
 
 APP_INSTANCE = "web"
@@ -125,7 +126,7 @@ class Default(WorkerEntrypoint):
                 return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
             # Render is the only host accepting business submissions during rehearsal.
             if request.method not in ("GET", "HEAD") and not (
-                request.method == "POST" and path in ("/admin/login", "/admin/logout")
+                request.method == "POST" and path in ("/admin/login", "/admin/logout", PRODUCTION_BREVO_PATH)
             ):
                 return Response("Production candidate is in preview", status=405,
                                 headers={"Allow": "GET, HEAD", "Cache-Control": "no-store"})
@@ -152,6 +153,10 @@ class Default(WorkerEntrypoint):
                     "Cache-Control": "no-store",
                     "X-Robots-Tag": "noindex, nofollow",
                 })
+        if path == PRODUCTION_BREVO_PATH:
+            if not probe_allowed(self.env, request):
+                return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
+            return await flask_stub(self.env).fetch(request)
         if mode == "application" and path.startswith("/static/"):
             # This runs only after staging HTTP Basic was validated, and also
             # serves assets on any future public Worker without invoking Flask.
@@ -228,6 +233,14 @@ class FlaskApplication(DurableObject):
             raise
         token = request_sql.set(self.ctx.storage.sql)
         try:
+            if urlsplit(request.url).path == PRODUCTION_BREVO_PATH:
+                if not probe_allowed(self.env, request):
+                    return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
+                from production_brevo_probe import run_probe
+
+                payload, status = run_probe(app, self.ctx.storage.sql)
+                return Response.json(payload, status=status,
+                                     headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
             if self.env.RIBUROM_MODE == "fixture" and urlsplit(request.url).path == "/__staging/outbox":
                 from worker_fixture import fixture_status
                 return Response.json(fixture_status(self.ctx.storage.sql), headers={"X-Robots-Tag": "noindex"})
