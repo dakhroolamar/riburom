@@ -5,7 +5,42 @@ The production website remains on Render at [riburomtours.com](https://riburomto
 This document records public, nonsecret technical evidence; it does not
 authorize changing the live website.
 
-## 26 November checkpoint
+## 26 November candidate deployment
+
+| Check | Result |
+| --- | --- |
+| Cloudinary and runtime startup | The owner installed `RIBUROM_PRODUCTION_CLOUDINARY_URL`. The next run uploaded it as a separate Worker update and still returned startup HTTP 503. Deploying the code and all four required bindings in one Worker version cleared startup. The precise cause of the separate-update failure was unconfirmed. [Separate-update run](https://github.com/dakhroolamar/riburom/actions/runs/45757603249) · [Successful atomic deploy](https://github.com/dakhroolamar/riburom/actions/runs/45758065320) |
+| Protected Worker | Commit `bb9f6d0`, Worker version `5a352b48-cf1c-4be2-8522-e2a4f7937847`. Linux packaging passed. Anonymous health, readiness and static-asset requests were denied with 401. Authenticated `/healthz` and `/readyz` passed, and readiness passed again after the SEO sweep. |
+| Database and SEO | Startup passed the Hyperdrive role, database, schema, revision and restricted-grant checks against the existing production database. A separate catalog query confirmed SELECT on all public tables and INSERT/UPDATE privileges on the eight core enquiry, outbox, invoice, staff, media, marketplace and settings tables checked. Ten same-origin sitemap pages matched Render with zero SEO discrepancies. No business data was changed. |
+| Resource snapshot | The candidate dashboard showed 115 Worker invocations and one error across all versions in 24 hours. The active version showed 8.18 ms median Worker CPU and zero errors in that snapshot. The candidate Durable Object showed 37 requests, one error and 15.23 GB-seconds across all versions. Hyperdrive showed 396 candidate statements over 24 hours and 4,515 across the account so far that UTC day, against the 100,000 daily allowance. This snapshot includes rehearsal traffic and does not establish customer capacity. |
+| Remaining gates | Verify staff workflows through the protected candidate, production Cloudinary and Brevo permissions, controlled idle behavior and free-tier headroom, current Render rollback release, and the authoritative DNS and recovery evidence. Production routing and notification handoff both require owner approval. |
+
+### Public performance against the production candidate
+
+GitHub-hosted Chromium recorded five homepage navigations per host and device.
+The candidate was `5a352b48`, with the same live database as Render. All sampled
+browser and paired HTTP requests succeeded. Mobile used simulated network and
+device settings. The browser measured blocking from FCP through the sample
+window, with a median of 0 ms on both hosts and devices.
+
+| Homepage median | Desktop Render | Desktop candidate | Mobile Render | Mobile candidate |
+| --- | ---: | ---: | ---: | ---: |
+| TTFB | 3,775 ms | 1,169 ms | 3,477 ms | 1,138 ms |
+| FCP | 6,340 ms | 2,400 ms | 4,712 ms | 1,936 ms |
+| LCP | 6,384 ms | 2,448 ms | 13,316 ms | 2,196 ms |
+| Load event | 6,352 ms | 2,409 ms | 13,300 ms | 5,311 ms |
+| CLS | 0 | 0.0251 | 0 | 0 |
+
+The HTTP homepage median TTFB was 3,442 ms on Render and 1,105 ms on
+Cloudflare over ten paired requests. At three concurrent cache-bypassed
+requests, it was 5,016 ms and 1,140 ms, respectively. Tours, About,
+Marketplace and Stories all recorded ten Cloudflare cache hits in ten warm
+samples per route, with median TTFB ranging from 67 to 103 ms. With the cache
+bypassed, those routes ranged from 838 to 1,130 ms on Cloudflare. The samples
+are too small for a stable p95. Controlled cold/idle, authenticated Control
+Room and field performance in India remain open. [Hosted benchmark](https://github.com/dakhroolamar/riburom/actions/runs/45758525076) · [Timing and screenshot artifact](https://github.com/dakhroolamar/riburom/actions/runs/45758525076/artifacts/15088744721)
+
+## 26 November pre-deployment checkpoint
 
 | Check | Result |
 | --- | --- |
@@ -17,11 +52,10 @@ authorize changing the live website.
 | Direct Neon check | One read-only query as `riburom_worker_app` confirmed `neondb`, schema `public`, Alembic revision `ea4cd9f32108`, enquiry INSERT and tour UPDATE privileges, and denial of schema CREATE. Production has six hours of retained history. A recent recoverable timestamp and recovery rehearsal remain cutover gates. No customer rows were read or changed during this check. |
 | Performance and quotas | The earlier read-only mirror recorded median homepage TTFB of 3,878 ms on Render and 534 ms on Cloudflare. A fully functional browser and admin comparison is pending. Cloudflare showed about 19,700 staging statements, 34,330 comparison statements and zero production-candidate statements over the preceding 24 hours. This mixed testing window is unsuitable for estimating customer capacity. Workers and Durable Objects each have a 100,000-request free daily limit. Hyperdrive has a 100,000-statement free daily limit. Check shared production headroom and each provider plan after authenticated readiness. [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) · [Durable Object quotas](https://developers.cloudflare.com/durable-objects/platform/pricing/) · [Hyperdrive quotas](https://developers.cloudflare.com/hyperdrive/platform/pricing/) |
 
-The owner needs to install the dedicated production Cloudinary URL in the
+The Cloudinary secret is installed in the
 [candidate GitHub environment](https://github.com/dakhroolamar/riburom/settings/environments/28508548003/edit).
-Deploy the protected candidate from the migration branch with
-`[production candidate]` only after the secret is available. Verify both
-authenticated probes, then continue the remaining acceptance and sign-off checks.
+Future protected deployments use the migration branch marker
+`[production candidate]` and verify both authenticated probes.
 
 ## Verified acceptance evidence
 
