@@ -5,7 +5,7 @@ import os
 
 # Register the storage scheme before Flask-Limiter initializes.
 import durable_rate_limits  # noqa: F401
-from outbox_handoff import PRODUCTION_CANDIDATE_HOST
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST
 
 
 _application = None
@@ -15,7 +15,7 @@ class ProductionGuardMismatch(RuntimeError):
     """Only fixed, nonsecret boolean identity/grant checks may be exposed."""
 
     def __init__(self, failures):
-        super().__init__("Production candidate database identity, grants or revision mismatch")
+        super().__init__("Production database identity, grants or revision mismatch")
         self.failed_checks = tuple(failures)
 
 
@@ -210,7 +210,7 @@ def get_application(env):
     from wsgi import app
 
     if env.RIBUROM_MODE == "application":
-        if env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST:
+        if env.RIBUROM_HOST in (PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST):
             from sqlalchemy import text
             from models import db
 

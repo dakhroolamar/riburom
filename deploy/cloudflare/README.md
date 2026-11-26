@@ -75,3 +75,14 @@ HTTP Basic protected, keeps business submissions disabled, and has no Cron
 schedule or custom-domain attachment. The GitHub Actions job must validate
 its protected readiness, role/schema, and production SEO before any owner
 considers a separate public-domain cutover.
+
+`python deploy/cloudflare/build.py --production-live` prepares the public
+profile for the same Worker and dedicated production Hyperdrive. It attaches
+the apex and `www` as Custom Domains when deployed. `www` and HTTP traffic
+redirect to the HTTPS apex. The workers.dev endpoint, preview URLs and Cron
+are disabled. Use `pywrangler deploy --dry-run` to verify the package without
+publishing it. Deploy only after the Cloudflare zone is active, inbound mail
+is verified, and the owner approves website cutover. The existing `www`
+CNAME must be removed as part of the approved attachment. Save the Render
+records and leave its notification consumer in service until the separate
+outbox handoff. [Custom Domain requirements](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)

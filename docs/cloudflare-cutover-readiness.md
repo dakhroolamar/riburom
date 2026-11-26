@@ -16,32 +16,42 @@ authorize changing the live website.
   returned no DS record. [Namecheap record inventory](riburomtours-namecheap-2026-11-26.zone)
 - The Namecheap dashboard shows Email Forwarding selected. Namecheap documents
   this service for domains delegated to its own DNS. The registrar's Redirect
-  Email page currently shows no forwarding aliases or catch-all. Confirm
-  whether replies to the verified Brevo sender `info@riburomtours.com` should
-  reach an existing mailbox. If they should, prepare and verify inbound
-  forwarding before delegation. If that address is send-only, record the
-  owner's decision. Keep Google verification and all Brevo records intact
-  when applying any approved replacement MX and SPF configuration.
+  Email page showed no forwarding aliases or catch-all. The owner approved preparing
+  Cloudflare Email Routing to the Gmail address already configured for
+  production notifications. Cloudflare shows the destination as Verified.
+  The pending zone prevents Email Routing activation. After explicit approval,
+  delegate to the assigned Cloudflare nameservers with all web records still
+  DNS-only on Render. Then enable only the `info` rule to that verified inbox.
+  Replace the unused Namecheap forwarding MX records with Cloudflare's assigned
+  MX records, maintain a single SPF record, and preserve Google verification,
+  Brevo verification, both Brevo DKIM CNAMEs and DMARC. Confirm a reply test
+  from an independent sender reaches the verified inbox before changing web
+  routing. [Cloudflare Email Routing](https://developers.cloudflare.com/email-service/get-started/route-emails/)
   [Namecheap Email Forwarding](https://www.namecheap.com/support/knowledgebase/article.aspx/308/2214/how-to-set-up-free-email-forwarding/)
 - If DNS delegation must be rolled back, restore Namecheap BasicDNS at the
   registrar and confirm both original nameservers appear at the registry.
   Restore the saved records and Namecheap forwarding configuration if any
-  changed. Verify incoming business mail and the Render HTTPS redirect and
-  readiness while recursive DNS caches converge. For a web-only rollback,
+  changed. If the new inbound rule has already gone live, configure the same
+  `info` alias to the verified Gmail mailbox in Namecheap BasicDNS and verify
+  incoming mail. Check the Render HTTPS redirect and readiness while
+  recursive DNS caches converge. For a web-only rollback,
   restore the Render records in the authoritative zone and keep the active
   inbound mail service in place.
 
 ## Additional production acceptance
 
-- All four Brevo bindings are installed. A one-message protected probe verified
-  that the runtime reaches Brevo's OAuth endpoint. Brevo returned HTTP 401
-  `invalid_client` during the token exchange. The probe stopped before reserving
-  or submitting a message and did not touch the production outbox. The candidate
-  passed authenticated readiness and all ten sitemap checks on `5befa19a`
-  (`11ba722`). Replace only the two OAuth credential bindings with the valid
-  pair from the existing approved app, then repeat the gated probe. Keep the
-  live-outbox flags false and the production Cron Trigger absent.
-  [Hosted OAuth diagnostic](https://github.com/dakhroolamar/riburom/actions/runs/45793098375)
+- All four Brevo bindings are installed. The production OAuth probe initially
+  returned HTTP 401 `invalid_client` before submitting a message. The owner
+  re-entered the existing M2M credentials. The rerun passed readiness and all
+  ten sitemap checks on `9309907a` (`11ba722`). Brevo accepted exactly one
+  synthetic message and recorded Delivered from `info@riburomtours.com` to the
+  configured business Gmail inbox. The test did not use the production outbox.
+  [Hosted delivery acceptance](https://github.com/dakhroolamar/riburom/actions/runs/45793098375/attempts/2)
+- The public deployment profile binds HTTPS apex and `www`, redirects `www`
+  and HTTP requests to the HTTPS apex, and checks the same Neon write role and
+  schema as the rehearsal. It disables preview URLs and scheduled mail and
+  denies all rehearsal diagnostic paths. Its configuration and routing tests
+  passed. Public deployment and route activation still require owner approval.
 - The protected candidate returned HTTP 200 before and after six minutes
   without rehearsal traffic. Readiness TTFB was 1.42 s before the wait,
   7.42 s immediately after, and 1.13 s on the warm follow-up. An earlier

@@ -8,6 +8,8 @@ import re
 import shutil
 import subprocess
 
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST
+
 
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parents[1]
@@ -38,6 +40,10 @@ def main():
         "--production-candidate", action="store_true",
         help="Build the protected production Worker, without custom domains or scheduled mail.",
     )
+    profiles.add_argument(
+        "--production-live", action="store_true",
+        help="Assemble the public custom-domain deployment, with scheduled mail disabled.",
+    )
     args = parser.parse_args()
     build = args.output.resolve()
     if args.enable_staging_url and not args.application_staging:
@@ -45,7 +51,7 @@ def main():
     stage_hyperdrive = os.environ.get("RIBUROM_STAGING_HYPERDRIVE_ID")
     prod_hyperdrive = os.environ.get("RIBUROM_PARALLEL_HYPERDRIVE_ID")
     hyperdrive_id = prod_hyperdrive if args.parallel_comparison else stage_hyperdrive
-    if args.production_candidate:
+    if args.production_candidate or args.production_live:
         hyperdrive_id = os.environ.get("RIBUROM_PRODUCTION_HYPERDRIVE_ID")
         if not hyperdrive_id or hyperdrive_id in (stage_hyperdrive, prod_hyperdrive):
             raise SystemExit("Production requires its dedicated writable Hyperdrive binding.")
@@ -118,25 +124,31 @@ def main():
             },
             triggers={"crons": []},
         )
-    if args.production_candidate:
+    if args.production_candidate or args.production_live:
         config.update(
             name="riburom-production",
-            workers_dev=True,
+            workers_dev=args.production_candidate,
             keep_vars=True,
             assets={"directory": "./public", "binding": "ASSETS", "run_worker_first": True},
             vars={
                 "RIBUROM_MODE": "application",
-                "RIBUROM_HOST": "riburom-production.dakhroo.workers.dev",
-                "PUBLIC_BASE_URL": "https://riburomtours.com",
+                "RIBUROM_HOST": PRODUCTION_HOST if args.production_live else PRODUCTION_CANDIDATE_HOST,
+                "PUBLIC_BASE_URL": f"https://{PRODUCTION_HOST}",
                 "RIBUROM_DO_NAME": "web-production-v1",
                 "RIBUROM_DO_LOCATION": "apac-se",
                 "RIBUROM_PUBLIC_CACHE": "true",
-                "RIBUROM_STAGING_ACCESS_REQUIRED": "true",
+                "RIBUROM_STAGING_ACCESS_REQUIRED": "false" if args.production_live else "true",
                 "RIBUROM_LIVE_OUTBOX_APPROVED": "false",
                 "OUTBOX_SCHEDULED": "false",
             },
             triggers={"crons": []},
         )
+    if args.production_live:
+        config["vars"]["RIBUROM_READ_ONLY"] = "false"
+        config["routes"] = [
+            {"pattern": hostname, "custom_domain": True}
+            for hostname in (PRODUCTION_HOST, f"www.{PRODUCTION_HOST}")
+        ]
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print(f"Assembled {config['name']} at {build}")
 

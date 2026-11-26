@@ -28,6 +28,27 @@ def load_worker_module(name):
 
 
 class ProductionCandidateTests(unittest.TestCase):
+    def test_live_profile_is_public_only_on_custom_domains_and_unscheduled(self):
+        with TemporaryDirectory() as directory:
+            env = {**os.environ, "RIBUROM_PRODUCTION_HYPERDRIVE_ID": "d" * 32,
+                   "RIBUROM_STAGING_HYPERDRIVE_ID": "a" * 32, "RIBUROM_PARALLEL_HYPERDRIVE_ID": "b" * 32}
+            subprocess.run([sys.executable, str(CLOUDFLARE / "build.py"), "--production-live",
+                            "--output", directory], env=env, check=True, capture_output=True)
+            config = json.loads((Path(directory) / "wrangler.jsonc").read_text())
+            self.assertEqual(config["name"], "riburom-production")
+            self.assertFalse(config["workers_dev"])
+            self.assertFalse(config["preview_urls"])
+            self.assertEqual(config["routes"], [
+                {"pattern": "riburomtours.com", "custom_domain": True},
+                {"pattern": "www.riburomtours.com", "custom_domain": True},
+            ])
+            self.assertEqual(config["vars"]["RIBUROM_HOST"], "riburomtours.com")
+            self.assertEqual(config["vars"]["RIBUROM_STAGING_ACCESS_REQUIRED"], "false")
+            self.assertEqual(config["vars"]["RIBUROM_READ_ONLY"], "false")
+            self.assertEqual(config["hyperdrive"][0]["id"], "d" * 32)
+            self.assertEqual(config["triggers"]["crons"], [])
+            self.assertFalse(outbox_handoff.scheduled_outbox_allowed(SimpleNamespace(**config["vars"])))
+
     def test_profile_is_private_and_unscheduled(self):
         with TemporaryDirectory() as directory:
             env = {**os.environ, "RIBUROM_PRODUCTION_HYPERDRIVE_ID": "d" * 32,
@@ -55,7 +76,7 @@ class ProductionCandidateTests(unittest.TestCase):
 
     def test_preview_rejects_submissions_and_unprotected_requests_before_flask(self):
         def response(body, *, status, headers=None):
-            return SimpleNamespace(status=status)
+            return SimpleNamespace(status=status, headers=headers)
         response.json = response
 
         worker_api = SimpleNamespace(DurableObject=object, WorkerEntrypoint=object,
@@ -96,6 +117,21 @@ class ProductionCandidateTests(unittest.TestCase):
         worker.env.RIBUROM_STAGING_ACCESS_REQUIRED = "false"
         req = SimpleNamespace(method="GET", url=f"https://{HOST}/", headers={})
         self.assertEqual(asyncio.run(worker.fetch(req)).status, 404)
+
+        worker.env.RIBUROM_HOST = "riburomtours.com"
+        for url in ("http://riburomtours.com/all_tours?q=first%20trip",
+                    "https://www.riburomtours.com/all_tours?q=first%20trip"):
+            req = SimpleNamespace(method="GET", url=url, headers={})
+            actual = asyncio.run(worker.fetch(req))
+            self.assertEqual(actual.status, 301)
+            self.assertEqual(actual.headers["Location"], "https://riburomtours.com/all_tours?q=first%20trip")
+        for path in ("/__staging/bootstrap", "/__comparison/readiness", probe.PRODUCTION_BREVO_PATH):
+            req = SimpleNamespace(method="POST", url=f"https://riburomtours.com{path}", headers={})
+            self.assertEqual(asyncio.run(worker.fetch(req)).status, 404)
+        req = SimpleNamespace(method="POST", url="https://riburomtours.com/contact", headers={})
+        with patch.object(module, "cache_public_or_forward", AsyncMock(return_value=SimpleNamespace(status=200))) as forward:
+            self.assertEqual(asyncio.run(worker.fetch(req)).status, 200)
+            forward.assert_awaited_once_with(worker.env, req, "/contact")
 
     def test_production_brevo_probe_requires_current_token_and_disabled_outbox(self):
         with patch.dict(sys.modules, {"outbox_handoff": outbox_handoff}):

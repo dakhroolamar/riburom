@@ -45,6 +45,18 @@ jobs:
           uv sync --python "$(cat ../../../.python-version)"
           uv run --no-sync pywrangler deploy --dry-run
 
+      - name: Verify the public bundle without publishing routes
+        if: contains(github.event.head_commit.message, '[verify live bundle]')
+        env:
+          RIBUROM_PRODUCTION_HYPERDRIVE_ID: '00000000000000000000000000000001'
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          python deploy/cloudflare/build.py --production-live --output "$RUNNER_TEMP/riburom-live-package"
+          cd "$RUNNER_TEMP/riburom-live-package"
+          npm install --no-save --no-audit --no-fund wrangler@4.166.0
+          uv sync --python "$(cat "$GITHUB_WORKSPACE/.python-version")"
+          uv run --no-sync pywrangler deploy --dry-run
+
   deploy:
     needs: package
     if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && contains(github.event.head_commit.message, '[production candidate]') && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true'

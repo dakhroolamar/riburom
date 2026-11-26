@@ -3,7 +3,7 @@ from hmac import compare_digest
 from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
-from outbox_handoff import PRODUCTION_CANDIDATE_HOST
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST
 from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_denial, probe_enabled
 
 
@@ -113,12 +113,21 @@ FIXTURE_ROUTES = {"/", "/healthz", "/readyz", "/favicon.ico", "/__staging/outbox
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        path = urlsplit(request.url).path
+        url = urlsplit(request.url)
+        path = url.path
         mode = self.env.RIBUROM_MODE
+        if mode == "application" and self.env.RIBUROM_HOST == PRODUCTION_HOST:
+            if path.startswith(("/__staging/", "/__comparison/", "/__candidate/")):
+                return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
+            if url.hostname == f"www.{PRODUCTION_HOST}" or (url.hostname == PRODUCTION_HOST and url.scheme == "http"):
+                location = f"https://{PRODUCTION_HOST}{path or '/'}"
+                if url.query:
+                    location += f"?{url.query}"
+                return Response("", status=301, headers={"Location": location})
         if mode == "fixture":
             if request.method != "GET" or path not in FIXTURE_ROUTES:
                 return Response("Preview route unavailable", status=404)
-        elif mode != "application" or urlsplit(request.url).hostname != self.env.RIBUROM_HOST:
+        elif mode != "application" or url.hostname != self.env.RIBUROM_HOST:
             return Response("Unknown site", status=404)
         if mode == "application" and self.env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST:
             if (getattr(self.env, "RIBUROM_STAGING_ACCESS_REQUIRED", None) != "true"

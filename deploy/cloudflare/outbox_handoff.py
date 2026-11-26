@@ -7,6 +7,7 @@ parallel Render/Cloudflare comparisons.
 """
 
 PRODUCTION_CANDIDATE_HOST = "riburom-production.dakhroo.workers.dev"
+PRODUCTION_HOST = "riburomtours.com"
 
 
 def scheduled_outbox_allowed(env):
@@ -22,7 +23,7 @@ def scheduled_outbox_allowed(env):
 
     return (
         setting("RIBUROM_MODE") == "application"
-        and setting("RIBUROM_HOST") == "riburomtours.com"
+        and setting("RIBUROM_HOST") == PRODUCTION_HOST
         and setting("RIBUROM_LIVE_OUTBOX_APPROVED") == "true"
         and setting("RIBUROM_READ_ONLY") != "true"
         and setting("RIBUROM_STAGING_ACCESS_REQUIRED") != "true"
