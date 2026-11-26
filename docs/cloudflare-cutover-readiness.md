@@ -1,27 +1,29 @@
 # RI BUROM Cloudflare production cutover gates
 
-**As of 26 November 2026 — NO-GO for DNS cutover and notification handoff.**
+**As of 26 November 2026 — Cloudflare delegation confirmed. Website cutover
+and notification handoff are pending.**
 The production website remains on Render at [riburomtours.com](https://riburomtours.com).
 This document records public, nonsecret technical evidence; it does not
 authorize changing the live website.
 
 ## DNS preparation and inbound mail gate
 
-- Cloudflare Free has a pending, DNS-only mirror with assigned nameservers
-  `hattie.ns.cloudflare.com` and `leland.ns.cloudflare.com`. Direct queries to
-  each matched all 13 observed Namecheap A, CNAME, MX and TXT records,
-  including Brevo verification, both DKIM selectors, DMARC, SPF and Google
-  verification. Authoritative delegation still names
-  `dns1.registrar-servers.com` and `dns2.registrar-servers.com`. The registry
-  returned no DS record. [Namecheap record inventory](riburomtours-namecheap-2026-11-26.zone)
+- The owner saved the Cloudflare nameservers in Namecheap. The `.com` registry
+  and the Cloudflare and Google resolvers confirm `hattie.ns.cloudflare.com`
+  and `leland.ns.cloudflare.com`. Both resolvers matched all 13 saved Namecheap
+  records, including Brevo verification, both DKIM selectors, DMARC, SPF and
+  Google verification. The registry reports unsigned delegation. The
+  Cloudflare dashboard still showed activation pending and accepted a recheck.
+  Both live and direct Render readiness returned HTTP 200. HTTPS `www`
+  returned 301 to the apex. [Namecheap record inventory](riburomtours-namecheap-2026-11-26.zone) · [Registry record](https://rdap.verisign.com/com/v1/domain/riburomtours.com)
 - The Namecheap dashboard shows Email Forwarding selected. Namecheap documents
   this service for domains delegated to its own DNS. The registrar's Redirect
   Email page showed no forwarding aliases or catch-all. The owner approved preparing
   Cloudflare Email Routing to the Gmail address already configured for
   production notifications. Cloudflare shows the destination as Verified.
-  The pending zone prevents Email Routing activation. After explicit approval,
-  delegate to the assigned Cloudflare nameservers with all web records still
-  DNS-only on Render. Then enable only the `info` rule to that verified inbox.
+  The pending zone prevents Email Routing activation. After Cloudflare marks
+  the zone active and the owner approves the MX change, enable only the `info`
+  rule to that verified inbox while the web records keep serving Render.
   Replace the unused Namecheap forwarding MX records with Cloudflare's assigned
   MX records, maintain a single SPF record, and preserve Google verification,
   Brevo verification, both Brevo DKIM CNAMEs and DMARC. Confirm a reply test
