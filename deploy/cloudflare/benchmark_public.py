@@ -1,4 +1,4 @@
-"""Matched, read-only public GET measurements. Run with staging environment credentials."""
+"""Matched public GET measurements against Render and a protected Worker."""
 import base64
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -18,7 +18,10 @@ class NoRedirect(HTTPRedirectHandler):
 
 HOSTS = {
     "render": "https://riburomtours.com",
-    "cloudflare": "https://riburom-application-staging.dakhroo.workers.dev",
+    "cloudflare": {
+        "staging": "https://riburom-application-staging.dakhroo.workers.dev",
+        "production-candidate": "https://riburom-production.dakhroo.workers.dev",
+    }[os.environ.get("RIBUROM_BENCHMARK_PROFILE", "staging")],
 }
 ROUTES = ("/", "/all_tours", "/about", "/marketplace", "/stories")
 SAMPLES = 10

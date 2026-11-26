@@ -8,13 +8,19 @@ const folder = process.env.RUNNER_TEMP
   ? path.join(process.env.RUNNER_TEMP, 'riburom-browser-qa')
   : '/tmp/riburom-browser-qa';
 fs.mkdirSync(folder, {recursive:true});
-const stagingPassword = process.env.STAGING_ACCESS_PASSWORD;
-if (!stagingPassword || stagingPassword.length < 16) {
-  throw new Error('Staging access password is missing or too short');
+const previewPassword = process.env.STAGING_ACCESS_PASSWORD;
+if (!previewPassword || previewPassword.length < 16) {
+  throw new Error('Preview access password is missing or too short');
 }
+const previewHosts = new Map([
+  ['staging', 'https://riburom-application-staging.dakhroo.workers.dev'],
+  ['production-candidate', 'https://riburom-production.dakhroo.workers.dev'],
+]);
+const previewHost = previewHosts.get(process.env.RIBUROM_BENCHMARK_PROFILE || 'staging');
+if (!previewHost) throw new Error('Unsupported benchmark profile');
 const targets = [
   {key:'render', host:'https://riburomtours.com', protected:false},
-  {key:'cloudflare', host:'https://riburom-application-staging.dakhroo.workers.dev', protected:true},
+  {key:'cloudflare', host:previewHost, protected:true},
 ];
 const repetitions = 5;
 const routes = ['/', '/all_tours', '/about', '/marketplace', '/stories'];
@@ -36,7 +42,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             deviceScaleFactor:device.deviceScaleFactor,
             isMobile:device.isMobile || false,
             hasTouch:device.hasTouch || false,
-            ...(target.protected ? {httpCredentials:{origin:target.host,username:'rehearsal',password:stagingPassword}} : {}),
+            ...(target.protected ? {httpCredentials:{origin:target.host,username:'rehearsal',password:previewPassword}} : {}),
           });
           for (const route of (sample === 1 ? routes : ['/'])) {
             const slug = route==='/'?'home':route.slice(1).replace(/[^a-z0-9-]/g,'-');
@@ -53,7 +59,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             const failures=[];
             page.on('pageerror', error => failures.push(String(error.name||'PageError').slice(0,40)));
             await page.addInitScript(() => {
-              window.__riburomQA = {lcp:0,cls:0};
+              window.__riburomQA = {lcp:0,cls:0,longTasks:[]};
               try {
                 new PerformanceObserver(list => {
                   for (const item of list.getEntries()) {
@@ -70,6 +76,13 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
                   }
                 }).observe({type:'layout-shift', buffered:true});
               } catch (_) {}
+              if (PerformanceObserver.supportedEntryTypes.includes('longtask')) {
+                new PerformanceObserver(list => {
+                  for (const entry of list.getEntries()) {
+                    window.__riburomQA.longTasks.push([entry.startTime, entry.duration]);
+                  }
+                }).observe({type:'longtask', buffered:true});
+              }
             });
 
             const response=await page.goto(target.host+route,{waitUntil:'domcontentloaded',timeout:45000});
@@ -77,10 +90,18 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
             await page.waitForTimeout(700);
             const result=await page.evaluate(() => {
               const nav=performance.getEntriesByType('navigation')[0];
+              const fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime;
+              const longTasks = window.__riburomQA.longTasks;
+              // This measures blocking through the browser sample, ending 700 ms after the load wait.
+              const blocking = fcp && PerformanceObserver.supportedEntryTypes.includes('longtask')
+                ? longTasks.reduce((total, [start, duration]) => total + Math.max(0, start + duration - Math.max(fcp, start) - 50), 0)
+                : null;
               return {
                 title:document.title,
                 ttfbMs:nav ? Math.round(nav.responseStart - nav.startTime) : null,
                 loadMs:nav ? Math.round(nav.loadEventEnd) : null,
+                fcpMs:fcp ? Math.round(fcp) : null,
+                observedBlockingMs:blocking === null ? null : Math.round(blocking),
                 landscapeWidthCandidate: document.querySelector('.rb-home-landscape-photo')?.currentSrc.match(/w_(\d+),c_limit/)?.[1] || null,
                 landscapeLoaded: (() => {
                   const img = document.querySelector('.rb-home-landscape-photo');
@@ -117,6 +138,7 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
               sample, transferredBytes, landscapeWidthCandidate:result.landscapeWidthCandidate,
               stagingErrorClass:response?.headers()['x-riburom-staging-error-class'] || null,
               ttfbMs:result.ttfbMs, loadMs:result.loadMs, landscapeLoaded:result.landscapeLoaded,
+              fcpMs:result.fcpMs, observedBlockingMs:result.observedBlockingMs,
               lcpMs:result.lcpMs,lcpElement:result.lcpElement,lcpHost:result.lcpHost,
               slowestImageMs:result.slowestImageMs,staticResourceCount:result.staticResourceCount,
               cls:result.cls,
@@ -145,9 +167,12 @@ const expectedTours = ['Adventure', 'TRUE COLOURS OF THE JAINTIA', 'Family Tour 
         const visits = observations.filter(r => r.device === device.key && r.host === target.key && r.route === '/');
         const rows = visits.filter(r => r.httpStatus === 200 && r.lcpMs > 0);
         const summary = {device:device.key, host:target.key, samples:rows.length, errors:visits.length-rows.length};
-        for (const key of ['ttfbMs','lcpMs','transferredBytes','cls']) {
-          const values = rows.map(r => r[key]).sort((a,b) => a-b);
-          summary[key] = {median:values[Math.floor(values.length/2)], p95:values[Math.ceil(values.length*0.95)-1]};
+        for (const key of ['ttfbMs','fcpMs','lcpMs','loadMs','observedBlockingMs','transferredBytes','cls']) {
+          const values = rows.map(r => r[key]).filter(value => Number.isFinite(value)).sort((a,b) => a-b);
+          if (values.length) {
+            const middle = Math.floor(values.length / 2);
+            summary[key] = {median:values.length % 2 ? values[middle] : (values[middle-1] + values[middle]) / 2};
+          }
         }
         console.log('Homepage summary', JSON.stringify(summary));
       }
