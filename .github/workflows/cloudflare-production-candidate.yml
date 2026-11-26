@@ -50,6 +50,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: cloudflare-production-candidate
+    outputs:
+      candidate_ready: ${{ steps.verify.outputs.candidate_ready }}
     env:
       WRANGLER_SEND_METRICS: 'false'
       CANDIDATE: https://riburom-production.dakhroo.workers.dev
@@ -151,6 +153,7 @@ jobs:
           PY
           uv run --no-sync pywrangler deploy --secrets-file "$secrets_file"
       - name: Verify access, runtime database checks and SEO
+        id: verify
         env:
           SEO_PREVIEW_PASSWORD: ${{ secrets.RIBUROM_CANDIDATE_ACCESS_TOKEN }}
         run: |
@@ -210,6 +213,7 @@ jobs:
           curl --silent --show-error --fail --max-time 30 \
             -u "rehearsal:$SEO_PREVIEW_PASSWORD" "$CANDIDATE/readyz" \
             | python -c 'import json, sys; assert json.load(sys.stdin)["status"] == "ready"; print("Candidate remained ready after SEO checks")'
+          echo "candidate_ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify production Brevo OAuth and submit one synthetic message
         if: contains(github.event.head_commit.message, '[production brevo check]')
@@ -230,20 +234,24 @@ jobs:
 
           known = {"accepted", "already_accepted", "oauth_rejected", "delivery_not_accepted",
                    "delivery_outcome_unknown", "production_oauth_configuration_incomplete",
-                   "previous_attempt_needs_reconciliation"}
+                   "previous_attempt_needs_reconciliation", "probe_not_enabled",
+                   "probe_binding_missing_or_invalid", "probe_token_expired", "probe_token_mismatch"}
+          stage = "entrypoint"
           try:
               payload = json.load(open(sys.argv[1], encoding="utf-8"))
               result = payload.get("status")
+              if payload.get("stage") == "durable_object":
+                  stage = "durable_object"
           except (OSError, ValueError, AttributeError):
               result = None
-          print("Production Brevo probe HTTP", sys.argv[2], result if result in known else "unclassified")
+          print("Production Brevo probe HTTP", sys.argv[2], result if result in known else "unclassified", stage)
           if sys.argv[2] != "200" or result not in {"accepted", "already_accepted"}:
               sys.exit(1)
           PY
 
   idle-recovery:
     needs: deploy
-    if: contains(github.event.head_commit.message, '[idle acceptance]')
+    if: ${{ !cancelled() && needs.deploy.outputs.candidate_ready == 'true' && contains(github.event.head_commit.message, '[idle acceptance]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     environment: cloudflare-production-candidate

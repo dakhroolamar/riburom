@@ -56,6 +56,7 @@ class ProductionCandidateTests(unittest.TestCase):
     def test_preview_rejects_submissions_and_unprotected_requests_before_flask(self):
         def response(body, *, status, headers=None):
             return SimpleNamespace(status=status)
+        response.json = response
 
         worker_api = SimpleNamespace(DurableObject=object, WorkerEntrypoint=object,
                                      Response=response, wsgi=None)
@@ -93,10 +94,10 @@ class ProductionCandidateTests(unittest.TestCase):
                         RIBUROM_STAGING_ACCESS_REQUIRED="true", OUTBOX_SCHEDULED="false",
                         RIBUROM_LIVE_OUTBOX_APPROVED="false", RIBUROM_BREVO_PROBE_AUTH=token + ":1795600001")
         with patch.object(probe, "time", return_value=1795600000):
-            self.assertTrue(probe.probe_allowed(SimpleNamespace(**settings), request))
+            self.assertIsNone(probe.probe_denial(SimpleNamespace(**settings), request))
             for name, bad in (("RIBUROM_HOST", "riburomtours.com"), ("OUTBOX_SCHEDULED", "true"),
                               ("RIBUROM_LIVE_OUTBOX_APPROVED", "true"),
                               ("RIBUROM_STAGING_ACCESS_REQUIRED", "false"),
                               ("RIBUROM_BREVO_PROBE_AUTH", token + ":1795600000")):
                 with self.subTest(name=name):
-                    self.assertFalse(probe.probe_allowed(SimpleNamespace(**{**settings, name: bad}), request))
+                    self.assertIsNotNone(probe.probe_denial(SimpleNamespace(**{**settings, name: bad}), request))

@@ -13,7 +13,7 @@ PROBE_ID = "production-brevo-2026-11-26"
 EXPECTED_SENDER = "info@riburomtours.com"
 
 
-def probe_allowed(env, request):
+def probe_denial(env, request):
     if not (
         getattr(env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST
         and getattr(env, "RIBUROM_MODE", None) == "application"
@@ -23,14 +23,16 @@ def probe_allowed(env, request):
         and getattr(env, "RIBUROM_LIVE_OUTBOX_APPROVED", None) == "false"
         and request.method == "POST"
     ):
-        return False
+        return "probe_not_enabled"
     token, _, expiry = (getattr(env, "RIBUROM_BREVO_PROBE_AUTH", None) or "").partition(":")
     supplied = request.headers.get("X-Riburom-Brevo-Probe") or ""
-    return (
-        len(token) >= 32 and expiry.isascii() and expiry.isdecimal()
-        and len(expiry) == 10 and time() < int(expiry)
-        and compare_digest(token.encode(), supplied.encode())
-    )
+    if len(token) < 32 or len(expiry) != 10 or not expiry.isascii() or not expiry.isdecimal():
+        return "probe_binding_missing_or_invalid"
+    if time() >= int(expiry):
+        return "probe_token_expired"
+    if not supplied or not compare_digest(token.encode(), supplied.encode()):
+        return "probe_token_mismatch"
+    return None
 
 
 def run_probe(app, sql):

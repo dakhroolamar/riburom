@@ -376,10 +376,17 @@ def register_control_room(app):
                                checklist=json.loads(chosen.checklist_json) if chosen else {},
                                updates=TripUpdate.query.filter_by(trip_id=chosen.id).order_by(TripUpdate.id.desc()).limit(20).all() if chosen else [],
                                departures=[date.today() + timedelta(days=i) for i in range(14)])
-                context['stats'] = [('calendar', Trip.query.filter(Trip.start_date >= date.today(), Trip.status.in_(['PLANNED', 'CONFIRMED'])).count(), 'Upcoming Departures', 'green'),
-                                    ('walk', Trip.query.filter_by(status='IN_PROGRESS').count(), 'Trips On Ground', 'sand'),
-                                    ('file', Trip.query.filter_by(itinerary_json='[]').count(), 'Pending Itineraries', 'sand'),
-                                    ('check', Trip.query.filter(Trip.status == 'COMPLETED', Trip.end_date >= date.today().replace(day=1)).count(), 'Completed This Month', 'green')]
+                today = context['today']
+                upcoming, underway, pending_itineraries, completed = db.session.query(
+                    func.count(Trip.id).filter(Trip.start_date >= today, Trip.status.in_(['PLANNED', 'CONFIRMED'])),
+                    func.count(Trip.id).filter(Trip.status == 'IN_PROGRESS'),
+                    func.count(Trip.id).filter(Trip.itinerary_json == '[]'),
+                    func.count(Trip.id).filter(Trip.status == 'COMPLETED', Trip.end_date >= today.replace(day=1)),
+                ).one()
+                context['stats'] = [('calendar', upcoming, 'Upcoming Departures', 'green'),
+                                    ('walk', underway, 'Trips On Ground', 'sand'),
+                                    ('file', pending_itineraries, 'Pending Itineraries', 'sand'),
+                                    ('check', completed, 'Completed This Month', 'green')]
         if section in ('partners', 'marketplace'):
             can = allowed('view_marketplace', 'manage_marketplace')
             partner_query = Provider.query.options(selectinload(Provider.provider_type_assignments))
@@ -500,12 +507,13 @@ def register_control_room(app):
             prefs = db.session.get(ControlPreference, 'notifications')
             from notifications import brevo_configured, delivery_preferences
             from models import NotificationOutbox
+            from storage import USING_CLOUDINARY
             context['delivery_counts'] = dict(db.session.query(NotificationOutbox.status, func.count(NotificationOutbox.id)).filter(NotificationOutbox.event_type == 'new_enquiry').group_by(NotificationOutbox.status).all())
             context['delivery_failures'] = NotificationOutbox.query.filter_by(event_type='new_enquiry', status='FAILED').order_by(NotificationOutbox.updated_at.desc()).limit(5).all()
             context['delivery_preferences'] = delivery_preferences()
             context.update(staff=User.query.order_by(User.full_name).all(),
                 audits=AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all(), notifications=json.loads(prefs.value_json) if prefs else {},
-                integrations=[('Email notifications', brevo_configured()), ('Media storage', bool(os.getenv('CLOUDINARY_API_KEY'))),
+                integrations=[('Email notifications', brevo_configured()), ('Media storage', USING_CLOUDINARY),
                               ('WhatsApp / SMS', bool(os.getenv('TWILIO_ACCOUNT_SID'))), ('IndexNow', bool(os.getenv('INDEXNOW_KEY')))],
                 permission_keys=__import__('models').ROLE_PERMISSIONS['owner'])
         if 'operation_packages' in context:

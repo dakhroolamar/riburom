@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
 from outbox_handoff import PRODUCTION_CANDIDATE_HOST
-from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_allowed
+from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_denial
 
 
 APP_INSTANCE = "web"
@@ -154,7 +154,9 @@ class Default(WorkerEntrypoint):
                     "X-Robots-Tag": "noindex, nofollow",
                 })
         if path == PRODUCTION_BREVO_PATH:
-            if not probe_allowed(self.env, request):
+            if reason := probe_denial(self.env, request):
+                if self.env.RIBUROM_HOST == PRODUCTION_CANDIDATE_HOST:
+                    return Response.json({"status": reason}, status=404, headers={"Cache-Control": "no-store"})
                 return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
             return await flask_stub(self.env).fetch(request)
         if mode == "application" and path.startswith("/static/"):
@@ -234,8 +236,9 @@ class FlaskApplication(DurableObject):
         token = request_sql.set(self.ctx.storage.sql)
         try:
             if urlsplit(request.url).path == PRODUCTION_BREVO_PATH:
-                if not probe_allowed(self.env, request):
-                    return Response("Unavailable", status=404, headers={"Cache-Control": "no-store"})
+                if reason := probe_denial(self.env, request):
+                    return Response.json({"status": reason, "stage": "durable_object"}, status=404,
+                                         headers={"Cache-Control": "no-store"})
                 from production_brevo_probe import run_probe
 
                 payload, status = run_probe(app, self.ctx.storage.sql)
