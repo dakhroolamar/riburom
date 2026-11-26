@@ -152,6 +152,7 @@ def main():
     if args.production_live:
         config["vars"]["RIBUROM_READ_ONLY"] = "false"
         config["observability"] = {"enabled": True, "logs": {"enabled": True, "invocation_logs": True}}
+        # Live releases retain the approved handoff; rehearsal builds remain unscheduled.
         if args.enable_live_outbox:
             config["vars"]["OUTBOX_SCHEDULED"] = "true"
             config["vars"]["RIBUROM_LIVE_OUTBOX_APPROVED"] = "true"
