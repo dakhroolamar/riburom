@@ -13,7 +13,7 @@ authorize changing the live website.
   and `leland.ns.cloudflare.com`. Both resolvers matched all 13 saved Namecheap
   records, including Brevo verification, both DKIM selectors, DMARC, SPF and
   Google verification. The registry reports unsigned delegation. The
-  Cloudflare dashboard still showed activation pending and accepted a recheck.
+  Cloudflare dashboard showed the zone Active after rechecking.
   Both live and direct Render readiness returned HTTP 200. HTTPS `www`
   returned 301 to the apex. [Namecheap record inventory](riburomtours-namecheap-2026-11-26.zone) · [Registry record](https://rdap.verisign.com/com/v1/domain/riburomtours.com)
 - The Namecheap dashboard shows Email Forwarding selected. Namecheap documents
@@ -21,8 +21,8 @@ authorize changing the live website.
   Email page showed no forwarding aliases or catch-all. The owner approved preparing
   Cloudflare Email Routing to the Gmail address already configured for
   production notifications. Cloudflare shows the destination as Verified.
-  The pending zone prevents Email Routing activation. After Cloudflare marks
-  the zone active and the owner approves the MX change, enable only the `info`
+  The Email Routing wizard now permits activation. After the owner approves
+  the MX change, enable only the `info`
   rule to that verified inbox while the web records keep serving Render.
   Replace the unused Namecheap forwarding MX records with Cloudflare's assigned
   MX records, maintain a single SPF record, and preserve Google verification,
