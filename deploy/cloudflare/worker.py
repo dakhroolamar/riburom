@@ -1,9 +1,10 @@
 from base64 import b64encode
 from hmac import compare_digest
+from time import time
 from urllib.parse import urlsplit
 
 from workers import DurableObject, Response, WorkerEntrypoint, wsgi
-from outbox_handoff import PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST
+from outbox_handoff import PRODUCTION_CANDIDATE_HOST, PRODUCTION_HOST, scheduled_outbox_allowed
 from production_brevo_probe import PRODUCTION_BREVO_PATH, probe_denial, probe_enabled
 
 
@@ -196,6 +197,7 @@ class FlaskApplication(DurableObject):
             "(key TEXT PRIMARY KEY, hits INTEGER NOT NULL, expires INTEGER NOT NULL)"
         )
         self.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS rate_limits_expiry ON rate_limits (expires)")
+        self.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS enquiry_outbox_wakeup (id INTEGER PRIMARY KEY)")
 
     async def fetch(self, request):
         from worker_runtime import ProductionMediaBindingMissing, get_application
@@ -304,6 +306,25 @@ class FlaskApplication(DurableObject):
                     headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
                 )
             try:
+                if (request.method == "POST"
+                        and urlsplit(request.url).path in ("/send_message", "/marketplace/inquiries")
+                        and self.env.RIBUROM_MODE == "application"
+                        and scheduled_outbox_allowed(self.env)):
+                    from notifications import request_outbox_ids
+
+                    ids = []
+                    capture = request_outbox_ids.set(ids)
+                    try:
+                        response = await wsgi.fetch(app, request, self.env)
+                    finally:
+                        request_outbox_ids.reset(capture)
+                    if ids:
+                        try:
+                            await self.schedule_enquiry_outbox(ids)
+                        except Exception as exc:
+                            # The committed Neon outbox remains recoverable by Cron.
+                            print(f"Immediate outbox scheduling failed: {type(exc).__name__}")
+                    return response
                 return await wsgi.fetch(app, request, self.env)
             except Exception as exc:
                 if getattr(self.env, "RIBUROM_HOST", None) == PRODUCTION_CANDIDATE_HOST:
@@ -315,6 +336,40 @@ class FlaskApplication(DurableObject):
                 raise
         finally:
             request_sql.reset(token)
+
+    async def schedule_enquiry_outbox(self, ids):
+        """Persist only IDs from committed enquiries; wake without polling Neon."""
+        if self.env.RIBUROM_MODE != "application" or not scheduled_outbox_allowed(self.env):
+            return
+        sql = self.ctx.storage.sql
+        for outbox_id in ids:
+            sql.exec("INSERT OR IGNORE INTO enquiry_outbox_wakeup (id) VALUES (?)", int(outbox_id))
+        # A due alarm executes asynchronously after this request; concurrent
+        # submissions coalesce in SQLite rather than overwriting one another.
+        await self.ctx.storage.setAlarm(int(time() * 1000))
+
+    async def alarm(self, alarm_info=None):
+        if self.env.RIBUROM_MODE != "application" or not scheduled_outbox_allowed(self.env):
+            return
+        from worker_runtime import get_application
+        from notifications import process_outbox_ids
+
+        sql = self.ctx.storage.sql
+        ids = [int(row.id) for row in sql.exec(
+            "SELECT id FROM enquiry_outbox_wakeup ORDER BY id LIMIT 2"
+        ).toArray()]
+        if not ids:
+            return
+        app = get_application(self.env)
+        with app.app_context():
+            # Existing DB claims, lease and retry backoff remain authoritative.
+            result = process_outbox_ids(ids)
+        for outbox_id in ids:
+            sql.exec("DELETE FROM enquiry_outbox_wakeup WHERE id = ?", outbox_id)
+        # Failed deliveries remain in Neon for the five-minute Cron fallback.
+        if sql.exec("SELECT count(*) AS remaining FROM enquiry_outbox_wakeup").one().remaining:
+            await self.ctx.storage.setAlarm(int(time() * 1000))
+        print(f"Immediate outbox processed: sent={result['sent']} failed={result['failed']} skipped={result['skipped']}")
 
     async def run_outbox(self):
         from worker_runtime import get_application

@@ -9,6 +9,7 @@ import base64
 import json
 import os
 from datetime import datetime, timedelta
+from contextvars import ContextVar
 from threading import Thread, Event, Lock
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -33,6 +34,8 @@ OUTBOX_MAX_ATTEMPTS = 5
 OUTBOX_RETRY_BATCH = 25
 OUTBOX_LEASE_SECONDS = 120
 _worker_lock = Lock()
+# Cloudflare supplies a request-local collector; the normal Render worker is unchanged.
+request_outbox_ids = ContextVar('request_outbox_ids', default=None)
 
 
 class BrevoOAuthError(HTTPError):
@@ -388,6 +391,11 @@ def dispatch_notification_outbox(outbox_ids):
     """Attempt committed outbox rows without blocking the public response."""
     ids = [int(value) for value in outbox_ids if value is not None]
     if not ids or not has_app_context():
+        return
+    collector = request_outbox_ids.get()
+    if collector is not None:
+        # The caller has already committed the enquiry and its outbox rows.
+        collector.extend(ids)
         return
     flask_app = current_app._get_current_object()
     if getattr(flask_app, '_outbox_wakeup', None):
