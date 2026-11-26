@@ -104,6 +104,21 @@ class BrevoTransportTests(unittest.TestCase):
             self.assertFalse(notifications._brevo_send('Test', 'Body', 'visitor@example.com'))
             api.assert_not_called()
 
+    def test_brevo_oauth_failure_retains_only_allowlisted_provider_code(self):
+        for body, expected in (
+            (b'{"error":"invalid_client","error_description":"private details"}', 'invalid_client'),
+            (b'{"error":"private details"}', None),
+        ):
+            with self.subTest(expected=expected), patch.dict(os.environ, {
+                'BREVO_CLIENT_ID': 'test-client', 'BREVO_CLIENT_SECRET': 'test-secret',
+            }), patch.object(notifications, '_brevo_http', return_value=(401, body)) as transport:
+                with self.assertRaises(notifications.BrevoOAuthError) as failure:
+                    notifications._brevo_send('Test', 'Body', 'visitor@example.com')
+                self.assertEqual(failure.exception.code, 401)
+                self.assertEqual(failure.exception.provider_code, expected)
+                self.assertNotIn('private details', str(failure.exception))
+                transport.assert_called_once()
+
     def test_recipient_fallback_is_preserved(self):
         os.environ['INITIAL_OWNER_EMAIL'] = 'owner@example.com'
         os.environ.pop('NOTIFICATION_EMAIL', None)

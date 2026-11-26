@@ -234,9 +234,12 @@ jobs:
           import sys
 
           known = {"accepted", "already_accepted", "oauth_rejected", "delivery_not_accepted",
-                   "delivery_outcome_unknown", "production_oauth_configuration_incomplete",
+                   "delivery_outcome_unknown", "production_oauth_configuration_incomplete", "oauth_transport_error",
                    "previous_attempt_needs_reconciliation", "probe_not_enabled",
                    "probe_binding_missing_or_invalid", "probe_token_expired", "probe_token_mismatch"}
+          oauth_errors = {"invalid_client", "invalid_grant", "invalid_request", "invalid_scope",
+                          "unauthorized_client", "access_denied", "unsupported_grant_type",
+                          "temporarily_unavailable", "unauthorized", "forbidden"}
           stage = "entrypoint"
           try:
               payload = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -246,6 +249,11 @@ jobs:
           except (OSError, ValueError, AttributeError):
               result = None
           print("Production Brevo probe HTTP", sys.argv[2], result if result in known else "unclassified", stage)
+          if result == "oauth_rejected":
+              status = payload.get("provider_http_status")
+              reason = payload.get("oauth_error")
+              print("Brevo token endpoint", status if type(status) is int and 100 <= status <= 599 else "unknown",
+                    reason if reason in oauth_errors else "unclassified")
           if sys.argv[2] != "200" or result not in {"accepted", "already_accepted"}:
               sys.exit(1)
           PY

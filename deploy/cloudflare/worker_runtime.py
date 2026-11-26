@@ -79,7 +79,7 @@ def worker_brevo_http(request, *, read_body=False):
         "signal": AbortSignal.timeout(10_000),
     }, dict_converter=Object.fromEntries)
     response = run_sync(fetch(request.full_url, options))
-    body = run_sync(response.text()) if read_body and response.status == 200 else None
+    body = run_sync(response.text())[:16_384] if read_body else None
     return response.status, body
 
 

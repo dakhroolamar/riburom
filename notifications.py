@@ -24,10 +24,29 @@ from sqlalchemy import and_, or_, update
 BREVO_EMAIL_API_URL = 'https://api.brevo.com/v3/smtp/email'
 BREVO_TOKEN_API_URL = 'https://api.brevo.com/realms/partner/oauth/token'
 BREVO_TRANSACTIONAL_SCOPE = 'transactional.email:write'
+BREVO_OAUTH_FAILURE_CODES = frozenset({
+    'invalid_client', 'invalid_grant', 'invalid_request', 'invalid_scope',
+    'unauthorized_client', 'access_denied', 'unsupported_grant_type',
+    'temporarily_unavailable', 'unauthorized', 'forbidden',
+})
 OUTBOX_MAX_ATTEMPTS = 5
 OUTBOX_RETRY_BATCH = 25
 OUTBOX_LEASE_SECONDS = 120
 _worker_lock = Lock()
+
+
+class BrevoOAuthError(HTTPError):
+    def __init__(self, status, body):
+        super().__init__(BREVO_TOKEN_API_URL, status, 'Brevo token exchange failed', None, None)
+        self.provider_code = None
+        try:
+            response = json.loads(body)
+        except (TypeError, ValueError):
+            return
+        if isinstance(response, dict):
+            value = response.get('error') or response.get('code')
+            if isinstance(value, str) and value in BREVO_OAUTH_FAILURE_CODES:
+                self.provider_code = value
 
 
 def delivery_preferences():
@@ -97,14 +116,14 @@ def _brevo_authorization():
     )
     status, body = _brevo_http(request, read_body=True)
     if status != 200:
-        raise HTTPError(BREVO_TOKEN_API_URL, status, 'Brevo token exchange failed', None, None)
+        raise BrevoOAuthError(status, body)
     token = json.loads(body)['access_token']
     if not isinstance(token, str) or not token or any(char.isspace() for char in token):
         raise ValueError('Brevo token response is invalid')
     return {'Authorization': f'Bearer {token}'}
 
 
-def _brevo_send(subject, body, recipient):
+def _brevo_send(subject, body, recipient, *, authorization=None):
     if not recipient:
         return False
 
@@ -126,7 +145,7 @@ def _brevo_send(subject, body, recipient):
         headers={
             'accept': 'application/json',
             'content-type': 'application/json',
-            **_brevo_authorization(),
+            **(_brevo_authorization() if authorization is None else authorization),
         },
         method='POST',
     )

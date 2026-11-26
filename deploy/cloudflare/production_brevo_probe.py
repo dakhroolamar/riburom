@@ -9,7 +9,7 @@ from outbox_handoff import PRODUCTION_CANDIDATE_HOST
 
 
 PRODUCTION_BREVO_PATH = "/__candidate/brevo-delivery"
-PROBE_ID = "production-brevo-2026-11-26"
+PROBE_ID = "production-brevo-delivery-2026-11-26"
 EXPECTED_SENDER = "info@riburomtours.com"
 
 
@@ -39,12 +39,21 @@ def probe_denial(env, request):
 
 
 def run_probe(app, sql):
-    from notifications import _brevo_missing_config, _brevo_send, _use_brevo_oauth
+    from notifications import _brevo_authorization, _brevo_missing_config, _brevo_send, _use_brevo_oauth
 
     recipient = os.environ.get("NOTIFICATION_EMAIL", "").strip()
     if (not _use_brevo_oauth() or _brevo_missing_config() or not recipient
             or os.environ.get("BREVO_SENDER_EMAIL", "").strip().casefold() != EXPECTED_SENDER):
         return {"status": "production_oauth_configuration_incomplete"}, 503
+
+    try:
+        with app.app_context():
+            authorization = _brevo_authorization()
+    except HTTPError as exc:
+        return {"status": "oauth_rejected", "provider_http_status": int(exc.code),
+                "oauth_error": getattr(exc, "provider_code", None)}, 502
+    except Exception:
+        return {"status": "oauth_transport_error"}, 502
 
     sql.exec("CREATE TABLE IF NOT EXISTS acceptance_probes (id TEXT PRIMARY KEY, status TEXT NOT NULL)")
     claim = sql.exec("INSERT OR IGNORE INTO acceptance_probes (id, status) VALUES (?, 'attempted')", PROBE_ID)
@@ -60,12 +69,8 @@ def run_probe(app, sql):
                 "[RI BUROM] Cloudflare production delivery check",
                 "One authorized synthetic test from the protected Cloudflare candidate. "
                 "No customer or booking data is included. Reference: " + PROBE_ID,
-                recipient,
+                recipient, authorization=authorization,
             )
-    except HTTPError as exc:
-        # The Worker transport returns send failures as status codes. An HTTPError
-        # here identifies a failed OAuth token exchange before message submission.
-        return {"status": "oauth_rejected", "provider_http_status": int(exc.code)}, 502
     except Exception:
         return {"status": "delivery_outcome_unknown"}, 502
     if not accepted:
