@@ -49,6 +49,31 @@ class ProductionCandidateTests(unittest.TestCase):
             self.assertEqual(config["triggers"]["crons"], [])
             self.assertFalse(outbox_handoff.scheduled_outbox_allowed(SimpleNamespace(**config["vars"])))
 
+    def test_approved_live_outbox_preserves_domains_schedule_and_observability(self):
+        with TemporaryDirectory() as directory:
+            env = {**os.environ, "RIBUROM_PRODUCTION_HYPERDRIVE_ID": "d" * 32,
+                   "RIBUROM_STAGING_HYPERDRIVE_ID": "a" * 32, "RIBUROM_PARALLEL_HYPERDRIVE_ID": "b" * 32}
+            command = [sys.executable, str(CLOUDFLARE / "build.py")]
+            subprocess.run(command + ["--production-live", "--enable-live-outbox", "--output", directory],
+                           env=env, check=True, capture_output=True)
+            config = json.loads((Path(directory) / "wrangler.jsonc").read_text())
+            self.assertEqual(config["triggers"]["crons"], ["*/5 * * * *"])
+            self.assertTrue(outbox_handoff.scheduled_outbox_allowed(SimpleNamespace(**config["vars"])))
+            self.assertEqual(config["routes"], [
+                {"pattern": "riburomtours.com", "custom_domain": True},
+                {"pattern": "www.riburomtours.com", "custom_domain": True},
+            ])
+            self.assertFalse(config["workers_dev"])
+            self.assertFalse(config["preview_urls"])
+            self.assertTrue(config["keep_vars"])
+            self.assertTrue(config["observability"]["logs"]["enabled"])
+            for profile in ("--production-candidate", "--application-staging", "--parallel-comparison"):
+                with self.subTest(profile=profile):
+                    result = subprocess.run(command + [profile, "--enable-live-outbox"],
+                                            env=env, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("requires --production-live", result.stderr)
+
     def test_profile_is_private_and_unscheduled(self):
         with TemporaryDirectory() as directory:
             env = {**os.environ, "RIBUROM_PRODUCTION_HYPERDRIVE_ID": "d" * 32,

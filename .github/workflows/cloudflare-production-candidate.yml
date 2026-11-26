@@ -8,6 +8,7 @@ on:
       - 'deploy/cloudflare/**'
       - '.github/workflows/cloudflare-production-candidate.yml'
       - 'tests/test_cloudflare_candidate.py'
+      - 'tests/test_cloudflare_outbox_handoff.py'
   workflow_dispatch:
 
 permissions:
@@ -46,12 +47,13 @@ jobs:
           uv run --no-sync pywrangler deploy --dry-run
 
       - name: Verify the public bundle without publishing routes
-        if: contains(github.event.head_commit.message, '[verify live bundle]')
+        if: contains(github.event.head_commit.message, '[verify live bundle]') || contains(github.event.head_commit.message, '[production live]')
         env:
           RIBUROM_PRODUCTION_HYPERDRIVE_ID: '00000000000000000000000000000001'
           WRANGLER_SEND_METRICS: 'false'
         run: |
-          python deploy/cloudflare/build.py --production-live --output "$RUNNER_TEMP/riburom-live-package"
+          python -m pip install uv==0.13.9
+          python deploy/cloudflare/build.py --production-live --enable-live-outbox --output "$RUNNER_TEMP/riburom-live-package"
           cd "$RUNNER_TEMP/riburom-live-package"
           npm install --no-save --no-audit --no-fund wrangler@4.166.0
           uv sync --python "$(cat "$GITHUB_WORKSPACE/.python-version")"
@@ -59,7 +61,8 @@ jobs:
 
   deploy:
     needs: package
-    if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && (contains(github.event.head_commit.message, '[production candidate]') || contains(github.event.head_commit.message, '[prepare production website]')) && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true'
+    # Legacy preview markers must not replace the currently live Worker.
+    if: github.ref == 'refs/heads/codex/cloudflare-free-hosting' && vars.CLOUDFLARE_PRODUCTION_CANDIDATE_ENABLED == 'true' && (contains(github.event.head_commit.message, '[production live]') || (vars.CLOUDFLARE_ALLOW_PRODUCTION_REHEARSAL == 'true' && (contains(github.event.head_commit.message, '[production candidate]') || contains(github.event.head_commit.message, '[prepare production website]'))))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: cloudflare-production-candidate
@@ -68,7 +71,8 @@ jobs:
     env:
       WRANGLER_SEND_METRICS: 'false'
       CANDIDATE: https://riburom-production.dakhroo.workers.dev
-      PREPARE_LIVE: ${{ contains(github.event.head_commit.message, '[prepare production website]') && 'true' || 'false' }}
+      LIVE_SCHEDULED: ${{ contains(github.event.head_commit.message, '[production live]') && 'true' || 'false' }}
+      PREPARE_LIVE: ${{ (contains(github.event.head_commit.message, '[prepare production website]') || contains(github.event.head_commit.message, '[production live]')) && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,7 +91,9 @@ jobs:
         run: |
           test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
           test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
-          if [ "$PREPARE_LIVE" = true ]; then
+          if [ "$LIVE_SCHEDULED" = true ]; then
+            python deploy/cloudflare/build.py --production-live --enable-live-outbox
+          elif [ "$PREPARE_LIVE" = true ]; then
             python deploy/cloudflare/build.py --production-live
             python - <<'PY'
           import json
@@ -184,6 +190,15 @@ jobs:
               json.dump({binding: os.environ[key] for key, binding in names.items()}, output)
           PY
           uv run --no-sync pywrangler deploy --secrets-file "$secrets_file"
+      - name: Verify live domain readiness and canonical redirect
+        if: env.LIVE_SCHEDULED == 'true'
+        run: |
+          for endpoint in healthz readyz; do
+            curl --silent --show-error --fail --max-time 60 --retry 3 --retry-all-errors --retry-delay 3 "https://riburomtours.com/$endpoint" \
+              | python -c 'import json,sys; assert json.load(sys.stdin)["status"] == sys.argv[1]' "$(if [ "$endpoint" = healthz ]; then echo ok; else echo ready; fi)"
+          done
+          test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' https://www.riburomtours.com/)" = 301
+          curl -sS --fail --max-time 60 -o /dev/null https://riburomtours.com/sitemap.xml
       - name: Verify access, runtime database checks and SEO
         if: env.PREPARE_LIVE == 'false'
         id: verify

@@ -44,7 +44,13 @@ def main():
         "--production-live", action="store_true",
         help="Assemble the public custom-domain deployment, with scheduled mail disabled.",
     )
+    parser.add_argument(
+        "--enable-live-outbox", action="store_true",
+        help="Preserve the approved production notification handoff (live profile only).",
+    )
     args = parser.parse_args()
+    if args.enable_live_outbox and not args.production_live:
+        parser.error("--enable-live-outbox requires --production-live")
     build = args.output.resolve()
     if args.enable_staging_url and not args.application_staging:
         raise SystemExit("Only the application staging profile supports --enable-staging-url.")
@@ -145,6 +151,11 @@ def main():
         )
     if args.production_live:
         config["vars"]["RIBUROM_READ_ONLY"] = "false"
+        config["observability"] = {"enabled": True, "logs": {"enabled": True, "invocation_logs": True}}
+        if args.enable_live_outbox:
+            config["vars"]["OUTBOX_SCHEDULED"] = "true"
+            config["vars"]["RIBUROM_LIVE_OUTBOX_APPROVED"] = "true"
+            config["triggers"] = {"crons": ["*/5 * * * *"]}
         config["routes"] = [
             {"pattern": hostname, "custom_domain": True}
             for hostname in (PRODUCTION_HOST, f"www.{PRODUCTION_HOST}")
