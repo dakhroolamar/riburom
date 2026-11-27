@@ -86,11 +86,7 @@ jobs:
       - name: Build against the dedicated production binding
         env:
           RIBUROM_PRODUCTION_HYPERDRIVE_ID: ${{ vars.RIBUROM_PRODUCTION_HYPERDRIVE_ID }}
-          RIBUROM_PARALLEL_HYPERDRIVE_ID: ${{ vars.RIBUROM_PARALLEL_HYPERDRIVE_ID }}
-          RIBUROM_STAGING_HYPERDRIVE_ID: ${{ vars.RIBUROM_STAGING_HYPERDRIVE_ID }}
         run: |
-          test -n "$RIBUROM_PARALLEL_HYPERDRIVE_ID"
-          test -n "$RIBUROM_STAGING_HYPERDRIVE_ID"
           if [ "$LIVE_SCHEDULED" = true ]; then
             python deploy/cloudflare/build.py --production-live --enable-live-outbox
           elif [ "$PREPARE_LIVE" = true ]; then
